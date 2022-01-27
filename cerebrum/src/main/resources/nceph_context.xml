@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xmlns:aop="http://www.springframework.org/schema/aop"
+     xsi:schemaLocation="http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans.xsd
+         http://www.springframework.org/schema/aop
+         http://www.springframework.org/schema/aop/spring-aop.xsd">
+	
+	<bean id="osInfo" class="com.ics.util.OSInfo"/>
+	
+	<bean id="reactorClusterInitializer" class="com.ics.nceph.core.reactor.ReactorClusterInitializer"/>
+	
+	<bean id="reactorCluster" factory-bean="reactorClusterInitializer" factory-method="initializeReactorCluster"/>
+	
+	<bean id="connectorClusterInitializer" class="com.ics.cerebrum.connector.ConnectorClusterInitializer">
+		<constructor-arg ref="reactorCluster"/>
+	</bean>
+	
+	<bean id="connectorCluster" factory-bean="connectorClusterInitializer" factory-method="initializeConnectionCluster"/>
+	
+	<bean id="bootstraper" class="com.ics.cerebrum.bootstrap.Bootstraper">
+		<constructor-arg ref="connectorCluster"/>
+		<constructor-arg ref="reactorCluster"/>
+	</bean>
+</beans>
