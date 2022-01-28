@@ -17,4 +17,3 @@ mvn spring-boot:run -pl synaptic-node-1 (on root directory)
 
 mvn spring-boot:run -pl synaptic-node-2 (on root directory)
 
-#Anshul
