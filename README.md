@@ -1,7 +1,7 @@
 # nceph-network
 Network of synaptic nodes with a central event relay server (cerebrum)
 
-Build commands:
+<b>Build commands:</b>
 
 mvn install (on core directory)
 
@@ -9,7 +9,7 @@ mvn install (on synapse directory)
 
 mvn install (on root directory)
 
-Execute commands:
+<b>Execute commands:</b>
 
 mvn spring-boot:run -pl cerebrum (on root directory)
 
