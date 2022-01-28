@@ -6,7 +6,6 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-@SuppressWarnings("unchecked")
 public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 {
 	/**
@@ -25,7 +24,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
      *         {@code maximumPoolSize < corePoolSize}
      * @throws NullPointerException if {@code workQueue} or {@code handler} is null
      */
-	public WorkerPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,	BlockingQueue<T> workQueue, RejectedExecutionHandler handler) 
+	public WorkerPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,	BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler) 
 	{
 		super(corePoolSize, maximumPoolSize, keepAliveTime, unit, (BlockingQueue<Runnable>) workQueue, handler);
 	}
@@ -89,7 +88,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		
 		TimeUnit unit = TimeUnit.SECONDS;
 		
-		BlockingQueue<T> workQueue;
+		BlockingQueue<Runnable> workQueue;
 		
 		RejectedExecutionHandler rejectedThreadHandler;
 		
@@ -132,7 +131,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		 * @param workQueue
 		 * @return Builder<T>
 		 */
-		public Builder<T> workQueue(BlockingQueue<T> workQueue) {
+		public Builder<T> workQueue(BlockingQueue<Runnable> workQueue) {
 			this.workQueue = workQueue;
 			return this;
 		}
@@ -150,7 +149,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		
 		public WorkerPool<T> build()
 		{
-			return new WorkerPool<>(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, rejectedThreadHandler);
+			return new WorkerPool<T>(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, rejectedThreadHandler);
 		}
 	}
 }
