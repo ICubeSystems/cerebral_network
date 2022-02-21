@@ -170,7 +170,7 @@ public class Connection implements Comparable<Connection>
 				Message message = relayQueue.poll();
 				getConnector().enqueueMessage(message);
 				//LOG: Message id: 13341 [transferred]
-				System.out.println("Message id: "+ message.decoder().getId() + " [transferred]");
+				System.out.println("Message id: "+ message.decoder().getMessageId() + " [transferred]");
 			}
 		}
 		

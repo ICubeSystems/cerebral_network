@@ -9,7 +9,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ImportResource;
 
-import com.ics.nceph.core.message.EventMessage;
 import com.ics.synapse.Emitter;
 import com.ics.synapse.bootstrap.SynapseBootstraper;
 
@@ -42,6 +41,6 @@ public class SynapticNode1Application implements CommandLineRunner
 			.balance(new BigDecimal(100.00))
 			.build();
 		
-		Emitter.emit(new EventMessage.Builder().event(gi.toEvent()).build());
+		Emitter.emit(gi.toEvent());
 	}
 }

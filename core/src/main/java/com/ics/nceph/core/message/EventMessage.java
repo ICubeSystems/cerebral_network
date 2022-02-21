@@ -38,7 +38,7 @@ public class EventMessage extends Message
 			String eventJSON = mapper.writeValueAsString(event);
 			this.data = eventJSON.getBytes(StandardCharsets.UTF_8);
 			//this.data = event.toBytes();
-			System.out.println("Event Object Length: " + data.length);
+			//System.out.println("Event Object Length: " + data.length);
 			return this;
 		}
 		

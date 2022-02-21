@@ -34,3 +34,10 @@ build/
 cerebrum/logs/2022-01/spring-boot-logger-log4j2--27-January-2022-1.log.gz
 *.log
 cerebrum/logs/spring-boot-logger-log4j2.log
+*.gz
+*.log
+cerebrum/logs/spring-boot-logger-log4j2.log
+*.json
+*.log
+cerebrum/logs/spring-boot-logger-log4j2.log
+*.log

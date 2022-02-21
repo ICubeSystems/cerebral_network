@@ -51,7 +51,7 @@ public class MessageWriter
 	public void write(SocketChannel socket, Message message) throws IOException, RelayTimeoutException
 	{
 		// Check if the message is already sent
-		if (lastWrittemMessageId != message.decoder().getId())
+		if (lastWrittemMessageId != message.decoder().getMessageId())
 		{	
 			// Get the message counter from the connection and set it to the message - at the receiving end it will be validated to make sure any sequence discrepancy
 			message.setCounter(Integer.valueOf(messageCounter.getAndIncrement()).byteValue());
@@ -76,7 +76,7 @@ public class MessageWriter
 					if (buffer.remaining() > 0 && elapsed > relayTimeout)
 					{
 						// LOG: Message [id: xxxx] write_timeout - yy bytes written, zz bytes remaining
-						String logMessage = "Message [id: " + message.decoder().getId() + "] write_timeout - " + position + " bytes written, " + buffer.remaining() + " bytes remaining";
+						String logMessage = "Message [id: " + message.decoder().getMessageId() + "] write_timeout - " + position + " bytes written, " + buffer.remaining() + " bytes remaining";
 						// Break the loop - write will be attempted again in next selection (selector.select()) loop
 						throw new RelayTimeoutException(new Exception(logMessage));
 					}
@@ -86,7 +86,7 @@ public class MessageWriter
 				// Reset the position to 0
 				position = 0;
 				// Record the message id of the last successfully written/ sent message
-				lastWrittemMessageId = message.decoder().getId();
+				lastWrittemMessageId = message.decoder().getMessageId();
 				// LOG: Message [id: xxxx] sent - 2189(ms)
 				System.out.println("Message [id: " + lastWrittemMessageId + "] sent - " + elapsed + "ms");
 			}

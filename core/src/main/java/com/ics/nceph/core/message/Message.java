@@ -228,9 +228,14 @@ public class Message
 	
 	public class Decoder
 	{
-		public long getId()
+		public long getMessageId()
 		{
 			return ByteUtil.convertToLong(Message.this.messageId);
+		}
+		
+		public int getSourceId()
+		{
+			return ByteUtil.convertToInt(Message.this.sourceId);
 		}
 		
 		public int getType()
@@ -245,6 +250,15 @@ public class Message
 			// Get the Event object from the JSON string
 			ObjectMapper mapper = new ObjectMapper();
 			return mapper.readValue(json, Event.class);
+		}
+		
+		public String getId()
+		{
+			return new StringBuilder()
+				.append(getMessageId())
+				.append("-")
+				.append(getMessageId())
+				.toString();
 		}
 	}
 }

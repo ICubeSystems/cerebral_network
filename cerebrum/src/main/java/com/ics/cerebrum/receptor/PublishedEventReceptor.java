@@ -47,7 +47,7 @@ public class PublishedEventReceptor extends EventReceptor
 					// enqueue the message on connectors queue instead of connections queue. When the connections come live these messages would be transferred to the connections queue during the accept phase. 
 					connector.enqueueMessage(getMessage());
 					// LOG:No connections found for writing. Message [id:xxx] added to the connector's queue [port: xxxx] 
-					System.out.println("No connections found for writing. Message [id: " + getMessage().decoder().getId() + "] added to the connector's queue [port: " + connector.getPort() + "]");
+					System.out.println("No connections found for writing. Message [id: " + getMessage().decoder().getMessageId() + "] added to the connector's queue [port: " + connector.getPort() + "]");
 					// Move to next subscriber
 					continue;
 				}

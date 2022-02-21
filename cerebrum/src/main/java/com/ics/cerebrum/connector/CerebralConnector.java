@@ -56,7 +56,7 @@ public class CerebralConnector extends Connector
 		serverChannel.configureBlocking(false);
 		
 		// This set the ReceiveBufSize for all the SocketChannels which will be accepted in this serverChannel
-		serverChannel.setOption(StandardSocketOptions.SO_RCVBUF, 1024*8);
+		serverChannel.setOption(StandardSocketOptions.SO_RCVBUF, 1024*256);
 	}
 	
 	/**

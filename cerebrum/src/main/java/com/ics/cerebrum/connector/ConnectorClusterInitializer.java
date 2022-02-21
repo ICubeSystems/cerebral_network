@@ -40,7 +40,7 @@ public class ConnectorClusterInitializer
 	{
 		ConnectorCluster connectorCluster = new ConnectorCluster();
 		
-		// @todo: read organs.xml
+		// TODO: read organs.xml
 		// Loop over the organs and instantiate Connector per organ
 		
 		// 1. Initialize a Connector

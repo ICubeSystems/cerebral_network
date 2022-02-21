@@ -217,7 +217,7 @@ public abstract class Connector
 	 */
 	public synchronized void storeIncomingMessage(Message message)
 	{
-		incomingMessageRegister.put(message.decoder().getId(), message);
+		incomingMessageRegister.put(message.decoder().getMessageId(), message);
 	}
 	
 	/**
@@ -229,7 +229,7 @@ public abstract class Connector
 	 */
 	public synchronized void storeOutgoingMessage(Message message)
 	{
-		outgoingMessageRegister.put(message.decoder().getId(), message);
+		outgoingMessageRegister.put(message.decoder().getMessageId(), message);
 	}
 	
 	/**
