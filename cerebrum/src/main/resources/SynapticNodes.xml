@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<synapticNodes>
+	<synapticNode>
+		<port>1000</port>
+		<name>test1</name>
+		<readerPool>
+			<corePoolSize>10</corePoolSize>
+			<maximumPoolSize>100</maximumPoolSize>
+			<keepAliveTime>60</keepAliveTime>
+		</readerPool>
+		<writerPool>
+			<corePoolSize>10</corePoolSize>
+			<maximumPoolSize>100</maximumPoolSize>
+			<keepAliveTime>60</keepAliveTime>
+		</writerPool>
+		<subscriptions/>
+	</synapticNode>
+	<synapticNode>
+		<port>1001</port>
+		<name>test2</name>
+		<readerPool>
+			<corePoolSize>10</corePoolSize>
+			<maximumPoolSize>100</maximumPoolSize>
+			<keepAliveTime>60</keepAliveTime>
+		</readerPool>
+		<writerPool>
+			<corePoolSize>10</corePoolSize>
+			<maximumPoolSize>100</maximumPoolSize>
+			<keepAliveTime>60</keepAliveTime>
+		</writerPool>
+		<subscriptions>
+			<eventType>1000</eventType>
+		</subscriptions>
+	</synapticNode>
+</synapticNodes>
+

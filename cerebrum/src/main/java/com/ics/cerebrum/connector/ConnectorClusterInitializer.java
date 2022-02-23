@@ -1,10 +1,15 @@
 package com.ics.cerebrum.connector;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import com.ics.cerebrum.nodes.xml.Subscriptions;
+import com.ics.cerebrum.nodes.xml.SynapticNode;
+import com.ics.cerebrum.nodes.xml.SynapticNodes;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.reactor.ReactorCluster;
@@ -24,81 +29,68 @@ import com.ics.nceph.core.worker.Writer;
 public class ConnectorClusterInitializer 
 {
 	ReactorCluster reactorCluster;
-	
+
+	Subscriptions eventSubscriptions;
+
 	/**
 	 * Map of EventId -> ArrayList of connectors subscribed for the event
 	 */
 	HashMap<Integer, ArrayList<Connector>> subscriptions;
-	
-	public ConnectorClusterInitializer(ReactorCluster reactorCluster)
+
+	public ConnectorClusterInitializer(ReactorCluster reactorCluster) 
 	{
 		this.reactorCluster = reactorCluster;
 		this.subscriptions = new HashMap<Integer, ArrayList<Connector>>();
 	}
-	
-	public ConnectorCluster initializeConnectionCluster() throws IOException
+
+	public ConnectorCluster initializeConnectionCluster() throws IOException, JAXBException 
 	{
+		// 1. Instantitiate new ConnectorCluster
 		ConnectorCluster connectorCluster = new ConnectorCluster();
 		
-		// TODO: read organs.xml
-		// Loop over the organs and instantiate Connector per organ
-		
-		// 1. Initialize a Connector
-		System.out.println("Creating Connector 1 on port "+ 1000);
-		CerebralConnector connector = new CerebralConnector.Builder()
-				.port(1000) // BAD CODE - will be replaced by XML
-				.name("test") // BAD CODE - will be replaced by XML
-				.readerPool(new WorkerPool.Builder<Reader>()
-						.corePoolSize(10)
-						.maximumPoolSize(100)
-						.keepAliveTime(60)
-						.workQueue(new LinkedBlockingQueue<Runnable>())
-						.rejectedThreadHandler(new RejectedReaderHandler())
-						.build())
-				.writerPool(new WorkerPool.Builder<Writer>()
-						.corePoolSize(10)
-						.maximumPoolSize(100)
-						.keepAliveTime(60)
-						.workQueue(new LinkedBlockingQueue<Runnable>())
-						.rejectedThreadHandler(new RejectedWriterHandler())
-						.build())
-				.build();
-		
-		// 2. Add the newly created connector to the ConnectorCluster
-		connectorCluster.add(connector);
-		
-		
-		System.out.println("Creating Connector 2 on port "+ 1001);
-		// 1. Initialize a Connector
-		CerebralConnector connector1 = new CerebralConnector.Builder()
-				.port(1001) // BAD CODE - will be replaced by XML
-				.name("test1") // BAD CODE - will be replaced by XML
-				.readerPool(new WorkerPool.Builder<Reader>()
-						.corePoolSize(10)
-						.maximumPoolSize(100)
-						.keepAliveTime(60)
-						.workQueue(new LinkedBlockingQueue<Runnable>())
-						.rejectedThreadHandler(new RejectedReaderHandler())
-						.build())
-				.writerPool(new WorkerPool.Builder<Writer>()
-						.corePoolSize(10)
-						.maximumPoolSize(100)
-						.keepAliveTime(60)
-						.workQueue(new LinkedBlockingQueue<Runnable>())
-						.rejectedThreadHandler(new RejectedWriterHandler())
-						.build())
-				.build();
-		
-		// 2. Add the newly created connector to the ConnectorCluster
-		connectorCluster.add(connector1);
-		
-		// @TODO: Subscription meta creation from subscription.xml.
-		subscribeForEvent(1000, 1001);
+		// 2. Load the file - SynapticNodes.xml
+		InputStream xmlNode = Thread.currentThread().getContextClassLoader().getResourceAsStream("SynapticNodes.xml");
+
+		// 3. Initialize JAXBContext for SynapticNodes object
+		JAXBContext context = JAXBContext.newInstance(SynapticNodes.class);
+		SynapticNodes synapticNodes = (SynapticNodes) context.createUnmarshaller().unmarshal(xmlNode); 
+
+		// 4. Loop over synaptic nodes and create CerebralConnector per node. And create subscription meta data for the cerebrum.
+		for (SynapticNode synapticNode : synapticNodes.getNodes()) 
+		{
+			System.out.println("Creating Connector "+synapticNode.getName()+" on port " + synapticNode.getPort());
+			// 4.1 Create CerebralConnector per node
+			CerebralConnector connector = new CerebralConnector.Builder()
+					.port(synapticNode.getPort())
+					.name(synapticNode.getName())
+					.readerPool(new WorkerPool.Builder<Reader>()
+							.corePoolSize(synapticNode.getReaderPool().getCorePoolSize())
+							.maximumPoolSize(synapticNode.getReaderPool().getMaximumPoolSize())
+							.keepAliveTime(synapticNode.getReaderPool().getKeepAliveTime())
+							.workQueue(new LinkedBlockingQueue<Runnable>())
+							.rejectedThreadHandler(new RejectedReaderHandler()).build())
+					.writerPool(new WorkerPool.Builder<Writer>()
+							.corePoolSize(synapticNode.getWriterPool().getCorePoolSize())
+							.maximumPoolSize(synapticNode.getWriterPool().getMaximumPoolSize())
+							.keepAliveTime(synapticNode.getWriterPool().getKeepAliveTime())
+							.workQueue(new LinkedBlockingQueue<Runnable>())
+							.rejectedThreadHandler(new RejectedWriterHandler()).build())
+					.build();
+
+			// 4.2. Add the newly created connector to the ConnectorCluster
+			connectorCluster.add(connector);
+			
+			// 4.3. Loop over the subscriptions & create subscription meta data for the cerebrum
+			eventSubscriptions = synapticNode.getSubscriptions();
+			for (int i = 0; i < eventSubscriptions.getEventType().size(); i++) 
+				subscribeForEvent(eventSubscriptions.getEventType().get(i), synapticNode.getPort());
+				
+		}
+
 		ConnectorCluster.subscriptions = subscriptions;
-		
 		return connectorCluster;
 	}
-	
+
 	private void subscribeForEvent(Integer eventId, Integer port) 
 	{
 		ArrayList<Connector> connectors = subscriptions.get(eventId);
@@ -108,3 +100,7 @@ public class ConnectorClusterInitializer
 		subscriptions.put(eventId, connectors);
 	}
 }
+
+
+
+
