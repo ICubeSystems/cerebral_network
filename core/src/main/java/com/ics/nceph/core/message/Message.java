@@ -88,7 +88,7 @@ import com.ics.util.ByteUtil;
  */
 public class Message 
 {
-	private static AtomicInteger messageCounter = new AtomicInteger(2000);
+	private static AtomicInteger messageCounter = new AtomicInteger(1);
 	
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.
 	private static final int NODE_ID = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("node.id"));
@@ -255,7 +255,7 @@ public class Message
 		public String getId()
 		{
 			return new StringBuilder()
-				.append(getMessageId())
+				.append(getSourceId())
 				.append("-")
 				.append(getMessageId())
 				.toString();

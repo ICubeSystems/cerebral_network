@@ -13,7 +13,9 @@
 			<maximumPoolSize>100</maximumPoolSize>
 			<keepAliveTime>60</keepAliveTime>
 		</writerPool>
-		<subscriptions/>
+		<subscriptions>
+			<eventType>1000</eventType>
+		</subscriptions>
 	</synapticNode>
 	<synapticNode>
 		<port>1001</port>
