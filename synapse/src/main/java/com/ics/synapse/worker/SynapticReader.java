@@ -6,7 +6,7 @@ import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.receptor.Receptor;
 import com.ics.nceph.core.receptor.ReceptorInstantiationException;
 import com.ics.nceph.core.worker.Reader;
-import com.ics.synapse.message.SynapticMessageType;
+import com.ics.synapse.message.type.SynapticIncomingMessageType;
 
 /**
  * @author Anurag Arya
@@ -29,7 +29,7 @@ public class SynapticReader extends Reader
 			Receptor receptor = new Receptor.Builder()
 					.message(getMessage())
 					.incomingConnection(getConnection())
-					.implementationClass(SynapticMessageType.getMessageType(getMessage().getType()).getProcessorClass())
+					.implementationClass(SynapticIncomingMessageType.getMessageType(getMessage().getType()).getProcessorClass())
 					.build();
 			
 			// 2. Process the message by calling the process of Receptor

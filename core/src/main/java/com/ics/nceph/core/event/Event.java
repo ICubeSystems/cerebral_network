@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.util.Date;
 
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -25,10 +26,13 @@ public class Event implements Serializable
 
 	String objectJSON;
 	
+	Date createdOn;
+	
 	public Event() {}
 	
 	private Event(Integer eventId, String objectJSON)
 	{
+		createdOn = new Date();
 		this.eventId = eventId;
 		this.objectJSON = objectJSON;
 	}
@@ -39,6 +43,10 @@ public class Event implements Serializable
 
 	public Integer getEventId() {
 		return eventId;
+	}
+	
+	public Date getCreatedOn() {
+		return createdOn;
 	}
 	
 	/**

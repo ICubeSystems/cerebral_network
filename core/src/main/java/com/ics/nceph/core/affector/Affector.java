@@ -1,4 +1,4 @@
-package com.ics.nceph.core.receptor;
+package com.ics.nceph.core.affector;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -6,27 +6,28 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 
 /**
- * This class is responsible for processing the incoming message inside a reader (worker) thread. 
- * {@link Connection#read()} reads the {@link Message} and then starts a {@link Reader} thread to process the incoming message. The {@link Reader} instantiates <b>Receptor</b> based on MessageType
+ * This class is responsible for processing the outgoing message inside a writer (worker) thread after the message has been sent over the socket channel.
+ * {@link Connection#write()} writes the {@link Message} and then starts a {@link Writer} thread to post process the sent message. 
+ * The {@link Writer} instantiates <b>Affector</b> based on MessageType
  * 
  * @author Anurag Arya
  * @version 1.0
- * @since 05-Jan-2022
+ * @since 16-Mar-2022
  */
-public abstract class Receptor 
+public abstract class Affector 
 {
 	Message message;
 	
 	Connection incomingConnection;
 	
 	/**
-	 * Abstract method to be implemented by all the Receptor classes
+	 * Abstract method to be implemented by all the Affector classes
 	 * 
 	 * @return void
 	 */
 	abstract public void process();
 	
-	public Receptor(Message message, Connection incomingConnection)
+	public Affector(Message message, Connection incomingConnection)
 	{
 		this.message = message;
 		this.incomingConnection = incomingConnection;
@@ -46,7 +47,7 @@ public abstract class Receptor
 		
 		Connection incomingConnection;
 		
-		Class<? extends Receptor> implementationClass;
+		Class<? extends Affector> implementationClass;
 		
 		public Builder message(Message message) {
 			this.message = message;
@@ -58,12 +59,12 @@ public abstract class Receptor
 			return this;
 		}
 		
-		public Builder implementationClass(Class<? extends Receptor> implementationClass) {
+		public Builder implementationClass(Class<? extends Affector> implementationClass) {
 			this.implementationClass = implementationClass;
 			return this;
 		}
 		
-		public Receptor build() throws ReceptorInstantiationException
+		public Affector build() throws AffectorInstantiationException
 		{
 			try 
 			{
@@ -75,7 +76,7 @@ public abstract class Receptor
 				return implementationClass.getConstructor(constructorParamTypes).newInstance(params);
 			} catch (InstantiationException | IllegalAccessException | IllegalArgumentException	| InvocationTargetException | NoSuchMethodException | SecurityException e) 
 			{
-				throw new ReceptorInstantiationException("Receptor instantiation exception", e);
+				throw new AffectorInstantiationException("Affector instantiation exception", e);
 			}
 		}
 	}

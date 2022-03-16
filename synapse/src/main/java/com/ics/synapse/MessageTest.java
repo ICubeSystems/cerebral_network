@@ -1,12 +1,9 @@
 package com.ics.synapse;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 
-import com.ics.nceph.core.event.Event;
 import com.ics.nceph.core.event.exception.ImproperEventBufferInstantiationException;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -61,28 +58,29 @@ public class MessageTest
 		//System.out.println(buffer.capacity() + ":" + buffer.position());
 		
 		byte b1 = (byte) 0x01;
-		String s1 = String.format("%8s", Integer.toBinaryString(b1 & 0xFF)).replace(' ', '0');
+		//String s1 = String.format("%8s", Integer.toBinaryString(b1 & 0xFF)).replace(' ', '0');
 		//System.out.println(s1); // 10000001
 		
 		BitSet flags = bitset(b1);
 		//System.out.println(flags.get(0));
 		flags.set(2);
 		
-		byte[] bb = flags.toByteArray();
-		String s2 = String.format("%8s", Integer.toBinaryString(bb[0] & 0xFF)).replace(' ', '0');
+		//byte[] bb = flags.toByteArray();
+		//String s2 = String.format("%8s", Integer.toBinaryString(bb[0] & 0xFF)).replace(' ', '0');
 		//System.out.println(s2); // 10000001
 		//System.out.println(bb.length);
 		
 		//System.out.println(print(dataSize(1000)));
-		byte[] bbb = dataSize(1000);
-		for (byte b : bbb) {
-			String sss = String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0');
-			//System.out.println(sss);
-		}
+		//byte[] bbb = dataSize(1000);
+		/*
+		 * for (byte b : bbb) { String sss = String.format("%8s",
+		 * Integer.toBinaryString(b & 0xFF)).replace(' ', '0');
+		 * //System.out.println(sss); }
+		 */
 		////System.out.println(print(ByteUtil.convertToByteArray(1000, 4))); 
 		
 		//System.out.println("--------------------------------------");
-		long l = 2147483649L;
+		//long l = 2147483649L;
 		byte[] bbbb = ByteUtil.convertToByteArray(4294967295L, 4);
 		long value = 0;
 		for (byte b : bbbb) {
@@ -99,10 +97,10 @@ public class MessageTest
 		System.out.println(temp.length);
 		
 		
-		byte b = (byte)161;
+		//byte b = (byte)161;
 		temp = null;
-		if(0x03==3)
-			System.out.println("++++++++++++++++");
+		//if(0x03==3)
+			//System.out.println("++++++++++++++++");
 		
 		System.out.print("Anurag - transferring....");
 		Thread.sleep(2000);

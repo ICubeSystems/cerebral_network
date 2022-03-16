@@ -1,6 +1,6 @@
 package com.ics.cerebrum.worker;
 
-import com.ics.cerebrum.message.CerebralMessageType;
+import com.ics.cerebrum.message.type.CerebralIncomingMessageType;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
@@ -29,7 +29,7 @@ public class CerebralReader extends Reader
 			Receptor receptor = new Receptor.Builder()
 					.message(getMessage())
 					.incomingConnection(getConnection())
-					.implementationClass(CerebralMessageType.getMessageType(getMessage().getType()).getProcessorClass())
+					.implementationClass(CerebralIncomingMessageType.getMessageType(getMessage().getType()).getProcessorClass())
 					.build();
 			
 			// 2. Process the message by calling the process of Receptor

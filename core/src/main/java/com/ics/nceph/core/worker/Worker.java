@@ -1,6 +1,7 @@
 package com.ics.nceph.core.worker;
 
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.message.Message;
 
 /**
  * @author Anurag Arya
@@ -9,6 +10,8 @@ import com.ics.nceph.core.connector.connection.Connection;
  */
 public abstract class Worker extends Thread 
 {
+	Message message;
+	
 	Connection connection;
 	
 	/**
@@ -22,19 +25,24 @@ public abstract class Worker extends Thread
 	 */
 	public abstract void execute();
 
-	public Worker(Connection connection) 
+	public Worker(Connection connection, Message message) 
 	{
 		this.connection = connection;
+		this.message = message;
 	}
 	
 	public Connection getConnection() {
 		return connection;
 	}
 	
+	public Message getMessage() {
+		return message;
+	}
+	
 	@Override
 	public void run() 
 	{
-		System.out.println("Executing worker thread..............");
+		//System.out.println("Executing worker thread..............");
 		//exception handling here
 		execute();
 	}

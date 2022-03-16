@@ -15,6 +15,7 @@ import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 import com.ics.synapse.worker.SynapticReader;
+import com.ics.synapse.worker.SynapticWriter;
 
 /**
  * Connector implementation for the Micro-service/ application node.
@@ -88,6 +89,12 @@ public class SynapticConnector extends Connector
 	public void createPostReadWorker(Message message, Connection incomingConnection) 
 	{
 		getReaderPool().execute(new SynapticReader(incomingConnection, message));
+	}
+	
+	@Override
+	public void createPostWriteWorker(Message message, Connection incomingConnection) 
+	{
+		getWriterPool().execute(new SynapticWriter(incomingConnection, message));
 	}
 	
 	public Configuration getConfig() {

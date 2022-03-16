@@ -1,6 +1,7 @@
 package com.ics.nceph.core.worker;
 
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.message.Message;
 
 /**
  * @author Anurag Arya
@@ -9,8 +10,8 @@ import com.ics.nceph.core.connector.connection.Connection;
  */
 public abstract class Writer extends Worker 
 {
-	public Writer(Connection connection)
+	public Writer(Connection connection, Message message)
 	{
-		super(connection);
+		super(connection, message);
 	}
 }

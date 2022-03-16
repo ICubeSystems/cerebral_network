@@ -10,6 +10,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 
 import com.ics.cerebrum.worker.CerebralReader;
+import com.ics.cerebrum.worker.CerebralWriter;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
@@ -120,6 +121,12 @@ public class CerebralConnector extends Connector
 	public void createPostReadWorker(Message message, Connection incomingConnection) 
 	{
 		getReaderPool().execute(new CerebralReader(incomingConnection, message));
+	}
+	
+	@Override
+	public void createPostWriteWorker(Message message, Connection incomingConnection) 
+	{
+		getWriterPool().execute(new CerebralWriter(incomingConnection, message));
 	}
 	
 	/**

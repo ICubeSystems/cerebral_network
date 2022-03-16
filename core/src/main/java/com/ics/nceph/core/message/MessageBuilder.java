@@ -1,6 +1,7 @@
 package com.ics.nceph.core.message;
 
 import java.io.IOException;
+import java.util.Date;
 
 import com.ics.util.ByteUtil;
 
@@ -19,6 +20,9 @@ public class MessageBuilder
 	 * 2. Header assembled - Once the header is fully assembled. If the receiving buffer has less than 16 bytes remaining after the genesis byte then the bytes are held in temporary bytes instead of message bytes
 	 * 3. Body assembled - Once the full body is received. If the receiving buffer has less bytes than the length of the message then the data bytes are held in the temporary bytes instead of body bytes on the message 
 	 */
+	
+	private IORecord.Builder readRecordBuilder;
+	
 	public int state;
 	
 	public int messageLength;
@@ -133,11 +137,13 @@ public class MessageBuilder
 		this.tempBytes = null;
 		this.mId = 0;
 		this.messageLength = 0;
+		this.readRecordBuilder = null;
 	}
 	
 	public void startReading()
 	{
 		this.state = MessageBuilderState.READ_STARTED.getValue();
+		this.readRecordBuilder = new IORecord.Builder().start(new Date());
 	}
 	
 	public boolean isReadReady()
@@ -162,6 +168,15 @@ public class MessageBuilder
 	
 	public Message build()
 	{
-		return new Message(counter, flags, type, sourceId, messageId, dataLength, data);
+		return new Message(
+				counter, 
+				flags, 
+				type, 
+				sourceId, 
+				messageId, 
+				dataLength, 
+				data, 
+				this.readRecordBuilder.end(new Date()).build()
+				);
 	}
 }

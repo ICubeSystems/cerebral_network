@@ -46,20 +46,27 @@ public final class Emitter
 	 * @return void
 	 * @throws IOException 
 	 */
-	public static synchronized void emit(Event event) throws ImproperConnectorInstantiationException, IOException
+	public static void emit(Event event) throws ImproperConnectorInstantiationException, IOException
 	{
 		// 1. Convert the event to the message object
 		Message message = new EventMessage.Builder().event(event).build();
 		
 		// 2. Create a ProofOfDelivery object and save it to the local DocumentStore. This pod object will be updated when the ack for this message is received from cerebrum.
 		//    This pod object will be moved to dynamoDB store once the message is delivered fully (is acknowledged by all the subscribers)
-		ProofOfDelivery pod = new ProofOfDelivery.Builder().event(event).messageId(message.decoder().getId()).build();
+		ProofOfDelivery pod = new ProofOfDelivery.Builder()
+				.event(event)
+				.messageId(message.decoder().getId())
+				.createdOn(event.getCreatedOn())
+				.build();
 		DocumentStore.save(pod, message.decoder().getId());
-		
+		System.out.println("POD [name: " + message.decoder().getId() + ".json] created");
+
 		// 3. Get the connection with minimum load
 		Connection connection = connector.getConnection();
+		
 		// 4. Enqueue the message on the connection to be sent to the Cerebrum
 		connection.enqueueMessage(message);
+		
 		// 5. Change the interest of the connection to write
 		connection.setInterest(SelectionKey.OP_WRITE);
 	}

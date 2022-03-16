@@ -318,15 +318,20 @@ public class Connection implements Comparable<Connection>
 			{
 				while(!relayQueue.isEmpty())
 				{
-					//
 					// Relay the message
 					writer.write(getSocket(), relayQueue.peek());
 					// Update the last used of the connection
 					setLastUsed(System.currentTimeMillis());
-					// Check if the writer has sent the above message fully and is ready for new message
+					// Check if the writer has sent the above message fully and is ready for new message.
 					if (writer.isReady())
+					{
 						// Remove the message from the relayQueue & Store message sent to the outgoing message register
-						getConnector().storeOutgoingMessage(relayQueue.poll());
+						Message message = relayQueue.poll();
+						getConnector().storeOutgoingMessage(message);
+						System.out.println("Write record::::::::" + message.getWriteRecord().getStart() + " - " + message.getWriteRecord().getEnd());
+						// Open a write thread to do the post writing work like updating the ACK status of the messages
+						getConnector().createPostWriteWorker(message, this);
+					}
 				}
 			}
 			// In case there is an IO exception while writing to the socket
@@ -360,13 +365,10 @@ public class Connection implements Comparable<Connection>
 			
 			// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
 			disengage(operationStatus, writer.isReady() ? false : true);
-			
-			// 4. Set the connnection's socket channel interest to read
-			setInterest(SelectionKey.OP_READ);
-			
-			// 5. Open a write thread to do the post writing work like updating the ACK status of the messages
-			//getConnector().getWriterPool().execute(new Writer(this));
 		}
+		
+		// 4. Set the connnection's socket channel interest to read
+		setInterest(SelectionKey.OP_READ);
 	}
 	
 	/**

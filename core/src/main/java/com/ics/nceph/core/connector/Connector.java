@@ -115,6 +115,15 @@ public abstract class Connector
 	public abstract void createPostReadWorker(Message message, Connection incomingConnection);
 	
 	/**
+	 * Contact method to be implemented by the implementation classes to create the Worker ({@link Reader}) threads 
+	 * 
+	 * @param message
+	 * @param incomingConnection
+	 * @return void
+	 */
+	public abstract void createPostWriteWorker(Message message, Connection incomingConnection);
+	
+	/**
 	 * Constructor used to construct base connector
 	 * 
 	 * @param port

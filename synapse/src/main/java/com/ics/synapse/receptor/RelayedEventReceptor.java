@@ -4,9 +4,9 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.receptor.EventReceptor;
 
-public class IngestEventReceptor extends EventReceptor {
-
-	public IngestEventReceptor(Message message, Connection incomingConnection) 
+public class RelayedEventReceptor extends EventReceptor 
+{
+	public RelayedEventReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 	}
@@ -14,8 +14,7 @@ public class IngestEventReceptor extends EventReceptor {
 	@Override
 	public void process() 
 	{
-		System.out.println("In Receptor Process:::::::");
+		System.out.println("In RelayedEventReceptor Process:::::::");
 		System.out.println("Event ::::: " + getEvent().getEventId() + "-" + getEvent().getObjectJSON());
 	}
-
 }

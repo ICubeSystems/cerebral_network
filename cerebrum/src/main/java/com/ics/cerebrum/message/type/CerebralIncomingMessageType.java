@@ -1,8 +1,8 @@
-package com.ics.cerebrum.message;
+package com.ics.cerebrum.message.type;
 
 import com.ics.cerebrum.receptor.PublishedEventReceptor;
-import com.ics.nceph.core.message.MessageType;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
+import com.ics.nceph.core.message.type.IncomingMessageType;
 import com.ics.nceph.core.receptor.Receptor;
 import com.ics.util.ByteUtil;
 
@@ -12,9 +12,9 @@ import com.ics.util.ByteUtil;
  * @version 1.0
  * @since 06-Jan-2022
  */
-public class CerebralMessageType extends MessageType
+public class CerebralIncomingMessageType extends IncomingMessageType
 {
-	CerebralMessageType(int type, Class<? extends Receptor> processorClass) 
+	CerebralIncomingMessageType(int type, Class<? extends Receptor> processorClass) 
 	{
 		super(type, processorClass);
 	}
@@ -22,12 +22,12 @@ public class CerebralMessageType extends MessageType
 	/**
 	 * This message type is used to publish an event in the network
 	 */
-	public static CerebralMessageType PUBLISH_EVENT = new CerebralMessageType(0x03, PublishedEventReceptor.class);
+	public static CerebralIncomingMessageType PUBLISH_EVENT = new CerebralIncomingMessageType(0x03, PublishedEventReceptor.class);
 	
 	/**
 	 * 
 	 */
-	public static CerebralMessageType[] types = new CerebralMessageType[] {PUBLISH_EVENT};
+	public static CerebralIncomingMessageType[] types = new CerebralIncomingMessageType[] {PUBLISH_EVENT};
 	
 	/**
 	 * Returns the MessageType instance by the type supplied
@@ -36,9 +36,9 @@ public class CerebralMessageType extends MessageType
 	 * @throws InvalidMessageTypeException
 	 * @return MessageType
 	 */
-	public static CerebralMessageType getMessageType(byte type) throws InvalidMessageTypeException
+	public static CerebralIncomingMessageType getMessageType(byte type) throws InvalidMessageTypeException
 	{
-		for (CerebralMessageType messageType : types) 
+		for (CerebralIncomingMessageType messageType : types) 
 			if(messageType.getType() == ByteUtil.convertToInt(type))
 				return messageType;
 		throw new InvalidMessageTypeException(new Exception("Invalid message type"));

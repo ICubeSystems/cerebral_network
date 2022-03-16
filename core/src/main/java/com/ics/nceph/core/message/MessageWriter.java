@@ -3,6 +3,7 @@ package com.ics.nceph.core.message;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.Date;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.ics.nceph.core.message.exception.RelayTimeoutException;
@@ -65,14 +66,18 @@ public class MessageWriter
 			// Try the socket.write for IO exception - as the position needs to be preserved in case of IO exception (for next write attempts - if required)
 			try
 			{
-				long elapsed = System.currentTimeMillis();
+				IORecord.Builder writeRecord = new IORecord.Builder().start(new Date());
+				long elapsed = 0;
 				while (buffer.remaining() > 0) 
 				{
+					elapsed = System.currentTimeMillis() - elapsed;
 					//write to the socket channel till the buffer is not remaining
 					socket.write(buffer);
 					
 					elapsed = System.currentTimeMillis() - elapsed;
-					// Check for the channel write timeout (). If timeout then make provision to re-send the message from the same buffer position.
+					// Check for the channel write timeout (). If timeout then throw RelayTimeoutException and break the write loop. 
+					// In the calling method RelayTimeoutException is caught and a new thread (RelayFailedMessageHandlingThread) is started which will set the interest to write again after specified delay.
+					// In case any other reader thread changes the interest of this connection to write then this code will again be executed and it will try resend the message from the last position. If successfully done then it will send the new message. In this case the RelayFailedMessageHandlingThread will be rendered useless as the relay queue of this conection will already be empty.
 					if (buffer.remaining() > 0 && elapsed > relayTimeout)
 					{
 						// LOG: Message [id: xxxx] write_timeout - yy bytes written, zz bytes remaining
@@ -81,6 +86,10 @@ public class MessageWriter
 						throw new RelayTimeoutException(new Exception(logMessage));
 					}
 				}
+				// Set the write record - may be required in the write worker thread
+				writeRecord.end(new Date());
+				message.setWriteRecord(writeRecord.build());
+				
 				// Once the full message is relayed, change the state of the writer to READY
 				state = MessageWriterState.READY;
 				// Reset the position to 0
@@ -105,10 +114,6 @@ public class MessageWriter
 	 * This method returns true if the MessageWriter is ready to accept new message for writing
 	 * 
 	 * @return boolean
-	 *
-	 * @author Anurag Arya
-	 * @version 1.0
-	 * @since 11-Jan-2022
 	 */
 	public boolean isReady()
 	{

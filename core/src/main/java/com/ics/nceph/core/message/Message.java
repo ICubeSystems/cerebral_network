@@ -59,20 +59,21 @@ import com.ics.util.ByteUtil;
  *  			The response to a REGISTER message will be a READY message.</li>
  *  		<li><b>0x03: PUBLISH_EVENT</b> - Synaptic node (micro service/ application) publishes an event</li>
  *  		<li><b>0x04: RELAYED_EVENT_ACK</b> - Synaptic node acknowledges the receipt of the relayed event</li>
+ *  		<li><b>0x05: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the relayed event</li>
  *  	</ul>
  *  	<b>Cerebral message types</b> - messages generated via cerebral node (consumed by synaptic nodes):
  *  	<ul>
- *  		<li><b>0x05: AUTHENTICATE</b> - Indicates that the Cerebrum require authentication.
+ *  		<li><b>0x06: AUTHENTICATE</b> - Indicates that the Cerebrum require authentication.
  *  			This will be sent following a STARTUP message and must be answered by a CREDENTIALS message from the client.</li>
- *  		<li><b>0x06: READY</b> - Indicates that the server is ready to receive & process events via this connection.  
+ *  		<li><b>0x07: READY</b> - Indicates that the server is ready to receive & process events via this connection.  
  *  			This message will be sent by the server either after a successful CREDENTIALS message or a successful SUBSCRIBE message. 
  *  			The body of a READY message is empty</li>
- *  		<li><b>0x07: ERROR</b> - Indicates an error processing a request.  
+ *  		<li><b>0x08: ERROR</b> - Indicates an error processing a request.  
  *  			The body of the message will be an error code ([int]) followed by a [string] error message. 
  *  			Then, depending on the exception, more content may follow.</li>
- *  		<li><b>0x08: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
- *  		<li><b>0x09: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
- *  		<li><b>0x0A: RELAY_ACK</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
+ *  		<li><b>0x09: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
+ *  		<li><b>0x0A: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
+ *  		<li><b>0x0B: RELAY_ACK</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
  *  	</ul>
  *  </li>
  *  <li><b>Node Id</b> - 2 byte. Unique identifier of the node where the message is originating from. 
@@ -92,6 +93,10 @@ public class Message
 	
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.
 	private static final int NODE_ID = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("node.id"));
+	
+	private IORecord readRecord;
+	
+	private IORecord writeRecord;
 	
 	private final byte genesis = (byte)-127;
 	
@@ -122,7 +127,7 @@ public class Message
 	 * @param dataLength
 	 * @param data
 	 */
-	Message(byte counter, byte flags, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data)
+	Message(byte counter, byte flags, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord)
 	{
 		this.counter = counter;
 		this.flags = flags;
@@ -131,6 +136,7 @@ public class Message
 		this.messageId = messageId;
 		this.dataLength = dataLength;
 		this.data = data;
+		this.readRecord = readRecord;
 	}
 	
 	/**
@@ -221,11 +227,32 @@ public class Message
 		return data;
 	}
 	
-	public void setCounter(byte counter) 
-	{
+	public void setCounter(byte counter) {
 		this.counter = counter;
 	}
 	
+	public IORecord getReadRecord() {
+		return readRecord;
+	}
+
+	public IORecord getWriteRecord() {
+		return writeRecord;
+	}
+
+	public void setWriteRecord(IORecord writeRecord) 
+	{
+		// This can only be set once in lifetime of a message
+		if (this.writeRecord == null)
+			this.writeRecord = writeRecord;
+	}
+	
+	/**
+	 * Inner class to get the decoded values from the message object
+	 * 
+	 * @author Anurag Arya
+	 * @version 1.0
+	 * @since 07-Mar-2022
+	 */
 	public class Decoder
 	{
 		public long getMessageId()
@@ -252,6 +279,12 @@ public class Message
 			return mapper.readValue(json, Event.class);
 		}
 		
+		/**
+		 * This method returns the unique identifier of the message. It is constructed by concatenating sourceId/ nodeId & messageId. <br>
+		 * eg. 123-25415261426 (123 is the synaptic node id from where the message was originated. 25415261426 is the message counter of the originating synaptic node)
+		 * 
+		 * @return String id of the message
+		 */
 		public String getId()
 		{
 			return new StringBuilder()

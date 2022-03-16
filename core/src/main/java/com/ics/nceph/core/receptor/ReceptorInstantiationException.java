@@ -8,8 +8,8 @@ public class ReceptorInstantiationException extends Exception
 	 */
 	private static final long serialVersionUID = 1L;
 
-	public ReceptorInstantiationException(Exception e)
+	public ReceptorInstantiationException(String message, Throwable e)
 	{
-		e.printStackTrace();
+		super(message, e);
 	}
 }

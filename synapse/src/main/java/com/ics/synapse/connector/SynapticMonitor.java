@@ -10,6 +10,12 @@ import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationExcept
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 
+/**
+ * 
+ * @author Anurag Arya
+ * @version 1.0
+ * @since 18-Jan-2022
+ */
 public class SynapticMonitor extends ConnectorMonitorThread 
 {
 	@Override
@@ -45,7 +51,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 				// Only logging such occurrence for now
 				else 
 				{
-					System.out.println("**TBH** - IdleTime exceeded but connection has mroe than 0 activeRequests. Collecting data:");
+					System.out.println("**TBH** - IdleTime exceeded but connection has more than 0 activeRequests. Collecting data:");
 					System.out.println(connection + " - Idle Since: " + connection.getIdleTime());
 					System.out.println("**END - TBH**");
 				}
@@ -63,5 +69,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 				e.printStackTrace();
 			}
 		}
+		
+		// 3. Check for PODs which are not deleted for more than a specified time
     }
 }

@@ -1,27 +1,27 @@
-package com.ics.synapse.worker;
+package com.ics.cerebrum.worker;
 
+import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.affector.AffectorInstantiationException;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.worker.Writer;
-import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
 /**
  * @author Anurag Arya
  * @version 1.0
  * @since 22-Dec-2021
  */
-public class SynapticWriter extends Writer 
+public class CerebralWriter extends Writer 
 {
-	public SynapticWriter(Connection connection ,Message message)
+	public CerebralWriter(Connection connection, Message message)
 	{
 		super(connection, message);
 	}
 
 	@Override
-	public void execute() 
+	public void execute()  
 	{
 		try 
 		{
@@ -29,7 +29,7 @@ public class SynapticWriter extends Writer
 			Affector affector = new Affector.Builder()
 					.message(getMessage())
 					.incomingConnection(getConnection())
-					.implementationClass(SynapticOutgoingMessageType.getMessageType(getMessage().getType()).getAffectorClass())
+					.implementationClass(CerebralOutgoingMessageType.getMessageType(getMessage().getType()).getAffectorClass())
 					.build();
 			
 			// 2. Process the message by calling the process of Affector

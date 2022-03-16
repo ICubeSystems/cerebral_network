@@ -10,16 +10,8 @@ import com.ics.nceph.core.message.Message;
  */
 public abstract class Reader extends Worker 
 {
-	Message message;
-	
 	public Reader(Connection connection, Message message)
 	{
-		super(connection);
-		this.message = message;
+		super(connection, message);
 	}
-	
-	public Message getMessage() {
-		return message;
-	}
-
 }
