@@ -34,12 +34,10 @@ public class PublishedEventReceptor extends EventReceptor
 			System.out.println("In Receptor Process:::::::");
 			System.out.println("Event ::::: " + getEvent().getEventId() + "-" + getEvent().getObjectJSON());
 			
-			// 1. Save the event received in the local datastore (not yet decided - most likely it will be AWS dynamoDB)
-			// 2. Get the subscriber connectors for this event ()
-			ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventId());
-			
-			// 3. Loop over subscriber connectors
-			for (Connector connector : subscribers) 
+			// 1. Save the event received in the local datastore
+			// 1.1 Check if message has already been received
+			ProofOfDelivery pod = DocumentStore.load(getMessage().decoder().getId());
+			if (pod == null) // If the ProofOfDelivery for the received message is not in the local storage then create a new ProofOfDelivery object for this message
 			{
 				// Query the dynamoDB to see if the message was fully delivered previously
 				// Build ProofOfDelivery object for this message
@@ -61,6 +59,7 @@ public class PublishedEventReceptor extends EventReceptor
 				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventId());
 				
 				// 4. Loop over subscriber connectors
+				for (Connector connector : subscribers) 
 				{
 					// 4.1 Using connector's LB get the connection with least load
 					Connection connection = connector.getConnection();
