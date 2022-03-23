@@ -10,6 +10,8 @@ import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationExce
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
+import com.ics.nceph.core.ssl.NcephSSLContext;
+import com.ics.nceph.core.ssl.exception.SSLContextInitializationException;
 import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.RejectedReaderHandler;
 import com.ics.nceph.core.worker.RejectedWriterHandler;
@@ -51,7 +53,7 @@ public class SynapseBootstraper
 		this.reactorCluster = reactorCluster;
 	}
 	
-	public void boot() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, ConnectionException, ImproperConnectorInstantiationException
+	public void boot() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, ConnectionException, ImproperConnectorInstantiationException, SSLContextInitializationException
 	{
 		System.out.println("# Reactors: " + ReactorCluster.activeReactors.size());
 		// 1. Create a synaptic connector
@@ -73,6 +75,7 @@ public class SynapseBootstraper
 						.workQueue(new LinkedBlockingQueue<Runnable>())
 						.rejectedThreadHandler(new RejectedWriterHandler())
 						.build())
+				.sslContext(NcephSSLContext.getSSLContext())
 				.build();
 		
 		

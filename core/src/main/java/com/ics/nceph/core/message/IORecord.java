@@ -13,7 +13,8 @@ import java.util.Date;
  */
 public class IORecord extends TimeRecord 
 {
-
+	IORecord() {super();}
+	
 	private IORecord(Date start, Date end) 
 	{
 		super(start, end);

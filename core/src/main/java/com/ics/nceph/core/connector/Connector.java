@@ -9,10 +9,13 @@ import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import javax.net.ssl.SSLContext;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -64,14 +67,16 @@ public abstract class Connector
 	
 	private WorkerPool<Writer> writerPool;
 	
+	private SSLContext sslContext;
+	
 	// Queue of messages which needs to be relayed by the connector
 	private ConcurrentLinkedQueue<Message> relayQueue;
 	
 	// TODO size of the map (number of messages) should be fixed basis the bytes. TBD - initial considerations (128 MB). Overflows needs to be thought out. DB flushing needs to be done for the fully acknowledged message
-	private ConcurrentHashMap<Long, Message> incomingMessageRegister;
+	private ConcurrentHashMap<String, Message> incomingMessageRegister;
 	
 	// TODO size of the map (number of messages) should be fixed basis the bytes. TBD - initial considerations (256 MB). Overflows needs to be thought out. 
-	private ConcurrentHashMap<Long, Message> outgoingMessageRegister;
+	private ConcurrentHashMap<String, Message> outgoingMessageRegister;
 	
 	/**
 	 * Map of active connections in the pool
@@ -103,7 +108,7 @@ public abstract class Connector
 	 * @throws ReactorNotAvailableException
 	 * @return void
 	 */
-	public abstract void acceptConnection() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException;
+	public abstract void acceptConnection() throws IOException, ConnectionInitializationException;
 	
 	/**
 	 * Contact method to be implemented by the implementation classes to create the Worker ({@link Reader}) threads 
@@ -136,21 +141,22 @@ public abstract class Connector
 			Integer port,
 			String name, 
 			WorkerPool<Reader> readerPool, 
-			WorkerPool<Writer> writerPool) 
+			WorkerPool<Writer> writerPool,
+			SSLContext sslContext) 
 	{
 		this.port = port;
 		this.name = name;
 		this.readerPool = readerPool;
 		this.writerPool = writerPool;
-		
+		this.sslContext = sslContext;
 		initialize();
 	}
 	
 	private void initialize()
 	{
 		connectionLoadBalancer = new PriorityBlockingQueue<Connection>();
-		incomingMessageRegister = new ConcurrentHashMap<Long, Message>();
-		outgoingMessageRegister = new ConcurrentHashMap<Long, Message>();
+		incomingMessageRegister = new ConcurrentHashMap<String, Message>();
+		outgoingMessageRegister = new ConcurrentHashMap<String, Message>();
 		relayQueue = new ConcurrentLinkedQueue<Message>();
 		activeConnections = new ConcurrentHashMap<Integer, Connection>();
 	}
@@ -226,7 +232,7 @@ public abstract class Connector
 	 */
 	public synchronized void storeIncomingMessage(Message message)
 	{
-		incomingMessageRegister.put(message.decoder().getMessageId(), message);
+		incomingMessageRegister.put(message.decoder().getId(), message);
 	}
 	
 	/**
@@ -238,7 +244,7 @@ public abstract class Connector
 	 */
 	public synchronized void storeOutgoingMessage(Message message)
 	{
-		outgoingMessageRegister.put(message.decoder().getMessageId(), message);
+		outgoingMessageRegister.put(message.decoder().getId(), message);
 	}
 	
 	/**
@@ -276,11 +282,15 @@ public abstract class Connector
 		return connectionLoadBalancer;
 	}
 
-	public ConnectorType getType() {
+	public ConnectorType getType(){
 		return type;
 	}
 	
 	public ConcurrentHashMap<Integer, Connection> getActiveConnections() {
 		return activeConnections;
+	}
+
+	public SSLContext getSslContext() {
+		return sslContext;
 	}
 }

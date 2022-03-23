@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <synapticNodes>
 	<synapticNode>
-		<port>1000</port>
+		<port>1111</port>
 		<name>test1</name>
 		<readerPool>
 			<corePoolSize>10</corePoolSize>
@@ -14,11 +14,11 @@
 			<keepAliveTime>60</keepAliveTime>
 		</writerPool>
 		<subscriptions>
-			<eventType>1000</eventType>
+			<eventType>2000</eventType>
 		</subscriptions>
 	</synapticNode>
 	<synapticNode>
-		<port>1001</port>
+		<port>1112</port>
 		<name>test2</name>
 		<readerPool>
 			<corePoolSize>10</corePoolSize>
@@ -32,7 +32,7 @@
 		</writerPool>
 		<subscriptions>
 			<eventType>1000</eventType>
+			<eventType>2000</eventType>
 		</subscriptions>
 	</synapticNode>
 </synapticNodes>
-

@@ -5,9 +5,12 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 
+import javax.net.ssl.SSLContext;
+
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -30,9 +33,9 @@ public class SynapticConnector extends Connector
 	
 	private String cerebrumHostPath;
 	
-	SynapticConnector(String hostPath, Integer port, String name, WorkerPool<Reader> readerPool, WorkerPool<Writer> writerPool) 
+	SynapticConnector(String hostPath, Integer port, String name, WorkerPool<Reader> readerPool, WorkerPool<Writer> writerPool, SSLContext sslContext) 
 	{
-		super(port, name, readerPool, writerPool);
+		super(port, name, readerPool, writerPool, sslContext);
 		this.cerebrumHostPath = hostPath;
 	}
 	
@@ -42,7 +45,7 @@ public class SynapticConnector extends Connector
 		return SocketChannel.open();
 	}
 	
-	private void start() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, ConnectionException
+	private void start() throws IOException, ConnectionInitializationException, ConnectionException
 	{
 		// Create live connections/ sockets as per the set minConnections
 		for (int i = 0; i < config.minConnections; i++)
@@ -58,11 +61,10 @@ public class SynapticConnector extends Connector
 	 * @throws ConnectionException 
 	 * @return void
 	 */
-	public void connect() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, ConnectionException
+	public void connect() throws IOException, ConnectionInitializationException, ConnectionException
 	{
 		if (getActiveConnections().size() >= config.maxConnections)
 			throw new ConnectionException(new Exception("Maximum number of connections reached - " + config.maxConnections));
-			
 		// 1. Increment the totalConnectionsServed by 1
 		setTotalConnectionsServed(getTotalConnectionsServed() + 1);
 		
@@ -80,7 +82,7 @@ public class SynapticConnector extends Connector
 	}
 	
 	@Override
-	public void acceptConnection() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException 
+	public void acceptConnection() throws IOException, ConnectionInitializationException
 	{
 		// TODO Auto-generated method stub
 	}
@@ -138,6 +140,8 @@ public class SynapticConnector extends Connector
 		 * Maximum idle time of the socket after which it will be closed
 		 */
 		private int maxConnectionIdleTime = 510000; //8.5 mins
+		
+		private SSLContext sslContext;
 		
 		private String name;
 		
@@ -201,6 +205,17 @@ public class SynapticConnector extends Connector
 			return this;
 		}
 		
+		/**
+		 * Set SSLContext 
+		 * 
+		 * @param sslContext
+		 * @return Builder
+		 */
+		public Builder sslContext(SSLContext sslContext) {
+			this.sslContext = sslContext;
+			return this;
+		}
+		
 		public Builder maxConnections(Integer maxConnections) {
 			this.maxConnections = maxConnections;
 			return this;
@@ -238,7 +253,8 @@ public class SynapticConnector extends Connector
 					port, 
 					name, 
 					readerPool, 
-					writerPool
+					writerPool,
+					sslContext
 					);
 			// 2. Set the configurations for the connector
 			connnector.setConfig(connnector.new Configuration(
@@ -251,7 +267,7 @@ public class SynapticConnector extends Connector
 			{
 				connnector.start();
 			} 
-			catch (IOException | ImproperReactorClusterInstantiationException | ReactorNotAvailableException | ConnectionException e) 
+			catch (IOException | ConnectionInitializationException | ConnectionException e) 
 			{
 				System.out.println("ERROR: Problem in connecting to cerebral connector. Stack trace:");
 				e.printStackTrace();

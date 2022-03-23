@@ -7,8 +7,7 @@ import java.util.Iterator;
 
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 
 /**
  * <p>This class runs the NIO selector event loop. </p>
@@ -22,7 +21,6 @@ public class Reactor extends Thread
 	Integer reactorId;
 	
 	Selector selector;
-	
 	/**
 	 * 
 	 * @param id
@@ -80,7 +78,7 @@ public class Reactor extends Thread
                 		connection.write();
                 	}
                 }
-			} catch (IOException | ImproperReactorClusterInstantiationException | ReactorNotAvailableException e) 
+			} catch (IOException | ConnectionInitializationException e) 
 			{
 				e.printStackTrace();
 				try {

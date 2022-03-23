@@ -89,6 +89,7 @@ import com.ics.util.ByteUtil;
  */
 public class Message 
 {
+	// TODO this should be initialized by local datastore or a central server should be used for id generation
 	private static AtomicInteger messageCounter = new AtomicInteger(1);
 	
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.

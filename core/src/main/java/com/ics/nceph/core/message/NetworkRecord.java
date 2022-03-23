@@ -11,6 +11,7 @@ import java.util.Date;
  */
 public class NetworkRecord extends TimeRecord 
 {
+	NetworkRecord() {super();}
 
 	NetworkRecord(Date start, Date end) 
 	{

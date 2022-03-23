@@ -14,7 +14,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.MessageReader;
 import com.ics.nceph.core.message.MessageWriter;
@@ -24,6 +26,7 @@ import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
+import com.ics.nceph.core.ssl.exception.SSLHandshakeException;
 
 
 /**
@@ -51,6 +54,10 @@ public class Connection implements Comparable<Connection>
 	
 	private SelectionKey key;
 	
+	private int relayTimeout;
+	/**
+	 * Queue of messages to be relayed to the subscriber nodes.
+	 */
 	private ConcurrentLinkedQueue<Message> relayQueue;
 	
 	private MessageReader reader;
@@ -61,7 +68,10 @@ public class Connection implements Comparable<Connection>
 	
 	long lastUsed;
 	
+	boolean isClient;
 	
+	int plainTextBufferSize = NcephConstants.READER_BUFFER_SIZE;
+		
 	/**
 	 * Constructs a connection for cerebral connector
 	 * 
@@ -74,11 +84,12 @@ public class Connection implements Comparable<Connection>
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws IOException, ConnectionInitializationException
 	{
 		// Get the SocketChannel 
 		this.socket = ((ServerSocketChannel)connector.obtainSocketChannel()).accept();
-		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+		this.relayTimeout = relayTimeout;
+		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, false);
 	}
 	
 	/**
@@ -94,49 +105,73 @@ public class Connection implements Comparable<Connection>
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws IOException, ConnectionInitializationException
 	{
 		// Get the SocketChannel 
 		this.socket = (SocketChannel)connector.obtainSocketChannel();
+		// Connect to the cerebral server
 		this.socket.connect(cerebralConnectorAddress);
-		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+		this.relayTimeout = relayTimeout;
+		// Initialize connection
+		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, true);
 	}
 	
 	
-	private void initialize(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws ImproperReactorClusterInstantiationException, ReactorNotAvailableException, IOException
+	private void initialize(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, boolean isClient) throws ConnectionInitializationException
 	{
-		this.id = id;
-		this.connector = connector;
-		
-		// Initialize the counters to 0
-		this.activeRequests = new AtomicInteger(0);
-		this.totalRequestsServed = new AtomicInteger(0);
-		this.totalSuccessfulRequestsServed = new AtomicInteger(0);
-		
-		// Get the reactor from the connector which has least number of active keys 
-		this.reactor = ReactorCluster.getReactor();
-		
-		this.socket.socket().setSendBufferSize(sendBufferSize);
-		this.socket.socket().setReceiveBufferSize(receiveBufferSize);
-		// Set the socketChannel to nonblocking mode
-		this.socket.configureBlocking(false);
-		
-		// Register the selector
+		try 
+		{
+			this.id = id;
+			this.connector = connector;
+			
+			// Initialize the counters to 0
+			this.activeRequests = new AtomicInteger(0);
+			this.totalRequestsServed = new AtomicInteger(0);
+			this.totalSuccessfulRequestsServed = new AtomicInteger(0);
+			
+			// Get the reactor from the connector which has least number of active keys 
+			this.reactor = ReactorCluster.getReactor();
+			this.socket.socket().setSendBufferSize(sendBufferSize);
+			this.socket.socket().setReceiveBufferSize(receiveBufferSize);
+			
+			// Set the socketChannel to nonblocking mode
+			this.socket.configureBlocking(false);
+			// Set the client mode to true, indicating that the connection is on the client side (synaptic node).
+			this.isClient = isClient;
+			
+			initializeConnection();
+			
+		} catch (Exception e) 
+		{
+			e.printStackTrace();
+			try 
+			{
+				teardown();
+			} catch (IOException teardownException) {
+				throw new ConnectionInitializationException("Teardown failed while initalizing connection", teardownException);
+			}
+			throw new ConnectionInitializationException("Connection initialization failed", e);
+		}
+	}
+	
+	protected void initializeConnection() throws IOException,SSLHandshakeException 
+	{
+		// TODO: Connection state is AUTH_PENDING when constructed - can only be used for event read and relay after the state changes to READY
+		state = ConnectionState.READY;
+		// If the handshake is successful then register a selector to socket channel with interestOps
 		key = getSocket().register(reactor.getSelector(), SelectionKey.OP_READ, this);
+		// Initialize the MessageReader & MessageWriter
+		reader = new MessageReader(this);
+		writer = new MessageWriter(this);
 		reactor.getSelector().wakeup();
-		
-		// Initialize the MessageReader
-		reader = new MessageReader();
-		writer = new MessageWriter(relayTimeout);
 		
 		// Initialize the eventQueue
 		relayQueue = new ConcurrentLinkedQueue<Message>();
-		// TODO: Connection state is AUTH_PENDING when constructed - can only be used for event read and relay after the state changes to READY
-		state = ConnectionState.READY;
+		// set last used time of the connection
 		setLastUsed(System.currentTimeMillis());
-		
 		System.out.println("Initializing connection "+ id + ", attaching it to selector of reactor " + reactor.getReactorId() + " for read/ write operation");
 	}
+
 	
 	/**
 	 * This method should be called when the underlying socket gives a <b>java.net.SocketException: Connection reset"</b> exception. 
@@ -146,25 +181,25 @@ public class Connection implements Comparable<Connection>
 	 * The message queued for relay are then transferred to relay queue of the connector. They will be assigned connection for relay once new connections are accepted on the connector. 
 	 * Finally the Selection Key is cancelled and the socket are closed if they are still open.
 	 * 
-	 * @return void
-	 *
 	 * @author Anurag Arya
 	 * @version 1.0
+	 * @return void
 	 * @throws IOException 
 	 * @since 09-Jan-2022
 	 */
 	public void teardown() throws IOException
 	{
 		// LOG: Connection (id:2): Connection teardown. Transfer X messages to transmissionQueue of Connector (port: 1000)
-		System.out.println("Connection (id:"+ id +") - teardown initiated. Transfer " + relayQueue.size() + " messages to relayQueue of Connector (port: "+ getConnector().getPort() +")");
+		System.out.println("Connection (id:"+ id +") - teardown initiated....");
 		state = ConnectionState.TEARDOWN_REQUESTED;
 		
 		// Remove the connection from LB to re-adjust the counters
 		removeFromLoadBalancer();
 		
 		// Check if there are any messages waiting to be relayed. Transfer them to the connectors outgoing buffer
-		if (relayQueue.size() > 0)
+		if (relayQueue != null && relayQueue.size() > 0)
 		{
+			System.out.println("Transfering " + relayQueue.size() + " messages to relayQueue of Connector (port: "+ getConnector().getPort() +")");
 			while(!relayQueue.isEmpty())
 			{
 				Message message = relayQueue.poll();
@@ -197,6 +232,7 @@ public class Connection implements Comparable<Connection>
 	 * 
 	 * @return void
 	 * @throws IOException 
+	 * @throws ConnectionInitializationException 
 	 */
 	public void read() throws IOException 
 	{
@@ -209,7 +245,7 @@ public class Connection implements Comparable<Connection>
 		// 2. Invoke the MessageReader to read the message(s) from the underlying socket
 		try 
 		{
-			reader.read(socket);
+			reader.read();
 		}catch (IOException e) // In case there is an exception white reading from socket
 		{
 			// TODO maybe we want to handle this by creating our custom exception - TBD
@@ -228,12 +264,12 @@ public class Connection implements Comparable<Connection>
 		disengage(operationStatus, false);
 		
 		// 4. Get the fully constructed messages from the MessageReader and loop over them if more than 0
-		ConcurrentHashMap<Long, Message> recievedMessages  = reader.getMessages();
+		ConcurrentHashMap<String, Message> recievedMessages  = reader.getMessages();
 		if (recievedMessages.size() > 0)
 		{
-			for (Entry<Long, Message> entry : recievedMessages.entrySet()) 
+			for (Entry<String, Message> entry : recievedMessages.entrySet()) 
 			{
-				Long messageId = entry.getKey();
+				String messageId = entry.getKey();
 				Message message = entry.getValue();
 				System.out.println("Creating reader thread for messageId:" + messageId);
 				// 4.1 Create a reader thread per message
@@ -319,7 +355,7 @@ public class Connection implements Comparable<Connection>
 				while(!relayQueue.isEmpty())
 				{
 					// Relay the message
-					writer.write(getSocket(), relayQueue.peek());
+					writer.write(relayQueue.peek());
 					// Update the last used of the connection
 					setLastUsed(System.currentTimeMillis());
 					// Check if the writer has sent the above message fully and is ready for new message.
@@ -328,7 +364,6 @@ public class Connection implements Comparable<Connection>
 						// Remove the message from the relayQueue & Store message sent to the outgoing message register
 						Message message = relayQueue.poll();
 						getConnector().storeOutgoingMessage(message);
-						System.out.println("Write record::::::::" + message.getWriteRecord().getStart() + " - " + message.getWriteRecord().getEnd());
 						// Open a write thread to do the post writing work like updating the ACK status of the messages
 						getConnector().createPostWriteWorker(message, this);
 					}
@@ -502,6 +537,14 @@ public class Connection implements Comparable<Connection>
 	public Connector getConnector() {
 		return connector;
 	}
+	
+	public int getRelayTimeout() {
+		return relayTimeout;
+	}
+	
+	public int getPlainTextBufferSize() {
+		return plainTextBufferSize;
+	}
 
 	/**
 	 * 
@@ -566,11 +609,19 @@ public class Connection implements Comparable<Connection>
 			return this;
 		}
 		
-		public Connection build() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+		
+		public Connection build() throws IOException, ConnectionInitializationException
 		{
-			if (cerebralConnectorAddress != null)
-				return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
-			return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+			if(NcephConstants.TLS_MODE) {
+				if (cerebralConnectorAddress != null)
+					return new SSLConnection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
+				return new SSLConnection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+			}
+			else {
+				if (cerebralConnectorAddress != null)
+					return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
+				return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+			}
 		}
 	}
 }

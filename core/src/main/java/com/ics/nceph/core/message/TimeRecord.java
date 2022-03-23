@@ -14,6 +14,8 @@ public class TimeRecord
 	
 	private Date end;
 	
+	TimeRecord() {}
+	
 	TimeRecord(Date start, Date end)
 	{
 		this.start = start;

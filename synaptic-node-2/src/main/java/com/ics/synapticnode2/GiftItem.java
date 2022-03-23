@@ -61,7 +61,7 @@ public class GiftItem implements Serializable
 	
 	public Event toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
 	{
-		return new Event.Builder().eventId(1000).objectJSON(toJSON()).build();
+		return new Event.Builder().eventId(2000).objectJSON(toJSON()).build();
 	}
 	
 	public static class Builder

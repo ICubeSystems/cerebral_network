@@ -6,9 +6,8 @@ import java.util.Map.Entry;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 
 /**
  * 
@@ -65,7 +64,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 			try 
 			{
 				connector.connect();
-			} catch (IOException | ImproperReactorClusterInstantiationException | ReactorNotAvailableException | ConnectionException e) {
+			} catch (IOException | ConnectionInitializationException | ConnectionException e) {
 				e.printStackTrace();
 			}
 		}

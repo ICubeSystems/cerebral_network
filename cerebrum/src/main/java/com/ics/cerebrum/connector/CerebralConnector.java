@@ -9,10 +9,13 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 
+import javax.net.ssl.SSLContext;
+
 import com.ics.cerebrum.worker.CerebralReader;
 import com.ics.cerebrum.worker.CerebralWriter;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -39,9 +42,10 @@ public class CerebralConnector extends Connector
 			String name, 
 			Integer bufferSize, 
 			WorkerPool<Reader> readerPool, 
-			WorkerPool<Writer> writerPool) throws IOException 
+			WorkerPool<Writer> writerPool,
+			SSLContext sslContext) throws IOException 
 	{
-		super(port, name, readerPool, writerPool);
+		super (port, name, readerPool, writerPool, sslContext);
 		this.bufferSize = bufferSize;
 		initializeCerebralConnector();
 	}
@@ -55,7 +59,6 @@ public class CerebralConnector extends Connector
 		serverChannel.socket().bind(new InetSocketAddress("127.0.0.1", getPort()));
 		// Set the ServerSocketChannel to nonblocking mode
 		serverChannel.configureBlocking(false);
-		
 		// This set the ReceiveBufSize for all the SocketChannels which will be accepted in this serverChannel
 		serverChannel.setOption(StandardSocketOptions.SO_RCVBUF, 1024*256);
 	}
@@ -84,13 +87,13 @@ public class CerebralConnector extends Connector
 	 *
 	 * @author Anurag Arya
 	 * @version 1.0
+	 * @throws ConnectionInitializationException 
 	 * @since 22-Dec-2021
 	 */
-	public synchronized void acceptConnection() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	public synchronized void acceptConnection() throws IOException, ConnectionInitializationException
 	{
 		// 1. Increment the totalConnectionsServed by 1
 		setTotalConnectionsServed(getTotalConnectionsServed()+1);
-		
 		// 2. Create a new connection builder object
 		Connection connection = new Connection.Builder()
 				.id(getTotalConnectionsServed())
@@ -167,6 +170,8 @@ public class CerebralConnector extends Connector
 		
 		private WorkerPool<Writer> writerPool;
 		
+		private SSLContext sslContext;
+		
 		/**
 		 * Not required if building a SYNAPTIC connector. Port number of the server socket within the connector
 		 * 
@@ -222,6 +227,16 @@ public class CerebralConnector extends Connector
 			return this;
 		}
 		
+		/**
+		 * Set SSLContext 
+		 * 
+		 * @param sslContext
+		 * @return Builder
+		 */
+		public Builder sslContext(SSLContext sslContext) {
+			this.sslContext = sslContext;
+			return this;
+		}
 		
 		/**
 		 * Builds the {@link Connector} instance
@@ -237,7 +252,8 @@ public class CerebralConnector extends Connector
 								name, 
 								bufferSize, 
 								readerPool,
-								writerPool
+								writerPool,
+								sslContext
 								);
 			// 2. Initialize the monitor thread
 			connnector.initializeMonitor(new CerebralMonitor(), 60, 60);

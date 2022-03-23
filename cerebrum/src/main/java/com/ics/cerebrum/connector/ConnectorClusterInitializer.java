@@ -5,14 +5,18 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
+
 import com.ics.cerebrum.nodes.xml.Subscriptions;
 import com.ics.cerebrum.nodes.xml.SynapticNode;
 import com.ics.cerebrum.nodes.xml.SynapticNodes;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.reactor.ReactorCluster;
+import com.ics.nceph.core.ssl.NcephSSLContext;
+import com.ics.nceph.core.ssl.exception.SSLContextInitializationException;
 import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.RejectedReaderHandler;
 import com.ics.nceph.core.worker.RejectedWriterHandler;
@@ -43,7 +47,7 @@ public class ConnectorClusterInitializer
 		this.subscriptions = new HashMap<Integer, ArrayList<Connector>>();
 	}
 
-	public ConnectorCluster initializeConnectionCluster() throws IOException, JAXBException 
+	public ConnectorCluster initializeConnectionCluster() throws IOException, JAXBException, SSLContextInitializationException
 	{
 		// 1. Instantitiate new ConnectorCluster
 		ConnectorCluster connectorCluster = new ConnectorCluster();
@@ -59,6 +63,7 @@ public class ConnectorClusterInitializer
 		for (SynapticNode synapticNode : synapticNodes.getNodes()) 
 		{
 			System.out.println("Creating Connector "+synapticNode.getName()+" on port " + synapticNode.getPort());
+			
 			// 4.1 Create CerebralConnector per node
 			CerebralConnector connector = new CerebralConnector.Builder()
 					.port(synapticNode.getPort())
@@ -75,16 +80,19 @@ public class ConnectorClusterInitializer
 							.keepAliveTime(synapticNode.getWriterPool().getKeepAliveTime())
 							.workQueue(new LinkedBlockingQueue<Runnable>())
 							.rejectedThreadHandler(new RejectedWriterHandler()).build())
+					.sslContext(NcephSSLContext.getSSLContext())
 					.build();
 
 			// 4.2. Add the newly created connector to the ConnectorCluster
 			connectorCluster.add(connector);
 			
 			// 4.3. Loop over the subscriptions & create subscription meta data for the cerebrum
-			eventSubscriptions = synapticNode.getSubscriptions();
-			for (int i = 0; i < eventSubscriptions.getEventType().size(); i++) 
-				subscribeForEvent(eventSubscriptions.getEventType().get(i), synapticNode.getPort());
-				
+			if(synapticNode.getSubscriptions()!=null) 
+			{
+				eventSubscriptions = synapticNode.getSubscriptions();
+				for (int i = 0; i < eventSubscriptions.getEventType().size(); i++) 
+					subscribeForEvent(eventSubscriptions.getEventType().get(i), synapticNode.getPort());
+			}
 		}
 
 		ConnectorCluster.subscriptions = subscriptions;
