@@ -13,6 +13,10 @@ import javax.net.ssl.SSLContext;
 
 import com.ics.cerebrum.worker.CerebralReader;
 import com.ics.cerebrum.worker.CerebralWriter;
+import com.ics.logger.BootstraperLog;
+import com.ics.logger.ConnectionLog;
+import com.ics.logger.LogData;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
@@ -73,7 +77,12 @@ public class CerebralConnector extends Connector
 	public void assignReactor(Reactor reactor) throws ClosedChannelException
 	{
 		// Register the ServerSocketChannel of the Connector with the Selector of the supplied Reactor
-		System.out.println("Assigning selector of reactor " + reactor.getReactorId() + "to port " + getPort() + " to accept new connections");
+		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+									.id(String.valueOf(reactor.getReactorId()))
+									.action("Assigning selector")
+									.data(new LogData().entry("Port", String.valueOf(getPort()))
+											.toString())
+									.logInfo());
 		getServerChannel().register(reactor.getSelector(), SelectionKey.OP_ACCEPT, this);
 	}
 	
@@ -107,7 +116,14 @@ public class CerebralConnector extends Connector
 		// 4. If there are outgoing messages in the buffer then transfer them to the connections relayQueue
 		if (getRelayQueue().size() > 0)
 		{
-			System.out.println("Enqueueing " + getRelayQueue().size() + " messages from the outgoing buffer (relayQueue) to connection [id:" + connection.getId() + "] relayQueue");
+			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+										 .connectionId(String.valueOf(connection.getId()))
+										 .action("Enqueueing")
+										 .data(new LogData()
+												 .entry("Relay size", String.valueOf(getRelayQueue().size()))
+												 .toString())
+										 .description("messages from the outgoing buffer (relayQueue) to connection's relayQueue")
+										 .logInfo());
 			while(!getRelayQueue().isEmpty())
 				connection.enqueueMessage(getRelayQueue().poll());
 			connection.setInterest(SelectionKey.OP_WRITE);

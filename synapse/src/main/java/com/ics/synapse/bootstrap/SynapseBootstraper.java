@@ -5,8 +5,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import org.springframework.beans.factory.annotation.Value;
 
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
+import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -19,6 +21,8 @@ import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 import com.ics.synapse.Emitter;
 import com.ics.synapse.connector.SynapticConnector;
+import com.ics.synapse.message.type.SynapticIncomingMessageType;
+import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
 /**
  * 
@@ -55,7 +59,6 @@ public class SynapseBootstraper
 	
 	public void boot() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, ConnectionException, ImproperConnectorInstantiationException, SSLContextInitializationException
 	{
-		System.out.println("# Reactors: " + ReactorCluster.activeReactors.size());
 		// 1. Create a synaptic connector
 		SynapticConnector connector = new SynapticConnector.Builder()
 				.name(connectorName) 
@@ -81,6 +84,10 @@ public class SynapseBootstraper
 		
 		// 2. Instantiate the singleton Emitter object
 		Emitter.initiate(connector);
+		DocumentStore.initiate();
+		
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticIncomingMessageType.types.length + " incoming message types");
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticOutgoingMessageType.types.length + " outgoing message types");
 		
 		// 3. Run the reactors
 		reactorCluster.run();

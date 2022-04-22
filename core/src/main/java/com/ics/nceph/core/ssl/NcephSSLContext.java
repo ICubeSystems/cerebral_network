@@ -38,7 +38,7 @@ public class NcephSSLContext
 		
 		try 
 		{
-			sslContext = SSLContext.getInstance("TLS");
+			sslContext = SSLContext.getInstance("TLSv1.2");
 			sslContext.init(
 				createKeyManagers(getFileInputStream(Configuration.APPLICATION_PROPERTIES.getConfig("keyStore.fileName")), "storepass", "keypass"), //TODO name should come from config file - keyStoreName, path - use getClassLoader()
 				createTrustManagers(getFileInputStream("trustedCerts.jks"), "storepass"), //TODO name should come from config file - trustStoreName, path - use getClassLoader()

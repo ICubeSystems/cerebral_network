@@ -6,6 +6,7 @@ import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.ics.nceph.core.message.MessageData;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 
@@ -15,7 +16,7 @@ import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
  * @version 1.0
  * @since 24-Dec-2021
  */
-public class Event implements Serializable
+public class Event extends MessageData implements Serializable
 {
 	/**
 	 * 

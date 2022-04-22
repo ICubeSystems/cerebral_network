@@ -8,10 +8,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.net.ssl.SSLEngineResult;
 import javax.net.ssl.SSLException;
 
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.SSLConnection;
-import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.exception.RelayTimeoutException;
 
 /**
@@ -51,7 +53,7 @@ public class MessageWriter
 		this.messageCounter = new AtomicInteger(0);
 		
 	}
-	public void sslWrite() throws ConnectionInitializationException, IOException 
+	public void sslWrite() throws IOException 
 	{
         // Every wrap call will remove 16KB from the original message and send
         encryptedData.clear();
@@ -99,14 +101,13 @@ public class MessageWriter
 	 */
 	public void write(Message message) throws IOException, RelayTimeoutException
 	{
-		// Check if the message is already sent
-		if (lastWrittemMessageId == null || !lastWrittemMessageId.equals(message.decoder().getId()))
-		{	
 			// Get the message counter from the connection and set it to the message - at the receiving end it will be validated to make sure any sequence discrepancy
-			message.setCounter(Integer.valueOf(messageCounter.getAndIncrement()).byteValue());
+			int msgCounter = messageCounter.getAndIncrement(); 
+			message.setCounter(Integer.valueOf(msgCounter).byteValue());
+			
 			// Get the byte buffer from the message
 			if(plainText!=null)
-			plainText.clear();
+				plainText.clear();
 			
 			plainText = message.toByteBuffer();
 			// if resuming write operation after the channel write timeout then start from the last buffer position
@@ -129,9 +130,19 @@ public class MessageWriter
 							sslWrite();
 						else 
 							connection.getSocket().write(plainText);
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+					} catch (IOException e) 
+					{
+						// Log
+						NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+								.messageId(message.decoder().getId())
+								.action("Write Error")
+								.data(new LogData()
+										.entry("id", String.valueOf(connection.getId()))
+										.entry("type", String.valueOf(message.decoder().getType()))
+										.toString()
+										)
+								.logError(),e);
+						throw e;
 					}
 					
 					elapsed = System.currentTimeMillis() - elapsed;
@@ -141,7 +152,7 @@ public class MessageWriter
 					if (plainText.remaining() > 0 && elapsed > relayTimeout)
 					{
 						// LOG: Message [id: xxxx] write_timeout - yy bytes written, zz bytes remaining
-						String logMessage = "Message [id: " + message.decoder().getId() + "] write_timeout - " + position + " bytes written, " + plainText.remaining() + " bytes remaining";
+						String logMessage = "Message [id: " + message.decoder().getId() + ", type: " + message.decoder().getType() + "] write_timeout - " + position + " bytes written, " + plainText.remaining() + " bytes remaining";
 						// Break the loop - write will be attempted again in next selection (selector.select()) loop
 						throw new RelayTimeoutException(new Exception(logMessage));
 					}
@@ -156,19 +167,24 @@ public class MessageWriter
 				position = 0;
 				// Record the message id of the last successfully written/ sent message
 				lastWrittemMessageId = message.decoder().getId();
-				// LOG: Message [id: xxxx] sent - 2189(ms)
-				System.out.println("Message [id: " + lastWrittemMessageId + "] sent - " + elapsed + "ms from Connection: "+connection.getId());
-				//System.out.println("Message counter: "+message.counter+" Length : "+message.dataLength);//DEBUG
 			}
 			catch (RelayTimeoutException e)
 			{
 				// Record the last written position
 				position = plainText.position();
+				// Log
+				NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+						.messageId(message.decoder().getId())
+						.action("Write Timeout")
+						.data(new LogData()
+								.entry("id", String.valueOf(connection.getId()))
+								.entry("type", String.valueOf(message.decoder().getType()))
+								.toString()
+								)
+						.logError(),e);
 				throw e;
 			}
-		}
-		else
-			System.out.println("Message [id: " + lastWrittemMessageId + "] already sent");
+		
 	}
 	
 	/**

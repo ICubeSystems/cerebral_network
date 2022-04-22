@@ -3,11 +3,13 @@ package com.ics.nceph.core.message;
 import java.io.IOException;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLEngineResult;
 
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.SSLConnection;
@@ -23,8 +25,6 @@ import com.ics.util.ByteUtil;
  */
 public class MessageReader 
 {
-	private ConcurrentHashMap<String, Message> messages;
-	
 	MessageBuilder messageBuilder;
 	
 	ByteBuffer plainText;
@@ -45,7 +45,6 @@ public class MessageReader
 		plainText = ByteBuffer.allocate(connection.getPlainTextBufferSize());
 		
 		messageBuilder = new MessageBuilder();
-		messages = new ConcurrentHashMap<String, Message>();
 		
 		// Initialize the messageCounter to 0. Increment by 1 at every message reception and reset to 0 once 256 messages are received
 		this.messageCounter = new AtomicInteger(0);
@@ -98,11 +97,15 @@ public class MessageReader
 				if (plainText.remaining() >= remainingHeaderLength)
 				{
 					extractHeaderBytes(remainingHeaderLength);
+					// Reset the connection message counter to 0 if 256 messages have been received (as the counter is of 1 byte in the message header).
+					if(messageCounter.get() > 255)
+						messageCounter.set(0);
+					
+					int counterCheck = messageCounter.getAndIncrement();
 					// Future use: compare the counter from sender (on the message) and the receiver (on the connection)
-					if (messageBuilder.messageCounter != messageCounter.getAndIncrement()) {
+					if (messageBuilder.messageCounter != counterCheck) 
 						// Throw an exception here and handle it at the connection level. We can close the connection after cleanup if this happens (needs further thinking)
-						System.out.println("******* MESSAGE ORDER BROKEN *******");
-					}
+						NcephLogger.CONNECTION_LOGGER.warn("Message order broken - mId: " + messageBuilder.mId + ", Message counter: " + messageBuilder.messageCounter + ", Connection counter:" + counterCheck);
 				}
 				else // If the incoming buffer does not have the bytes to complete the message header then extract the header bytes and add to tempBytes
 				{
@@ -122,7 +125,27 @@ public class MessageReader
 					extractMessageBody(remainingDataLength);
 					// Build the message
 					Message message =  messageBuilder.build();
-					messages.put(message.decoder().getId(), message);
+					NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+							.messageId(message.decoder().getId())
+							.action("Read Done")
+							.data(new LogData()
+									.entry("type", String.valueOf(message.decoder().getType()))
+									.toString())
+							.logInfo());
+					// Create a reader thread per message
+					connection.getConnector().createPostReadWorker(message, connection);
+					// Log
+					NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+							.messageId(message.decoder().getId())
+							.action("Read Worker Initiated")
+							.data(new LogData()
+									.entry("type", String.valueOf(message.decoder().getType()))
+									.toString()
+									)
+							.logInfo());
+					// Put the message in the connectors incomingMessageStore
+					connection.getConnector().storeIncomingMessage(message);
+					//messages.put(String.valueOf(message.decoder().getType() + message.decoder().getId()), message);
 					// Reset the messageBuilder to start reading a new message
 					messageBuilder.reset();
 				}
@@ -195,10 +218,9 @@ public class MessageReader
 		
 		// Notify the messageBuilder that the header collection is complete
 		messageBuilder.headerAssembled();
-		System.out.println("------- MESSAGE HEADER ASSEMBLED -- "+ messageBuilder.mId);
-		System.out.println("Message id:"+messageBuilder.mId);
-		System.out.println("Message length:"+messageBuilder.messageLength);
-		System.out.println("Message counter:"+messageBuilder.messageCounter);
+		
+		//System.out.println("------- MESSAGE HEADER ASSEMBLED -- "+ messageBuilder.mId);
+		//System.out.println("Message id:"+messageBuilder.mId + ", Message length:"+messageBuilder.messageLength + ", Message counter:"+messageBuilder.messageCounter);
 	}
 	
 	/**
@@ -251,9 +273,4 @@ public class MessageReader
         else if (bytesRead < 0) 
         	((SSLConnection)connection).handleEndOfStream();
     }
-    
-    public ConcurrentHashMap<String, Message> getMessages() 
-	{
-		return messages;
-	}
 }

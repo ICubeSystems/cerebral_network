@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration>
+	<Properties>
+        <Property name="log-path">./logs</Property>
+        <Property name="log-pattern">%d{[dd MMMMM yyyy-EEE HH:mm:ss]}[%-5p][%-40C{1}]%m%throwable{short.message}%n</Property>
+        <Property name="error-log-pattern">%d{[dd MMMMM yyyy-EEE HH:mm:ss]}[%-5p][%-40C{1}]%m%n%throwable</Property>
+    </Properties>
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout
                 pattern="%style{%d{ISO8601}}{black} %highlight{%-5level }[%style{%t}{bright,blue}] %style{%C{1.}}{bright,yellow}: %msg%n%throwable" />
         </Console>
 
-        <RollingFile name="nceph-core-logger"
-            fileName="./logs/spring-boot-logger-log4j2.log"
-            filePattern="./logs/$${date:yyyy-MM}/spring-boot-logger-log4j2-%d{-dd-MMMM-yyyy}-%i.log.gz">
+        <RollingFile name="general-logger"
+            fileName="${log-path}/general.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/general-log-%d{-dd-MMMM-yyyy}-%i.log.gz">
             <PatternLayout>
-                <pattern>%d %p %C{1.} [%t] %m%n</pattern>
+                <pattern>${log-pattern}</pattern>
             </PatternLayout>
             <Policies>
                 <!-- rollover on startup, daily and when the file reaches 
@@ -21,14 +26,149 @@
                 <TimeBasedTriggeringPolicy />
             </Policies>
         </RollingFile>
+        
+        <RollingFile name="message-logger"
+            fileName="${log-path}/message.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/message-log-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <pattern>${log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+        <RollingFile name="message-warn-logger"
+            fileName="${log-path}/message-warn.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/message-warn-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <!-- Matches only WARN level -->
+            <LevelRangeFilter minLevel="WARN" maxLevel="WARN" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout>
+                <pattern>${error-log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+        <RollingFile name="message-error-logger"
+            fileName="${log-path}/message-error.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/message-error-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <ThresholdFilter level="Error"/>
+            <PatternLayout>
+                <pattern>${error-log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+         <RollingFile name="connection-logger"
+            fileName="${log-path}/connection.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/connection-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <pattern>${log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+        <RollingFile name="connection-error-logger"
+            fileName="${log-path}/connection-error.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/connection-error-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <ThresholdFilter level="WARN"/>
+            <PatternLayout>
+                <pattern>${log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+        <RollingFile name="bootstraper-logger"
+            fileName="${log-path}/bootstraper.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/bootstraper-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <pattern>${log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+        <RollingFile name="bootstraper-error-logger"
+            fileName="${log-path}/bootstraper-error.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/bootstraper-error-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <ThresholdFilter level="WARN"/>
+            <PatternLayout>
+                <pattern>${log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+        
     </Appenders>
 
     <Loggers>
         <!-- LOG everything at INFO level -->
+        <logger name="message" level="trace" additivity="false">
+	        <appender-ref ref="message-logger" />
+	        <appender-ref ref="message-error-logger" />
+	        <appender-ref ref="message-warn-logger" />
+	    </logger>
+	    
+	    <logger name="bootstraper" level="trace" additivity="false">
+	        <appender-ref ref="bootstraper-logger" />
+	        <appender-ref ref="bootstraper-error-logger" />
+	    </logger>
+	    
+	    <logger name="connection" level="trace" additivity="false">
+	        <appender-ref ref="connection-logger" />
+	        <appender-ref ref="connection-error-logger" />
+	    </logger>
+	    
         <Root level="info">
-            <AppenderRef ref="Console" />
-            <AppenderRef ref="nceph-core-logger" />
+            <AppenderRef ref="general-logger" />
         </Root>
+        
     </Loggers>
 
 </Configuration>

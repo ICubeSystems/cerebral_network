@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.nceph.core.Configuration;
-import com.ics.nceph.core.event.Event;
 import com.ics.util.ByteUtil;
 
 /**
@@ -45,8 +44,8 @@ import com.ics.util.ByteUtil;
  *  		<li><b>Position 1: Compression flag</b> - If set, the message body is compressed</li>
  *  	</ul>
  *  </li>
- *  <li><b>Message Type</b> - 1 byte. Following are the supported message types:<br>
- *  	<b>Synaptic message types</b> - messages generated via synaptic nodes (consumed by cerebral node):
+ *  <li><b>Message Type</b> - 1 byte. Following are the supported message incomingMessageType:<br>
+ *  	<b>Synaptic message incomingMessageType</b> - messages generated via synaptic nodes (consumed by cerebral node):
  *  	<ul>
  *  		<li><b>0x00: STARTUP</b> - Initialize the connection. 
  *  			The server will respond by AUTHENTICATE message (in which case credentials will need to be provided using CREDENTIALS). 
@@ -59,9 +58,10 @@ import com.ics.util.ByteUtil;
  *  			The response to a REGISTER message will be a READY message.</li>
  *  		<li><b>0x03: PUBLISH_EVENT</b> - Synaptic node (micro service/ application) publishes an event</li>
  *  		<li><b>0x04: RELAYED_EVENT_ACK</b> - Synaptic node acknowledges the receipt of the relayed event</li>
- *  		<li><b>0x05: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the relayed event</li>
+ *  		<li><b>0x05: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the NCEPH_EVENT_ACK message</li>
+ *  		<li><b>0x0D: POR_DELETED</b> - Synaptic node sends a notification that relayv event acknowledged successfully and POR is deleted from snaptic side.</li>
  *  	</ul>
- *  	<b>Cerebral message types</b> - messages generated via cerebral node (consumed by synaptic nodes):
+ *  	<b>Cerebral message incomingMessageType</b> - messages generated via cerebral node (consumed by synaptic nodes):
  *  	<ul>
  *  		<li><b>0x06: AUTHENTICATE</b> - Indicates that the Cerebrum require authentication.
  *  			This will be sent following a STARTUP message and must be answered by a CREDENTIALS message from the client.</li>
@@ -72,8 +72,9 @@ import com.ics.util.ByteUtil;
  *  			The body of the message will be an error code ([int]) followed by a [string] error message. 
  *  			Then, depending on the exception, more content may follow.</li>
  *  		<li><b>0x09: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
- *  		<li><b>0x0A: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
- *  		<li><b>0x0B: RELAY_ACK</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
+ *  		<li><b>0x0A: DELETE_POD</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
+ *  		<li><b>0x0B: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
+ *  		<li><b>0x0C: RELAY_ACK_RECEIVED</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
  *  	</ul>
  *  </li>
  *  <li><b>Node Id</b> - 2 byte. Unique identifier of the node where the message is originating from. 
@@ -140,6 +141,7 @@ public class Message
 		this.readRecord = readRecord;
 	}
 	
+
 	/**
 	 * 
 	 * @param flags
@@ -148,16 +150,29 @@ public class Message
 	 */
 	Message(byte flags, byte type, byte[] data)
 	{
+		this(flags, type, data, null, null);
+	}
+	
+	/**
+	 * 
+	 * @param flags
+	 * @param type
+	 * @param data
+	 * @param messageId
+	 * @param sourceId
+	 */
+	Message(byte flags, byte type, byte[] data, byte[] messageId, byte[] sourceId)
+	{
 		this.type = type;
 		this.flags = flags;
 		this.data = data;
 		
+		
 		// Generate the message id from the message counter. This will be unique for the node.
-		long messageIdNumber = messageCounter.getAndIncrement();
-		messageId = ByteUtil.convertToByteArray(messageIdNumber, messageId.length);
+		this.messageId = (messageId!=null)?messageId:ByteUtil.convertToByteArray(messageCounter.getAndIncrement(), this.messageId.length);
 		
 		// Set the Id of the source node where this message is originating from. 
-		sourceId = ByteUtil.convertToByteArray(NODE_ID, sourceId.length);
+		this.sourceId = (sourceId!=null)?sourceId:ByteUtil.convertToByteArray(NODE_ID, this.sourceId.length);
 		
 		// Set the dataLength
 		dataLength = ByteUtil.convertToByteArray(data.length, dataLength.length);
@@ -247,6 +262,10 @@ public class Message
 			this.writeRecord = writeRecord;
 	}
 	
+	public void setType(byte type) {
+		this.type = type;
+	}
+
 	/**
 	 * Inner class to get the decoded values from the message object
 	 * 
@@ -271,13 +290,23 @@ public class Message
 			return ByteUtil.convertToInt(Message.this.type);
 		}
 		
-		public Object getData() throws JsonProcessingException
+		public int getDataLength()
+		{
+			return ByteUtil.convertToInt(Message.this.dataLength);
+		}
+		
+		public int getCounter()
+		{
+			return ByteUtil.convertToInt(Message.this.counter);
+		}
+		
+		public Object getData(Class<? extends MessageData> dataHoldingClass) throws JsonProcessingException
 		{
 			// Get the JSON string form byte array
 			String json = ByteUtil.toObjectJSON(Message.this.data);
 			// Get the Event object from the JSON string
 			ObjectMapper mapper = new ObjectMapper();
-			return mapper.readValue(json, Event.class);
+			return mapper.readValue(json, dataHoldingClass);
 		}
 		
 		/**

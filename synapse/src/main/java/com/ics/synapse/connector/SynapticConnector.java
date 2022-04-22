@@ -79,6 +79,8 @@ public class SynapticConnector extends Connector
 		// 3. Add the connection object to load balancer for read/ write allocations
 		connection.addToLoadBalancer();
 		getActiveConnections().put(connection.getId(), connection);
+		
+
 	}
 	
 	@Override

@@ -25,8 +25,6 @@ import com.ics.nceph.core.event.exception.ImproperEventBufferInstantiationExcept
  */
 public class EventBuffer 
 {
-	//private static final Logger logger = LogManager.getLogger("nceph-core-logger");
-	
 	ByteBuffer buffer;
 	
 	EventBuffer(ByteBuffer buffer)

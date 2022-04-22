@@ -1,6 +1,6 @@
 package com.ics.nceph.core.reactor.exception;
 
-import org.apache.logging.log4j.Logger;
+import com.ics.logger.NcephLogger;
 
 public class ImproperReactorClusterInstantiationException extends Exception 
 {
@@ -9,9 +9,9 @@ public class ImproperReactorClusterInstantiationException extends Exception
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	public ImproperReactorClusterInstantiationException(Exception e, Logger logger)
+	public ImproperReactorClusterInstantiationException(Exception e)
 	{
-		logger.info(e.getMessage());
+		NcephLogger.BOOTSTRAP_LOGGER.error(e.getMessage());
 		e.printStackTrace();
 	}
 }

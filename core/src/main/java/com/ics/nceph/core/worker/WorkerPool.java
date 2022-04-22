@@ -28,6 +28,8 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	{
 		super(corePoolSize, maximumPoolSize, keepAliveTime, unit, (BlockingQueue<Runnable>) workQueue, handler);
 	}
+	
+	
 
 	@Override
 	protected void beforeExecute(Thread t, Runnable worker) 

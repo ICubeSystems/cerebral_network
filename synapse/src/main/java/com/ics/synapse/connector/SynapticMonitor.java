@@ -70,5 +70,10 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		}
 		
 		// 3. Check for PODs which are not deleted for more than a specified time
+		// Status - PUBLISHED: PUBLISH_EVENT message
+		// POD changes: writeRecord
+		// Status - NCEPH_RECEIVED: 
+		
+		// 4. Loop through the connectors relay queue and transfer to the connections queue
     }
 }

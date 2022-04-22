@@ -14,10 +14,14 @@ import javax.net.ssl.SSLContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.nceph.core.worker.Reader;
@@ -26,7 +30,7 @@ import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 
 /**
- * <p><b>Encephelon Network</b> has 2 types of nodes:<br>
+ * <p><b>Encephelon Network</b> has 2 incomingMessageType of nodes:<br>
  * <ol>
  * 	<li> Event relay server: Central node/ server which receives the events and then relays them to appropriate subscriber nodes in the network</li>
  * 	<li> Micro-service/ application node: The events on the application occur on these nodes, and then these nodes publish these events to the network</li>
@@ -256,6 +260,16 @@ public abstract class Connector
 	public synchronized void enqueueMessage(Message message)
 	{
 		relayQueue.add(message);
+		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+				.messageId(message.decoder().getId())
+				.action("Enqueued")
+				.description("No connections found for writing/ Teardown intitiated")
+				.data(
+						new LogData()
+						.entry("port", String.valueOf(getPort()))
+						.entry("workerClass", MessageType.getClassByType(message.decoder().getType()))
+						.toString())
+				.logInfo());
 	}
 	
 	public Integer getTotalConnectionsServed() {

@@ -33,54 +33,15 @@ public class SynapticNode1Application implements CommandLineRunner
 		// 1. Start the connector
 		synapseBootstraper.boot();
 		// 2. Present the menu options
-		GiftItem gi = new GiftItem.Builder()
-				.recipientName("Anurag Arya")
-				.senderName("Ragini Arya")
-				.giftCode("5700879756764435")
-				.amount(new BigDecimal(100.00))
-				.balance(new BigDecimal(100.00))
-				.build();
-		GiftItem gi1 = new GiftItem.Builder()
-				.recipientName("Anshul")
-				.senderName("Chandan")
-				.giftCode("5700879756764435")
-				.amount(new BigDecimal(100.00))
-				.balance(new BigDecimal(100.00))
-				.build();
-		GiftItem gi2 = new GiftItem.Builder()
-				.recipientName("Viren")
-				.senderName("Ragini Arya")
-				.giftCode("5700879756764435")
-				.amount(new BigDecimal(100.00))
-				.balance(new BigDecimal(100.00))
-				.build();
-		GiftItem gi3 = new GiftItem.Builder()
-				.recipientName("Gunja")
-				.senderName("Ragini Arya")
-				.giftCode("5700879756764435")
-				.amount(new BigDecimal(100.00))
-				.balance(new BigDecimal(100.00))
-				.build();
-		GiftItem gi4= new GiftItem.Builder()
-				.recipientName("Prashant")
-				.senderName("Ragini Arya")
-				.giftCode("5700879756764435")
-				.amount(new BigDecimal(100.00))
-				.balance(new BigDecimal(100.00))
-				.build();
-		GiftItem gi5 = new GiftItem.Builder()
-				.recipientName("Anurag Arya")
-				.senderName("Yash")
-				.giftCode("5700879756764435")
-				.amount(new BigDecimal(100.00))
-				.balance(new BigDecimal(100.00))
-				.build();
-		
-		Emitter.emit(gi.toEvent());
-		Emitter.emit(gi1.toEvent());
-		Emitter.emit(gi2.toEvent());
-		Emitter.emit(gi3.toEvent());
-		Emitter.emit(gi5.toEvent());
-		Emitter.emit(gi4.toEvent());
+		for (int i = 0; i < 1000; i++) {
+			GiftItem gi = new GiftItem.Builder()
+					.recipientName("Anurag Arya")
+					.senderName("Ragini Arya")
+					.giftCode("5700879756764435")
+					.amount(new BigDecimal(100.00))
+					.balance(new BigDecimal(100.00))
+					.build();
+			Emitter.emit(gi.toEvent());
+		}
 	}
 }

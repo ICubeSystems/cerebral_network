@@ -357,10 +357,8 @@ public class SSLConnection extends Connection
 		} catch (IOException | SSLHandshakeException e) {
 			throw new SocketException("Exception in handshake while closing connection. ERROR:" + e.getMessage());
 		}
-		throw new SocketException("Connection closed: engine status - CLOSED");
-			
     }
-
+    
     /**
      * In addition to orderly shutdowns, an unorderly shutdown may occur, when the transport link (socket channel)
      * is severed before close messages are exchanged. This may happen by getting an -1 or {@link IOException}
@@ -380,6 +378,7 @@ public class SSLConnection extends Connection
         	System.out.println("Exception in engine.closeInbound()");
         }
         closeConnection();
+        throw new SocketException("Connection closed: engine status - CLOSED");
     }
 
 	public SSLEngine getEngine() {

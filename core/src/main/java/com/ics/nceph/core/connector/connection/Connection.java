@@ -8,12 +8,14 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
-import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.ics.logger.ConnectionLog;
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
@@ -22,6 +24,7 @@ import com.ics.nceph.core.message.MessageReader;
 import com.ics.nceph.core.message.MessageWriter;
 import com.ics.nceph.core.message.RelayFailedMessageHandlingThread;
 import com.ics.nceph.core.message.exception.RelayTimeoutException;
+import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -71,7 +74,7 @@ public class Connection implements Comparable<Connection>
 	boolean isClient;
 	
 	int plainTextBufferSize = NcephConstants.READER_BUFFER_SIZE;
-		
+	
 	/**
 	 * Constructs a connection for cerebral connector
 	 * 
@@ -190,7 +193,10 @@ public class Connection implements Comparable<Connection>
 	public void teardown() throws IOException
 	{
 		// LOG: Connection (id:2): Connection teardown. Transfer X messages to transmissionQueue of Connector (port: 1000)
-		System.out.println("Connection (id:"+ id +") - teardown initiated....");
+		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+				.connectionId(String.valueOf(id))
+				.action("teardown initiated")
+				.logInfo());
 		state = ConnectionState.TEARDOWN_REQUESTED;
 		
 		// Remove the connection from LB to re-adjust the counters
@@ -199,13 +205,19 @@ public class Connection implements Comparable<Connection>
 		// Check if there are any messages waiting to be relayed. Transfer them to the connectors outgoing buffer
 		if (relayQueue != null && relayQueue.size() > 0)
 		{
-			System.out.println("Transfering " + relayQueue.size() + " messages to relayQueue of Connector (port: "+ getConnector().getPort() +")");
+			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+					.connectionId(String.valueOf(getId()))
+					.action("Teardown - dump")
+					.description("Transfering messages to connector's relayQueue")
+					.data(new LogData()
+							.entry("port", String.valueOf(getConnector().getPort()))
+							.entry("#messages", String.valueOf(relayQueue.size()))
+							.toString())
+					.logInfo());
 			while(!relayQueue.isEmpty())
 			{
 				Message message = relayQueue.poll();
 				getConnector().enqueueMessage(message);
-				//LOG: Message id: 13341 [transferred]
-				System.out.println("Message id: "+ message.decoder().getMessageId() + " [transferred]");
 			}
 		}
 		
@@ -223,8 +235,13 @@ public class Connection implements Comparable<Connection>
 		// Remove the connection from the map of active connections on the connector & change the state of the connection to DECOMMISIONED
 		getConnector().getActiveConnections().remove(getId());
 		state = ConnectionState.DECOMMISIONED;
-		
-		System.out.println("Connection (id:"+ id +") - teardown completed");
+		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+				.connectionId(String.valueOf(id))
+				.action("teardown completed")
+				.data(new LogData()
+						.entry("ConnectionId", String.valueOf(id))
+						.toString())
+				.logInfo());
 	}
 	
 	/**
@@ -236,7 +253,6 @@ public class Connection implements Comparable<Connection>
 	 */
 	public void read() throws IOException 
 	{
-		System.out.println("READING...");
 		boolean operationStatus = true;
 		
 		// 1. Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
@@ -249,11 +265,14 @@ public class Connection implements Comparable<Connection>
 		}catch (IOException e) // In case there is an exception white reading from socket
 		{
 			// TODO maybe we want to handle this by creating our custom exception - TBD
-			e.printStackTrace(); 
 			//Check if the SocketException () then initiate teardown()
 			if(e instanceof SocketException || e instanceof ClosedChannelException)
 			{
-				System.out.println("Initiating connection teardown due to: " + e.getMessage());
+				NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
+						.connectionId(String.valueOf(getId()))
+						.action("Teardown")
+						.description("Teardown connection due to: ")
+						.logError(),e);
 				teardown();
 			}
 			else
@@ -262,24 +281,6 @@ public class Connection implements Comparable<Connection>
 		
 		// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
 		disengage(operationStatus, false);
-		
-		// 4. Get the fully constructed messages from the MessageReader and loop over them if more than 0
-		ConcurrentHashMap<String, Message> recievedMessages  = reader.getMessages();
-		if (recievedMessages.size() > 0)
-		{
-			for (Entry<String, Message> entry : recievedMessages.entrySet()) 
-			{
-				String messageId = entry.getKey();
-				Message message = entry.getValue();
-				System.out.println("Creating reader thread for messageId:" + messageId);
-				// 4.1 Create a reader thread per message
-				getConnector().createPostReadWorker(message, this);
-				// 4.2 Put the message in the connectors incomingMessageStore
-				getConnector().storeIncomingMessage(message);
-				// 4.3 Remove the message from the recievedMessages in the messageReader
-				recievedMessages.remove(messageId);
-			}
-		}
 	}
 
 	/**
@@ -341,7 +342,6 @@ public class Connection implements Comparable<Connection>
 	 */
 	public void write() throws IOException
 	{
-		System.out.println("Writing...");
 		boolean operationStatus = true;
 		// 1. Write only if the relayQueue has any message to write
 		if (relayQueue.size() > 0)
@@ -356,9 +356,19 @@ public class Connection implements Comparable<Connection>
 				{
 					// Relay the message
 					writer.write(relayQueue.peek());
+					// Log
+					NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+							.messageId(relayQueue.peek().decoder().getId())
+							.action("Write done")
+							.data(new LogData()
+									.entry("type", String.valueOf(relayQueue.peek().decoder().getType()))
+									.entry("id", String.valueOf(getId()))
+									.toString()
+									)
+							.logInfo());
 					// Update the last used of the connection
 					setLastUsed(System.currentTimeMillis());
-					// Check if the writer has sent the above message fully and is ready for new message.
+					// Check if the writer has sent the above message fully and is ready for new message
 					if (writer.isReady())
 					{
 						// Remove the message from the relayQueue & Store message sent to the outgoing message register
@@ -366,6 +376,15 @@ public class Connection implements Comparable<Connection>
 						getConnector().storeOutgoingMessage(message);
 						// Open a write thread to do the post writing work like updating the ACK status of the messages
 						getConnector().createPostWriteWorker(message, this);
+						// Log
+						NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+								.messageId(message.decoder().getId())
+								.action("Write Worker Initiated")
+								.data(new LogData()
+										.entry("type", String.valueOf(message.decoder().getType()))
+										.toString()
+										)
+								.logInfo());
 					}
 				}
 			}
@@ -373,10 +392,7 @@ public class Connection implements Comparable<Connection>
 			catch (IOException e) 
 			{
 				// TODO Update the flag of the message which failed
-				
 				// TODO maybe we want to handle this by creating our custom exception - TBD
-				e.printStackTrace(); 
-				
 				// Check if the SocketException then initiate teardown()
 				if(e instanceof SocketException || e instanceof ClosedChannelException)
 				{
@@ -449,7 +465,6 @@ public class Connection implements Comparable<Connection>
 				", SuccessfulRequestsServed=" + totalSuccessfulRequestsServed +
 				", state=" + state +
 				", relayQueueSize=" + relayQueue.size() +
-				", ReadUnprocessedMessageCount=" + reader.getMessages().size() +
 				", WriterReady=" + writer.isReady() +
 				'}';
 	}
@@ -477,7 +492,20 @@ public class Connection implements Comparable<Connection>
 	 */
 	public void enqueueMessage(Message message)
 	{
+		//TODO: create a arraylist of ids such that relay queue does not have a duplicate message. 
+		//Check that array before enqueue. Add to that array when enqueue and remove when dequeue
 		relayQueue.add(message);
+		//LOG
+		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+				.messageId(message.decoder().getId())
+				.action("Enqueued")
+				.data(
+						new LogData()
+						.entry("port", String.valueOf(connector.getPort()))
+						.entry("id", String.valueOf(getId()))
+						.entry("workerClass", MessageType.getClassByType(message.decoder().getType()))
+						.toString())
+				.logInfo());
 	}
 	
 	/**

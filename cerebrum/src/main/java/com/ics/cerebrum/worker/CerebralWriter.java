@@ -33,7 +33,7 @@ public class CerebralWriter extends Writer
 					.build();
 			
 			// 2. Process the message by calling the process of Affector
-			affector.process();
+			affector.execute();
 		} 
 		catch (InvalidMessageTypeException e) 
 		{

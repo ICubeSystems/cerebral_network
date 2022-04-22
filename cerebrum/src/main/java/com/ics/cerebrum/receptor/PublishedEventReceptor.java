@@ -1,16 +1,26 @@
 package com.ics.cerebrum.receptor;
 
+import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.concurrent.ConcurrentHashMap;
 
+import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
+import com.ics.nceph.core.document.DocumentStore;
+import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.ProofOfRelay;
+import com.ics.nceph.core.event.Acknowledgement;
 import com.ics.nceph.core.event.exception.EventNotSubscribedException;
-import com.ics.nceph.core.message.DocumentStore;
+import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.ProofOfDelivery;
+import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.receptor.EventReceptor;
 
 /**
@@ -31,69 +41,120 @@ public class PublishedEventReceptor extends EventReceptor
 	{
 		try 
 		{
-			System.out.println("In Receptor Process:::::::");
-			System.out.println("Event ::::: " + getEvent().getEventId() + "-" + getEvent().getObjectJSON());
-			
-			// 1. Save the event received in the local datastore
+			// 1. Save the message received in the local datastore
 			// 1.1 Check if message has already been received
-			ProofOfDelivery pod = DocumentStore.load(getMessage().decoder().getId());
+			ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
+			
 			if (pod == null) // If the ProofOfDelivery for the received message is not in the local storage then create a new ProofOfDelivery object for this message
 			{
-				// Query the dynamoDB to see if the message was fully delivered previously
-				// Build ProofOfDelivery object for this message
+				// TODO: Query the dynamoDB to see if the message was fully delivered previously [TBD]
+				// Create ProofOfDelivery object for this message
 				pod = new ProofOfDelivery.Builder()
 						.event(getEvent())
 						.messageId(getMessage().decoder().getId())
 						.createdOn(getEvent().getCreatedOn())
 						.build();
 				pod.setReadRecord(getMessage().getReadRecord());
-				// Save the message to the local document store
-				DocumentStore.save(pod, getMessage().decoder().getId());
-			
-				// 2. Send the ACK packet back to the sender notifying that the event has been accepted and the transmission is in progress. 
-				//    Sender would maintain & update the event register with the status of the event transmission. 
-				//	  Once the subscribers will receive the event then the sender (publisher) will again be notified (needs to be thought on what's the best strategy for that)
-
+				pod.incrementAcknowledgementAttempts();
 				
-				// 3. Get the subscriber connectors for this event ()
+				// Save the POD in local storage
+				try {
+					DocumentStore.save(pod, getMessage().decoder().getId());
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				
+				// 2. Send the ACK message (NCEPH_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
+				try 
+				{
+					NetworkRecord networkRecord = new NetworkRecord.Builder().start(new Date()).build();
+					pod.setAckNetworkRecord(networkRecord);
+					// 2.1 Create NCEPH_EVENT_ACK message 
+					Message message = new AcknowledgeMessage.Builder()
+										.data(new Acknowledgement.Builder()
+												.readRecord(getMessage().getReadRecord())
+												.ackNetworkRecord(networkRecord)
+												.build())
+										.messageId(getMessage().getMessageId())
+										.type(CerebralOutgoingMessageType.NCEPH_EVENT_ACK.getMessageType())
+										.sourceId(getMessage().getSourceId())
+										.build();
+					
+					// 2.2 Enqueue NCEPH_EVENT_ACK for sending
+					getIncomingConnection().enqueueMessage(message);
+					getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
+				} catch (IOException e) 
+				{
+					// Log
+					NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+							.messageId(getMessage().decoder().getId())
+							.action("NCEPH_EVENT_ACK build failed")
+							.logError(),e);
+					// TODO: Undo the above POD updates (TBD - may be not required)
+				}
+				
+				// Begin RELAY
+				// Change the type of the message to RELAY_EVENT
+				getMessage().setType((byte)0x0B);
+				ConcurrentHashMap<Integer, ProofOfRelay> porHashMap = new ConcurrentHashMap<Integer, ProofOfRelay>();
+				pod.setPors(porHashMap);
+				
+				// 3. Get the subscriber connectors for this event
 				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventId());
+				pod.setSubscriberCount(subscribers.size());
 				
 				// 4. Loop over subscriber connectors
 				for (Connector connector : subscribers) 
 				{
-					// 4.1 Using connector's LB get the connection with least load
+					ProofOfRelay por = new ProofOfRelay.Builder()
+										.relayedOn(new Date())
+										.messageId(getMessage().decoder().getId())
+										.build();
+					porHashMap.put(connector.getPort(), por);
+					
+					// Save the POD
+					try {
+						DocumentStore.save(pod, getMessage().decoder().getId());
+					} catch (IOException e) {}
+
+						// 4.1 Using connector's LB get the connection with least load
 					Connection connection = connector.getConnection();
+					
 					// 4.2 If there are no active connections available in the connector
 					if (connection == null)
 					{
 						// enqueue the message on connectors queue instead of connections queue. When the connections come live these messages would be transferred to the connections queue during the accept phase. 
 						connector.enqueueMessage(getMessage());
-						// LOG:No connections found for writing. Message [id:xxx] added to the connector's queue [port: xxxx] 
-						System.out.println("No connections found for writing. Message [id: " + getMessage().decoder().getMessageId() + "] added to the connector's queue [port: " + connector.getPort() + "]");
 						// Move to next subscriber
 						continue;
 					}
-					System.out.println("Connector ["+connector.getPort() + "] - Connection [" + connection.getId() + "]");
 					// 4.3 add the event in the eventQueue (ConcurrentLinkedQueue) for transmission (Thread-safe)
 					connection.enqueueMessage(getMessage());
 					// 4.4 change its selectionKey interest set to write (Thread-safe). Also make sure to do selector.wakeup().
 					connection.setInterest(SelectionKey.OP_WRITE);
-					System.out.println("Writing Connection " + connection.getId() + ": " + getEvent().getEventId() + "-" + getEvent().getObjectJSON());
 				}
 			}
 			else
 			{
-				// duplicate message handling
-				// Send the ACK packet back to the sender notifying that the event has been accepted. 
+				// duplicate message handling - TBD
+				// If ACK_RECEIVED message is not received then send the NCEPH_EVENT_ACK_AGAIN
+				// If ACK_RECEIVED message is received then send DELETE_POD
 			}
 		} 
 		catch (EventNotSubscribedException e) //ConnectorCluster.getSubscribedConnectors 
 		{
-			e.printStackTrace();
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("EventNotSubscribedException")
+					.logError(),e);
 		} 
 		catch (ImproperConnectorInstantiationException e) // connector.getConnection();
 		{
-			e.printStackTrace();
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("ImproperConnectorInstantiationException")
+					.logError(),e);
 		}
 	}
 

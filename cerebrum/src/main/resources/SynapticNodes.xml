@@ -14,7 +14,7 @@
 			<keepAliveTime>60</keepAliveTime>
 		</writerPool>
 		<subscriptions>
-			<eventType>2000</eventType>
+			<eventType>1000</eventType>
 		</subscriptions>
 	</synapticNode>
 	<synapticNode>

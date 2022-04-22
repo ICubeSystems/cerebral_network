@@ -1,10 +1,14 @@
 package com.ics.synapse.affector;
 
+import java.io.IOException;
+
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.message.DocumentStore;
+import com.ics.nceph.core.document.DocumentStore;
+import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.ProofOfDelivery;
 
 /**
  * 
@@ -24,13 +28,23 @@ public class PublishedEventAffector extends Affector
 	public void process() 
 	{
 		// Load the POD for this message
-		ProofOfDelivery pod = DocumentStore.load(getMessage().decoder().getId());
+		ProofOfDelivery pod = (ProofOfDelivery)DocumentStore.load(getMessage().decoder().getId());
+		if (pod == null)
+		{
+			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("404 - POD not found")
+					.logInfo());
+			return;
+		}
 		// Set the WriteRecord in the POD
-		System.out.println("Write record::::::::" + getMessage().getWriteRecord().getStart() + " - " + getMessage().getWriteRecord().getEnd());
 		pod.setWriteRecord(getMessage().getWriteRecord());
 		// Save the POD
-		DocumentStore.save(pod, getMessage().decoder().getId());
-		
-		System.out.println("POD [name: " + getMessage().decoder().getId() + ".json] updated with WriteRecord");
+		try {
+			DocumentStore.save(pod, getMessage().decoder().getId());
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 }

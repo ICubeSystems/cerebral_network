@@ -33,7 +33,7 @@ public class CerebralReader extends Reader
 					.build();
 			
 			// 2. Process the message by calling the process of Receptor
-			receptor.process();
+			receptor.execute();
 		} 
 		catch (InvalidMessageTypeException e) {
 			e.printStackTrace();

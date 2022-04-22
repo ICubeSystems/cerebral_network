@@ -15,7 +15,7 @@ public class OutgoingMessageType extends MessageType
 	
 	public OutgoingMessageType(int type, Class<? extends Affector> affectorClass) 
 	{
-		super(type);
+		super(type, affectorClass.getSimpleName());
 		this.affectorClass = affectorClass;
 	}
 

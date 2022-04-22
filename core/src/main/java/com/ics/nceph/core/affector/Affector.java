@@ -2,8 +2,13 @@ package com.ics.nceph.core.affector;
 
 import java.lang.reflect.InvocationTargetException;
 
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.type.MessageType;
+import com.ics.nceph.core.worker.Writer;
 
 /**
  * This class is responsible for processing the outgoing message inside a writer (worker) thread after the message has been sent over the socket channel.
@@ -26,6 +31,21 @@ public abstract class Affector
 	 * @return void
 	 */
 	abstract public void process();
+	
+	public void execute()
+	{
+		// Log
+		NcephLogger.MESSAGE_LOGGER.info(
+				new MessageLog.Builder()
+				.messageId(getMessage().decoder().getId())
+				.action("RECEIVED")
+				.data(new LogData()
+						.entry("type", MessageType.getClassByType(getMessage().decoder().getType()))
+						.entry("dataBytes", String.valueOf(getMessage().decoder().getDataLength()))
+						.toString())
+				.logInfo());
+		process();
+	}
 	
 	public Affector(Message message, Connection incomingConnection)
 	{

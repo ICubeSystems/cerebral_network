@@ -5,9 +5,7 @@ import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.concurrent.PriorityBlockingQueue;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 
@@ -20,8 +18,6 @@ import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
  */
 public class ReactorCluster
 {
-	private static final Logger logger = LogManager.getLogger("nceph-core-logger");
-	
 	/**
 	 * Map of active/ running {@link Reactor} instances in the Encephelon server
 	 */
@@ -77,14 +73,14 @@ public class ReactorCluster
 	{
 		// 1. Check if the reactorLoadBalancer has been properly initialized
 		if (reactorLoadBalancer == null)
-			throw new ImproperReactorClusterInstantiationException(new Exception("ReactorCluster not initialized properly"), logger);  
+			throw new ImproperReactorClusterInstantiationException(new Exception("ReactorCluster not initialized properly"));  
 		
 		// 2. Poll reactorLoadBalancer to get the reactor with least number of active SelectionKeys (ReactorLoad.activeKeys)
 		ReactorLoad reactorLoad = reactorLoadBalancer.poll();
 		
 		// 3. If reactorLoadBalancer returns null reactorLoad then throw ReactorNotAvailableException
 		if (reactorLoad == null)
-			throw new ReactorNotAvailableException(new Exception("Reactor not available"), logger);
+			throw new ReactorNotAvailableException(new Exception("Reactor not available"));
 		
 		
 		// 4. Increment the activeKeys and totalKeysServed.
@@ -109,13 +105,15 @@ public class ReactorCluster
 	 */
 	public void run()
 	{
-		System.out.println("Running the reactors now");
+		NcephLogger.BOOTSTRAP_LOGGER.info("Running the reactors now");
+		
 		// 1. Loop over all the reactors
 		for (Entry<Integer, Reactor> reactorEntry : activeReactors.entrySet()) 
 		{
 			Reactor reactor = reactorEntry.getValue();
 			// 2. Start the reactor thread
 			reactor.start();
+			
 		}
 	}
 }

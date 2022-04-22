@@ -20,7 +20,7 @@ public abstract class EventReceptor extends Receptor
 		super(message, incomingConnection);
 		try 
 		{
-			event = (Event) message.decoder().getData();
+			event = (Event) message.decoder().getData(Event.class);
 		} catch (JsonProcessingException e) 
 		{
 			e.printStackTrace();

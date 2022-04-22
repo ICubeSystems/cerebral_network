@@ -2,8 +2,13 @@ package com.ics.nceph.core.receptor;
 
 import java.lang.reflect.InvocationTargetException;
 
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.type.MessageType;
+import com.ics.nceph.core.worker.Reader;
 
 /**
  * This class is responsible for processing the incoming message inside a reader (worker) thread. 
@@ -25,6 +30,21 @@ public abstract class Receptor
 	 * @return void
 	 */
 	abstract public void process();
+	
+	public void execute()
+	{
+		// Log
+		NcephLogger.MESSAGE_LOGGER.info(
+				new MessageLog.Builder()
+				.messageId(getMessage().decoder().getId())
+				.action("RECEIVED")
+				.data(new LogData()
+						.entry("type", MessageType.getClassByType(getMessage().decoder().getType()))
+						.entry("dataBytes", String.valueOf(getMessage().decoder().getDataLength()))
+						.toString())
+				.logInfo());
+		process();
+	}
 	
 	public Receptor(Message message, Connection incomingConnection)
 	{
