@@ -41,7 +41,7 @@ public class DeletePodReceptor extends PodReceptor
 		// 2. Set ThreeWayAckNetworkRecord and save to local storage. Save is only required in case the delete operation fails
 		pod.setThreeWayAckNetworkRecord(getPod().getThreeWayAckNetworkRecord());
 		try {
-			DocumentStore.save(pod, getMessage().decoder().getId());
+			DocumentStore.update(pod, getMessage().decoder().getId());
 		} catch (IOException e) {}
 		
 		// 3. Delete the POD from local storage

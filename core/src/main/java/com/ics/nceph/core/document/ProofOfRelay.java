@@ -50,6 +50,8 @@ import com.ics.nceph.core.message.NetworkRecord;
  */
 public class ProofOfRelay extends Document
 {
+	public static String DOC_PREFIX = "p";
+	
 	private String messageId;
 	
 	//Created on

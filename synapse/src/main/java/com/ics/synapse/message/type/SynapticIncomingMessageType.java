@@ -5,6 +5,9 @@ import com.ics.nceph.core.message.type.IncomingMessageType;
 import com.ics.nceph.core.receptor.Receptor;
 import com.ics.synapse.receptor.DeletePodReceptor;
 import com.ics.synapse.receptor.EventAcknowledgementReceptor;
+import com.ics.synapse.receptor.AuthErrorReceptor;
+import com.ics.synapse.receptor.AuthenticationReceptor;
+import com.ics.synapse.receptor.ReadyReceptor;
 import com.ics.synapse.receptor.RelayedEventReceptor;
 import com.ics.synapse.receptor.ThreeWayRelayEventAcknowledgementReceptor;
 import com.ics.util.ByteUtil;
@@ -23,6 +26,18 @@ public class SynapticIncomingMessageType extends IncomingMessageType
 	public static SynapticIncomingMessageType RELAY_EVENT = new SynapticIncomingMessageType(0x0B, RelayedEventReceptor.class);
 	
 	/**
+	 * This message type is used to Authenticate the network
+	 */
+	public static SynapticIncomingMessageType AUTHENTICATE = new SynapticIncomingMessageType(0x06, AuthenticationReceptor.class);
+	/**
+	 * This message type is used to Ready the network
+	 */
+	public static SynapticIncomingMessageType READY = new SynapticIncomingMessageType(0x07, ReadyReceptor.class);
+	/**
+	 * This message type is used to Error (AUTH_FAILED) the network
+	 */
+	public static SynapticIncomingMessageType ERROR = new SynapticIncomingMessageType(0x08, AuthErrorReceptor.class);
+	/**
 	 * This message type is used to recieve acknowledgement of publish event
 	 */
 	public static SynapticIncomingMessageType NCEPH_EVENT_ACK = new SynapticIncomingMessageType(0x09, EventAcknowledgementReceptor.class);
@@ -39,7 +54,7 @@ public class SynapticIncomingMessageType extends IncomingMessageType
 	/**
 	 * 
 	 */
-	public static SynapticIncomingMessageType[] types = new SynapticIncomingMessageType[] {RELAY_EVENT,NCEPH_EVENT_ACK,DELETE_POD,RELAY_ACK_RECEIVED};
+	public static SynapticIncomingMessageType[] types = new SynapticIncomingMessageType[] {RELAY_EVENT,NCEPH_EVENT_ACK,DELETE_POD,RELAY_ACK_RECEIVED, RELAY_EVENT, AUTHENTICATE, READY, ERROR};
 	
 	/**
 	 * Returns the MessageType instance by the type supplied

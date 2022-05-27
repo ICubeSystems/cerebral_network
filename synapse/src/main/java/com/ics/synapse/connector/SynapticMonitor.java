@@ -1,10 +1,11 @@
 package com.ics.synapse.connector;
 
 import java.io.IOException;
+import java.nio.channels.SelectionKey;
 import java.util.Map.Entry;
-
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.exception.AuthenticationFailedException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
@@ -30,21 +31,21 @@ public class SynapticMonitor extends ConnectorMonitorThread
 			// check if the connection has been idle (no read write operation) for more than connector's maxConnectionIdleTime
 			if(connection.getIdleTime() > connector.config.maxConnectionIdleTime)
 			{
-				
+
 				System.out.println("Connection ["+connection.getId() + "] IdleTime exceeded - Teardown Initiated");
 				// Check if there are active requests in the connection. If yes then defer the teardown else proceed to teardown
 				if(connection.getActiveRequests().get() <= 0)
 				{
 					try 
-    				{
+					{
 						// Initiate the teardown of connection
 						connection.teardown();
-    				}
+					}
 					catch (Exception e) 
-    				{
+					{
 						System.out.println("Connection ["+connection.getId() + "] IdleTime exceeded - Teardown Failed (stack trace below):");
-    					e.printStackTrace();
-    				}
+						e.printStackTrace();
+					}
 				}
 				// Ideally the below else block should never be executed if the connector's maxConnectionIdleTime & connection's relayTimeout settings are set properly
 				// Only logging such occurrence for now
@@ -64,16 +65,33 @@ public class SynapticMonitor extends ConnectorMonitorThread
 			try 
 			{
 				connector.connect();
-			} catch (IOException | ConnectionInitializationException | ConnectionException e) {
+			} catch (IOException | ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) {
 				e.printStackTrace();
 			}
 		}
-		
+
 		// 3. Check for PODs which are not deleted for more than a specified time
 		// Status - PUBLISHED: PUBLISH_EVENT message
 		// POD changes: writeRecord
 		// Status - NCEPH_RECEIVED: 
-		
+
 		// 4. Loop through the connectors relay queue and transfer to the connections queue
-    }
+		try {
+			if (connector.getRelayQueue().size() > 0)
+			{
+				int transferCount = 0;
+				Connection connection = connector.getConnection();
+				while(!connector.getRelayQueue().isEmpty()) 
+				{
+					connection.enqueueMessage(connection.getConnector().getRelayQueue().poll());
+					transferCount++;
+					if(transferCount > 100 || connector.getRelayQueue().isEmpty()) {
+						transferCount = 0;
+						connection.setInterest(SelectionKey.OP_WRITE);
+						connection = connector.getConnection();
+					}
+				}
+			}
+		} catch (Exception e) {}
+	}
 }

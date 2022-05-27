@@ -18,6 +18,7 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
+import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.MessageReader;
@@ -74,7 +75,7 @@ public class Connection implements Comparable<Connection>
 	boolean isClient;
 	
 	int plainTextBufferSize = NcephConstants.READER_BUFFER_SIZE;
-	
+
 	/**
 	 * Constructs a connection for cerebral connector
 	 * 
@@ -104,18 +105,25 @@ public class Connection implements Comparable<Connection>
 	 * @param receiveBufferSize
 	 * @param sendBufferSize
 	 * @param cerebralConnectorAddress
+	 * @throws ConnectionException 
 	 * @throws IOException
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws IOException, ConnectionInitializationException
+	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws ConnectionInitializationException, ConnectionException
 	{
-		// Get the SocketChannel 
-		this.socket = (SocketChannel)connector.obtainSocketChannel();
-		// Connect to the cerebral server
-		this.socket.connect(cerebralConnectorAddress);
+		// 1. Obtain IO channel & connect
+		try 
+		{
+			this.socket = (SocketChannel)connector.obtainSocketChannel();
+			// Connect to the cerebral server
+			this.socket.connect(cerebralConnectorAddress);
+		} catch (IOException e) {
+			// TODO throw connectionException
+			throw new ConnectionException("Connection with id:"+ id +" constructor failed: "+e.getMessage(), e);
+		}
 		this.relayTimeout = relayTimeout;
-		// Initialize connection
+		// 2. Initialize connection
 		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, true);
 	}
 	
@@ -146,7 +154,6 @@ public class Connection implements Comparable<Connection>
 			
 		} catch (Exception e) 
 		{
-			e.printStackTrace();
 			try 
 			{
 				teardown();
@@ -160,7 +167,7 @@ public class Connection implements Comparable<Connection>
 	protected void initializeConnection() throws IOException,SSLHandshakeException 
 	{
 		// TODO: Connection state is AUTH_PENDING when constructed - can only be used for event read and relay after the state changes to READY
-		state = ConnectionState.READY;
+		state = ConnectionState.AUTH_PENDING;
 		// If the handshake is successful then register a selector to socket channel with interestOps
 		key = getSocket().register(reactor.getSelector(), SelectionKey.OP_READ, this);
 		// Initialize the MessageReader & MessageWriter
@@ -254,10 +261,10 @@ public class Connection implements Comparable<Connection>
 	public void read() throws IOException 
 	{
 		boolean operationStatus = true;
-		
+
 		// 1. Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
 		engage();
-		
+
 		// 2. Invoke the MessageReader to read the message(s) from the underlying socket
 		try 
 		{
@@ -278,8 +285,10 @@ public class Connection implements Comparable<Connection>
 			else
 				operationStatus = false;
 		}
-		
+
 		// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
+
+
 		disengage(operationStatus, false);
 	}
 
@@ -292,22 +301,25 @@ public class Connection implements Comparable<Connection>
 	{
 		synchronized (getConnector().getConnectionLoadBalancer()) 
 		{
-			// Update the last used of the connection
-			setLastUsed(System.currentTimeMillis());
-						
-			// Remove the connection from LB to re-adjust the counters
-			removeFromLoadBalancer();
-			
-			// Decrement the activeRequests counter
-			getActiveRequests().decrementAndGet();
-			
-			// If read/ write was without any error/ exception then increment the totalSuccessfulRequestsServed counter
-			if (operationStatus)
-				getTotalSuccessfulRequestsServed().incrementAndGet();
-			
-			// Add the connection to the LB after counters are re-adjusted and if the write operation is not disabled on the connection due to relayTimeout
-			if (isReady() && !temporaryWriteDisabled)
-				addToLoadBalancer();
+			if(isReady())
+			{
+				// Update the last used of the connection
+				setLastUsed(System.currentTimeMillis());
+
+				// Remove the connection from LB to re-adjust the counters
+				removeFromLoadBalancer();
+
+				// Decrement the activeRequests counter
+				getActiveRequests().decrementAndGet();
+
+				// If read/ write was without any error/ exception then increment the totalSuccessfulRequestsServed counter
+				if (operationStatus)
+					getTotalSuccessfulRequestsServed().incrementAndGet();
+
+				// Add the connection to the LB after counters are re-adjusted and if the write operation is not disabled on the connection due to relayTimeout
+				if (isReady() && !temporaryWriteDisabled)
+					addToLoadBalancer();
+			}
 		}
 	}
 
@@ -319,21 +331,24 @@ public class Connection implements Comparable<Connection>
 	{
 		synchronized (getConnector().getConnectionLoadBalancer()) 
 		{
-			// Update the last used of the connection
-			setLastUsed(System.currentTimeMillis());
-			
-			// Remove the connection from LB to re-adjust the counters
-			removeFromLoadBalancer();
-			
-			// Increment the counters
-			getActiveRequests().incrementAndGet();
-			getTotalRequestsServed().incrementAndGet();
-			
-			// Add the connection to the LB after counters are re-adjusted 
-			addToLoadBalancer();
+			if(isReady())
+			{
+				// Update the last used of the connection
+				setLastUsed(System.currentTimeMillis());
+
+				// Remove the connection from LB to re-adjust the counters
+				removeFromLoadBalancer();
+
+				// Increment the counters
+				getActiveRequests().incrementAndGet();
+				getTotalRequestsServed().incrementAndGet();
+
+				// Add the connection to the LB after counters are re-adjusted 
+				addToLoadBalancer();
+			}
 		}
 	}
-	
+
 	/**
 	 * Write/ publish the events enqueued in the event queue of the connection to the socket channel
 	 * 
@@ -348,7 +363,7 @@ public class Connection implements Comparable<Connection>
 		{
 			// 2. Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
 			engage();
-			
+
 			// 3. Loop over the relayQueue till it is empty
 			try 
 			{
@@ -408,16 +423,16 @@ public class Connection implements Comparable<Connection>
 			{
 				//Create a new thread (RelayFailedMessageHandlingThread) which will re attempt the write in some time
 				new RelayFailedMessageHandlingThread.Builder()
-								.connection(this)
-								.waitBeforeWriteAgain(60000*5) // 5 Minutes wait before retrying the write operation
-								.build()
-								.start(); // Start the thread
+				.connection(this)
+				.waitBeforeWriteAgain(60000*5) // 5 Minutes wait before retrying the write operation
+				.build()
+				.start(); // Start the thread
 			}
-			
+
 			// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
 			disengage(operationStatus, writer.isReady() ? false : true);
 		}
-		
+
 		// 4. Set the connnection's socket channel interest to read
 		setInterest(SelectionKey.OP_READ);
 	}
@@ -574,6 +589,16 @@ public class Connection implements Comparable<Connection>
 		return plainTextBufferSize;
 	}
 
+	public ConnectionState getState()
+	{
+		return state;
+	}
+	
+	public void setState(ConnectionState state) 
+	{
+		this.state = state;
+	}
+
 	/**
 	 * 
 	 * @author Anurag Arya
@@ -638,7 +663,7 @@ public class Connection implements Comparable<Connection>
 		}
 		
 		
-		public Connection build() throws IOException, ConnectionInitializationException
+		public Connection build() throws IOException, ConnectionInitializationException, ConnectionException
 		{
 			if(NcephConstants.TLS_MODE) {
 				if (cerebralConnectorAddress != null)

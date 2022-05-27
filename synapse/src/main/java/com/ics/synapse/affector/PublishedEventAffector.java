@@ -41,10 +41,7 @@ public class PublishedEventAffector extends Affector
 		pod.setWriteRecord(getMessage().getWriteRecord());
 		// Save the POD
 		try {
-			DocumentStore.save(pod, getMessage().decoder().getId());
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+			DocumentStore.update(pod, getMessage().decoder().getId());
+		} catch (IOException e) {}
 	}
 }

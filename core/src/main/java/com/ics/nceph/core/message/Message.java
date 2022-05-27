@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.nceph.core.Configuration;
+import com.ics.nceph.core.message.data.MessageData;
 import com.ics.util.ByteUtil;
 
 /**
@@ -60,6 +61,7 @@ import com.ics.util.ByteUtil;
  *  		<li><b>0x04: RELAYED_EVENT_ACK</b> - Synaptic node acknowledges the receipt of the relayed event</li>
  *  		<li><b>0x05: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the NCEPH_EVENT_ACK message</li>
  *  		<li><b>0x0D: POR_DELETED</b> - Synaptic node sends a notification that relayv event acknowledged successfully and POR is deleted from snaptic side.</li>
+ *  		<li><b>0x07: READY_CONFIRM</b> - Synaptic node send READY_CONFIRM message to Cerebrum then cerebrum relay message to Synaptic node
  *  	</ul>
  *  	<b>Cerebral message incomingMessageType</b> - messages generated via cerebral node (consumed by synaptic nodes):
  *  	<ul>
@@ -68,7 +70,7 @@ import com.ics.util.ByteUtil;
  *  		<li><b>0x07: READY</b> - Indicates that the server is ready to receive & process events via this connection.  
  *  			This message will be sent by the server either after a successful CREDENTIALS message or a successful SUBSCRIBE message. 
  *  			The body of a READY message is empty</li>
- *  		<li><b>0x08: ERROR</b> - Indicates an error processing a request.  
+ *  		<li><b>0x08: AUTH_ERROR</b> - Indicates an error processing a request.  
  *  			The body of the message will be an error code ([int]) followed by a [string] error message. 
  *  			Then, depending on the exception, more content may follow.</li>
  *  		<li><b>0x09: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
@@ -141,7 +143,7 @@ public class Message
 		this.readRecord = readRecord;
 	}
 	
-
+	
 	/**
 	 * 
 	 * @param flags
@@ -177,7 +179,7 @@ public class Message
 		// Set the dataLength
 		dataLength = ByteUtil.convertToByteArray(data.length, dataLength.length);
 	}
-	
+
 	/**
 	 * This method merges all the messages components and returns a ByteBuffer object
 	 * 
@@ -209,7 +211,7 @@ public class Message
 		
 		return buffer;
 	}
-	
+
 	public Decoder decoder()
 	{
 		return (decoder == null) ? new Decoder() : decoder;
@@ -261,7 +263,7 @@ public class Message
 		if (this.writeRecord == null)
 			this.writeRecord = writeRecord;
 	}
-	
+
 	public void setType(byte type) {
 		this.type = type;
 	}
@@ -308,7 +310,7 @@ public class Message
 			ObjectMapper mapper = new ObjectMapper();
 			return mapper.readValue(json, dataHoldingClass);
 		}
-		
+
 		/**
 		 * This method returns the unique identifier of the message. It is constructed by concatenating sourceId/ nodeId & messageId. <br>
 		 * eg. 123-25415261426 (123 is the synaptic node id from where the message was originated. 25415261426 is the message counter of the originating synaptic node)

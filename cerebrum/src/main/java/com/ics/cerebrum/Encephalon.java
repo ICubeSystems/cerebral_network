@@ -18,14 +18,14 @@ import com.ics.nceph.core.document.ProofOfDelivery;
 
 @SpringBootApplication
 @ImportResource("classpath:nceph_context.xml")
-public class Encephelon implements CommandLineRunner
+public class Encephalon implements CommandLineRunner
 {
 	@Autowired
 	private Bootstraper bootstraper;
 	
 	public static void main(String[] args) 
 	{
-		SpringApplication nceph = new SpringApplication(Encephelon.class);
+		SpringApplication nceph = new SpringApplication(Encephalon.class);
 		nceph.setBannerMode(Banner.Mode.OFF);
 		// @todo - Create Banner for the project and set it here for logging - use the Banner class provided by Spring.
 		nceph.run(args);

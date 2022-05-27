@@ -47,3 +47,6 @@ message_folders_deletion.sh
 cerebrum/logs/spring-boot-logger-log4j2.log
 *.log
 message_folders_deletion2.sh
+
+.metadata/
+

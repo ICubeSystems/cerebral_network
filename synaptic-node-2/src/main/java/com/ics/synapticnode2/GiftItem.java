@@ -9,8 +9,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.nceph.core.event.Event;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
+import com.ics.synapse.ncephEvent.NcephEvent;
 
-public class GiftItem implements Serializable
+public class GiftItem implements Serializable, NcephEvent
 {
 	private static final long serialVersionUID = -3996054630188026396L;
 
@@ -59,9 +60,10 @@ public class GiftItem implements Serializable
 		return mapper.writeValueAsString(this);
 	}
 	
+	@Override
 	public Event toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
 	{
-		return new Event.Builder().eventId(2000).objectJSON(toJSON()).build();
+		return new Event.Builder().eventId(1000).objectJSON(toJSON()).build();
 	}
 	
 	public static class Builder

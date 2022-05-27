@@ -1,10 +1,8 @@
 package com.ics.nceph.core.message;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ics.nceph.core.message.data.MessageData;
 
 /**
  * @version 1.0
@@ -36,11 +34,7 @@ public class AcknowledgeMessage extends Message
 		
 		public Builder data(MessageData messageData) throws IOException 
 		{
-			ObjectMapper mapper = new ObjectMapper();
-			String eventJSON = mapper.writeValueAsString(messageData);
-			this.data = eventJSON.getBytes(StandardCharsets.UTF_8);
-			//this.data = event.toBytes();
-			//System.out.println("Event Object Length: " + data.length);
+			this.data = messageData.bytes();
 			return this;
 		}
 		

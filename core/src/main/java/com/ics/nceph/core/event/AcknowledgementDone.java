@@ -2,7 +2,7 @@ package com.ics.nceph.core.event;
 
 import java.io.Serializable;
 
-import com.ics.nceph.core.message.MessageData;
+import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.NetworkRecord;
 
 /**

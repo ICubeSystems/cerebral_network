@@ -28,7 +28,7 @@ public class RelayEventAcknowledgementAffector extends Affector
 	public void process() 
 	{
 		// Load the POR for this message
-		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load("p" + getMessage().decoder().getId());
+		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 		if (por == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
@@ -41,7 +41,7 @@ public class RelayEventAcknowledgementAffector extends Affector
 		por.setAckWriteRecord(getMessage().getWriteRecord());
 		// Save the POD
 		try {
-			DocumentStore.save(por, "p"+getMessage().decoder().getId());
+			DocumentStore.update(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 		} catch (IOException e) {}
 		
 	}

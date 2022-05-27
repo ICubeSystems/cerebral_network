@@ -6,12 +6,12 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.concurrent.ConcurrentHashMap;
-
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
+import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 
 /**
  * 
@@ -22,31 +22,31 @@ import com.ics.logger.NcephLogger;
 public class DocumentStore 
 {
 	private static ConcurrentHashMap<String, Document> cache;
-	
+
 	private static final ObjectMapper mapper = new ObjectMapper()
 			.enable(SerializationFeature.INDENT_OUTPUT)
 			.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm a z"))
 			.setSerializationInclusion(Include.NON_NULL);
 
-	
+
 	public static void initiate()
 	{
 		if (cache == null)
 			cache = new ConcurrentHashMap<String, Document>();
-		
+
 		// Monitor thread - 5 Mins
 	}
-	
-	
+
+
 	/**
-	 * Create a new ProofOfDelivery document or save the updates in the local document store
+	 * Create a new ProofOfDelivery / ProofOfAuthentication document or save the updates in the local document store
 	 * 
 	 * @param pod
 	 * @param docName
 	 * @return void
 	 */
 
-	public synchronized static void save(Document document, String docName) throws IOException
+	public synchronized static void save(Document document, String docName) throws DocumentSaveFailedException
 	{
 		try 
 		{
@@ -55,7 +55,6 @@ public class DocumentStore
 				// If the POD is not in cache, then add the new POD to the cache. This should be the case when the POD is being created for the very first time
 				if (!cache.containsKey(docName))
 					cache.put(docName, document);
-				
 				// Save the document to the local storage
 				mapper.writeValue(Paths.get(document.localMessageStoreLocation() + docName + ".json").toFile(), document);
 			} catch (FileNotFoundException fe) // In case the message directory is missing 
@@ -65,23 +64,44 @@ public class DocumentStore
 				// Save the document to the local storage
 				mapper.writeValue(Paths.get(document.localMessageStoreLocation() + docName + ".json").toFile(), document);
 			}
+			
+			// TODO String.join() throws java.util.ConcurrentModificationException 
 			NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 					.messageId(docName)
 					.action("POD saved")
 					.description(String.join(", ", document.changeLog))
 					.logInfo());
 			document.inSync();
-			
-		} catch (IOException e) {
 
-			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+		} catch (IOException e) {
+			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
 					.messageId(docName)
 					.action("POD write failed")
 					.description("Error while updating the POD")
 					.logError(),e);
-			throw e;
+			throw new DocumentSaveFailedException(docName+".json file write failed", e);
 		}
-		
+	}
+
+	public static void update(Document document, String docName) throws DocumentSaveFailedException 
+	{
+		File file = new File(document.localMessageStoreLocation() + docName + ".json");
+		if(file.exists()) 
+		{
+			try 
+			{
+				save(document, docName);
+				return;
+			} catch (DocumentSaveFailedException e) 
+			{
+				NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
+						.messageId(docName)
+						.action("Warning")
+						.description(docName + ".json not found")
+						.logError(),e);
+				throw new DocumentSaveFailedException(docName+".json file update failed", e);
+			}
+		}
 	}
 
 	/**
@@ -90,7 +110,7 @@ public class DocumentStore
 	 * @param docName
 	 * @return Document
 	 */
-	public synchronized static Document load(String docName)
+	public static Document load(String docName)
 	{
 		return cache.get(docName);
 	}
@@ -112,6 +132,7 @@ public class DocumentStore
 		File file = new File( document.localMessageStoreLocation() + docName + ".json");
 		if(file.delete()) 
 		{
+			cache.remove(docName, document);
 			System.out.println(docName + " deleted successfully");
 			//Log
 			NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
@@ -127,5 +148,6 @@ public class DocumentStore
 				.action("Error in delete")
 				.logError());
 		return false;
+
 	}
 }

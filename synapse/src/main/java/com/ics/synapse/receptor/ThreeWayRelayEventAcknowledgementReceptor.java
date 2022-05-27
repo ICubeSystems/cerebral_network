@@ -34,7 +34,7 @@ public class ThreeWayRelayEventAcknowledgementReceptor extends ThreeWayAcknowled
 	{
 		
 		// 1. Save the write record and three way acknowledgement record in the local datastore
-		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load("p"+getMessage().decoder().getId());
+		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 		if (por == null)
 		{
 			// TODO: Handle case a.
@@ -60,12 +60,12 @@ public class ThreeWayRelayEventAcknowledgementReceptor extends ThreeWayAcknowled
 		por.setThreeWayAckReadRecord(getMessage().getReadRecord());
 		// 2.5 Update the POD in the local storage
 		try {
-			DocumentStore.save(por, "p"+getMessage().decoder().getId());
+			DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 		} catch (IOException e) {}
 		
 		
 		// Delete the POR
-		if (!DocumentStore.delete("p"+getMessage().decoder().getId(),por))
+		if (!DocumentStore.delete(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId(),por))
 		{
 			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())

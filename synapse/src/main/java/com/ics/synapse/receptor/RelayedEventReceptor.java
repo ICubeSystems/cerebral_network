@@ -34,7 +34,7 @@ public class RelayedEventReceptor extends EventReceptor
 	{
 		// 1. Save the event received in the local datastore
 		// 1.1 Check if message has already been received
-		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load("p" + getMessage().decoder().getId());
+		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 		if (por == null) // If the ProofOfRelay for the received message is not in the local storage then create a new ProofOfRelay object for this message
 		{
 			// Build ProofOfRelay object for this message
@@ -48,13 +48,12 @@ public class RelayedEventReceptor extends EventReceptor
 			
 			// Save the POD in local storage
 			try {
-				DocumentStore.save(por, "p" + getMessage().decoder().getId());
+				DocumentStore.save(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 			} catch (IOException e1) {}
 		
 			// 2. Send the ACK message (RELAYED_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
 			try 
 			{
-				
 				NetworkRecord networkRecord = new NetworkRecord.Builder().start(new Date()).build();
 				por.setAckNetworkRecord(networkRecord);
 				// 2.1 Create NCEPH_EVENT_ACK message 

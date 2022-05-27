@@ -41,7 +41,7 @@ public class EventAcknowledgementAffector extends Affector
 		pod.setAckWriteRecord(getMessage().getWriteRecord());
 		// Save the POD
 		try {
-			DocumentStore.save(pod, getMessage().decoder().getId());
+			DocumentStore.update(pod, getMessage().decoder().getId());
 		} catch (IOException e) {}
 		// In case POD is not loaded from the cache
 	}

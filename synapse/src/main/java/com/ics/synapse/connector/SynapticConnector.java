@@ -2,16 +2,27 @@ package com.ics.synapse.connector;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
-
+import java.util.Date;
 import javax.net.ssl.SSLContext;
-
+import com.ics.logger.ConnectionLog;
+import com.ics.logger.LogData;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.exception.AuthenticationFailedException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
+import com.ics.nceph.core.document.DocumentStore;
+import com.ics.nceph.core.document.ProofOfAuthentication;
+import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.NetworkRecord;
+import com.ics.nceph.core.message.StartupMessage;
+import com.ics.nceph.core.message.data.StartupData;
+import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.nceph.core.worker.Reader;
@@ -30,28 +41,39 @@ import com.ics.synapse.worker.SynapticWriter;
 public class SynapticConnector extends Connector
 {
 	Configuration config;
-	
-	private String cerebrumHostPath;
-	
+
+	private String cerebrumHostPath; 
+
 	SynapticConnector(String hostPath, Integer port, String name, WorkerPool<Reader> readerPool, WorkerPool<Writer> writerPool, SSLContext sslContext) 
 	{
 		super(port, name, readerPool, writerPool, sslContext);
 		this.cerebrumHostPath = hostPath;
 	}
-	
+
 	@Override
 	public AbstractSelectableChannel obtainSocketChannel() throws IOException 
 	{
 		return SocketChannel.open();
 	}
-	
-	private void start() throws IOException, ConnectionInitializationException, ConnectionException
+
+	private void start() 
 	{
-		// Create live connections/ sockets as per the set minConnections
+		// 1. Create live connections/ sockets as per the set minConnections
 		for (int i = 0; i < config.minConnections; i++)
-			connect();
+		{
+			// 2. Handle IOException and proceed further
+			try {
+				connect();
+			} catch (IOException | ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) 
+			{
+				// 3. Log
+				NcephLogger.CONNECTION_LOGGER.fatal(new ConnectionLog.Builder()
+						.action("Connection failed")
+						.logError(),e);
+			}
+		}
 	}
-	
+
 	/**
 	 * This method connects the SYNAPTIC node to the CEREBRAL node. 
 	 * 
@@ -60,11 +82,13 @@ public class SynapticConnector extends Connector
 	 * @throws ReactorNotAvailableException
 	 * @throws ConnectionException 
 	 * @return void
+	 * @throws AuthenticationFailedException 
 	 */
-	public void connect() throws IOException, ConnectionInitializationException, ConnectionException
+	public void connect() throws IOException, ConnectionInitializationException, ConnectionException, AuthenticationFailedException
 	{
 		if (getActiveConnections().size() >= config.maxConnections)
 			throw new ConnectionException(new Exception("Maximum number of connections reached - " + config.maxConnections));
+		//TODO if connection build failed update connector's TotalConnectionsServed
 		// 1. Increment the totalConnectionsServed by 1
 		setTotalConnectionsServed(getTotalConnectionsServed() + 1);
 		
@@ -74,15 +98,72 @@ public class SynapticConnector extends Connector
 				.connector(this)
 				.cerebralConnectorAddress(new InetSocketAddress(cerebrumHostPath, getPort())) // Connection is for SYNAPTIC connector, hence the address and port number of the CEREBRAL connector
 				.build();
-		// TODO - Pick the cerebral hoststring and port number from the configuration local to the installed synapse
-		
-		// 3. Add the connection object to load balancer for read/ write allocations
-		connection.addToLoadBalancer();
-		getActiveConnections().put(connection.getId(), connection);
-		
+		// Log
+		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+				.connectionId(String.valueOf(connection.getId()))
+				.action("initialize connection")
+				.data(new LogData()
+						.entry("state", String.valueOf(connection.getState().getValue()))
+						.entry("Port", String.valueOf(connection.getConnector().getPort()))
+						.toString())
+				.logInfo());
+
+		// 3. Call initiateAuthentication method to initiate authenticate connection state
+		try {
+			initiateAuthentication(connection);
+		} catch (DocumentSaveFailedException | MessageBuildFailedException e) {
+			// log
+			NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
+					.connectionId(String.valueOf(connection.getId()))
+					.action("requesting teardown")
+					.data(new LogData()
+							.entry("Reason ", e.getMessage())
+							.toString())
+					.logInfo());
+			// Connection teardown
+			connection.teardown();
+			throw new AuthenticationFailedException("Connection authentioction failed exception", e);
+		}
 
 	}
 	
+	/**
+	 * 
+	 * This method authenticate the connection
+	 * Send Startup message to cerebrum
+	 * @throws MessageBuildFailedException 
+	 * @throws DocumentSaveFailedException 
+	 */
+	public void initiateAuthentication(Connection connection) throws MessageBuildFailedException, DocumentSaveFailedException
+	{
+		// 1. Create the STARTUP event 
+		StartupData startupData = new StartupData.Builder()
+				.startupNetworkRecord(new Date())// TODO: (to be removed by Anshul after my checkin) //startup network record with just the start
+				.build();
+		
+		// 2. Create the STARTUP message 
+		Message startupMessage = new StartupMessage.Builder().data(startupData).build();
+		
+		// 3. Create a ProofOfAuthentication object and save it to the local DocumentStore.
+		ProofOfAuthentication poa = new ProofOfAuthentication.Builder()
+				.messageId(startupMessage.decoder().getId()) // 3.1 Set message Id
+				.createdOn(startupData.getCreatedOn()) // 3.2 Set createdOn
+				.build();
+		// 3.3 Set STARTUP network record 
+		// TODO: (to be removed by Anshul after my checkin)
+		poa.setStartupNetworkRecord(new NetworkRecord.Builder()
+				.start(startupData.getStartupNetworkRecord())
+				.build());
+		// 3.4 Save the POA in the local DocumentStore
+		DocumentStore.save(poa, ProofOfAuthentication.DOC_PREFIX + startupMessage.decoder().getId());
+		
+		// 4. Enqueue the message on the connection to be sent to the Cerebrum
+		connection.enqueueMessage(startupMessage);
+		// 4.1 Set the interest of the connection to write
+		connection.setInterest(SelectionKey.OP_WRITE);
+		
+	}
+
 	@Override
 	public void acceptConnection() throws IOException, ConnectionInitializationException
 	{
@@ -94,13 +175,13 @@ public class SynapticConnector extends Connector
 	{
 		getReaderPool().execute(new SynapticReader(incomingConnection, message));
 	}
-	
+
 	@Override
 	public void createPostWriteWorker(Message message, Connection incomingConnection) 
 	{
 		getWriterPool().execute(new SynapticWriter(incomingConnection, message));
 	}
-	
+
 	public Configuration getConfig() {
 		return config;
 	}
@@ -108,7 +189,7 @@ public class SynapticConnector extends Connector
 	private void setConfig(Configuration config) {
 		this.config = config;
 	}
-	
+
 	/**
 	 * 
 	 * @author Anurag Arya
@@ -122,36 +203,36 @@ public class SynapticConnector extends Connector
 		 * Port number of the cerebral connector
 		 */
 		private Integer port = null;
-		
+
 		/**
 		 * Maximum number of sockets allowed in the pool
 		 */
 		private Integer maxConnections = 50;
-		
+
 		/**
 		 * Number of sockets to start at the pool creation time
 		 */
 		private Integer minConnections = 5;
-		
+
 		/**
 		 * Maximum number of active allocation after which a new socket is opened till maxPoolSize is reached.
 		 */
 		private Integer maxConcurrentRequest = 100;
-		
+
 		/**
 		 * Maximum idle time of the socket after which it will be closed
 		 */
 		private int maxConnectionIdleTime = 510000; //8.5 mins
-		
+
 		private SSLContext sslContext;
-		
+
 		private String name;
-		
+
 		private WorkerPool<Reader> readerPool;
-		
+
 		private WorkerPool<Writer> writerPool;
-		
-		
+
+
 		/**
 		 * Not required if building a SYNAPTIC connector. Port number of the server socket within the connector
 		 * 
@@ -162,7 +243,7 @@ public class SynapticConnector extends Connector
 			this.port = port;
 			return this;
 		}
-		
+
 		/**
 		 * Name of the connector
 		 * 
@@ -173,7 +254,7 @@ public class SynapticConnector extends Connector
 			this.name = name;
 			return this;
 		}
-		
+
 		/**
 		 * Name of the connector
 		 * 
@@ -184,7 +265,7 @@ public class SynapticConnector extends Connector
 			this.hostPath = hostPath;
 			return this;
 		}
-		
+
 		/**
 		 * Pool of reader worker threads
 		 * 
@@ -195,7 +276,7 @@ public class SynapticConnector extends Connector
 			this.readerPool = readerPool;
 			return this;
 		}
-		
+
 		/**
 		 * Pool of writer worker threads
 		 * 
@@ -206,7 +287,7 @@ public class SynapticConnector extends Connector
 			this.writerPool = writerPool;
 			return this;
 		}
-		
+
 		/**
 		 * Set SSLContext 
 		 * 
@@ -217,27 +298,27 @@ public class SynapticConnector extends Connector
 			this.sslContext = sslContext;
 			return this;
 		}
-		
+
 		public Builder maxConnections(Integer maxConnections) {
 			this.maxConnections = maxConnections;
 			return this;
 		}
-		
+
 		public Builder minConnections(Integer minConnections) {
 			this.minConnections = minConnections;
 			return this;
 		}
-		
+
 		public Builder maxConcurrentRequest(Integer maxConcurrentRequest) {
 			this.maxConcurrentRequest = maxConcurrentRequest;
 			return this;
 		}
-		
+
 		public Builder maxConnectionIdleTime(Integer maxConnectionIdleTime) {
 			this.maxConnectionIdleTime = maxConnectionIdleTime;
 			return this;
 		}
-		
+
 		/**
 		 * Builds the {@link Connector} instance
 		 * 
@@ -258,24 +339,20 @@ public class SynapticConnector extends Connector
 					writerPool,
 					sslContext
 					);
+			
 			// 2. Set the configurations for the connector
 			connnector.setConfig(connnector.new Configuration(
 					maxConnections, 
 					minConnections, 
 					maxConcurrentRequest, 
 					maxConnectionIdleTime));
+			
 			// 3. Start the connector
-			try 
-			{
-				connnector.start();
-			} 
-			catch (IOException | ConnectionInitializationException | ConnectionException e) 
-			{
-				System.out.println("ERROR: Problem in connecting to cerebral connector. Stack trace:");
-				e.printStackTrace();
-			}
+			connnector.start();
+			
 			// 4. Initialize the monitor thread
 			connnector.initializeMonitor(new SynapticMonitor(), 60, 60);
+
 			// 5. Return the connector
 			return connnector;
 		}
@@ -293,23 +370,23 @@ public class SynapticConnector extends Connector
 		 * Maximum number of sockets allowed in the pool
 		 */
 		Integer maxConnections;
-		
+
 		/**
 		 * Number of sockets to start at the pool creation time
 		 */
 		Integer minConnections;
-		
+
 		/**
 		 * Maximum number of active allocation after which a new socket is opened till maxPoolSize is reached.
 		 */
 		Integer maxConcurrentRequest;
-		
+
 		/**
 		 * Maximum idle time of the socket after which it will be closed
 		 */
 		Integer maxConnectionIdleTime; //8.5 mins
-		
-		
+
+
 		public Configuration(Integer maxConnections, Integer minConnections, Integer maxConcurrentRequest, Integer maxConnectionIdleTime) 
 		{
 			this.maxConnections = maxConnections;

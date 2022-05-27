@@ -82,7 +82,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 		por.setThreeWayAckNetworkRecord(threeWayAckNetworkRecord);	
 		// 2.6 Update the POR in the local storage
 		try {
-			DocumentStore.save(pod, getMessage().decoder().getId());
+			DocumentStore.update(pod, getMessage().decoder().getId());
 		} catch (IOException e1) {}
 		
 		try 

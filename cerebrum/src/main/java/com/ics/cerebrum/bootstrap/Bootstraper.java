@@ -53,6 +53,9 @@ public class Bootstraper
 	{
 		NcephLogger.BOOTSTRAP_LOGGER.info("# Connectors: " + ConnectorCluster.activeConnectors.size());
 		NcephLogger.BOOTSTRAP_LOGGER.info("# Reactors: " + ReactorCluster.activeReactors.size());
+		DocumentStore.initiate();
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + CerebralIncomingMessageType.types.length + " incoming message types");
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + CerebralOutgoingMessageType.types.length + " outgoing message types");
 		
 		// 3. Loop over connectorCluster and register selector
 		for (Entry<Integer, Connector> entry : ConnectorCluster.activeConnectors.entrySet())
@@ -60,10 +63,8 @@ public class Bootstraper
 			CerebralConnector connector = (CerebralConnector)entry.getValue();
 			connector.assignReactor(ReactorCluster.getReactor());
 		}
-		DocumentStore.initiate();
 		
-		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + CerebralIncomingMessageType.types.length + " incoming message types");
-		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + CerebralOutgoingMessageType.types.length + " outgoing message types");
+		
 		
 		// 4. Run the reactors
 		reactorCluster.run();

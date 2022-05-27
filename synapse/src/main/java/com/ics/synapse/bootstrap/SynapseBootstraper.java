@@ -59,6 +59,10 @@ public class SynapseBootstraper
 	
 	public void boot() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, ConnectionException, ImproperConnectorInstantiationException, SSLContextInitializationException
 	{
+		DocumentStore.initiate();
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticIncomingMessageType.types.length + " incoming message types");
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticOutgoingMessageType.types.length + " outgoing message types");
+		
 		// 1. Create a synaptic connector
 		SynapticConnector connector = new SynapticConnector.Builder()
 				.name(connectorName) 
@@ -84,10 +88,8 @@ public class SynapseBootstraper
 		
 		// 2. Instantiate the singleton Emitter object
 		Emitter.initiate(connector);
-		DocumentStore.initiate();
 		
-		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticIncomingMessageType.types.length + " incoming message types");
-		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticOutgoingMessageType.types.length + " outgoing message types");
+		
 		
 		// 3. Run the reactors
 		reactorCluster.run();

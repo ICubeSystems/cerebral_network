@@ -60,10 +60,7 @@ public class PublishedEventReceptor extends EventReceptor
 				// Save the POD in local storage
 				try {
 					DocumentStore.save(pod, getMessage().decoder().getId());
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
-				}
+				} catch (IOException e1) {}
 				
 				// 2. Send the ACK message (NCEPH_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
 				try 

@@ -44,7 +44,7 @@ public class PorDeletedReceptor extends PodReceptor
 		por.setThreeWayAckNetworkRecord(getPod().getThreeWayAckNetworkRecord());
 		
 		try {
-			DocumentStore.save(pod, getMessage().decoder().getId());
+			DocumentStore.update(pod, getMessage().decoder().getId());
 		} catch (IOException e) {}
 	}
 }

@@ -5,10 +5,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Date;
-
-import com.ics.nceph.core.message.MessageData;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
+import com.ics.nceph.core.message.data.MessageData;
 
 /**
  * 
@@ -86,7 +83,7 @@ public class Event extends MessageData implements Serializable
 			return this;
 		}
 		
-		public Event build() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+		public Event build()
 		{
 			return new Event(eventId, objectJSON);
 		}

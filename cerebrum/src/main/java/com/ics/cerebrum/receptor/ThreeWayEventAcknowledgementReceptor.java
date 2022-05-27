@@ -62,7 +62,7 @@ public class ThreeWayEventAcknowledgementReceptor extends ThreeWayAcknowledgemen
 		pod.setAckNetworkRecord(getThreeWayAcknowledgement().getAckNetworkRecord());
 		// 2.5 Update the POD in the local storage
 		try {
-			DocumentStore.save(pod, getMessage().decoder().getId());
+			DocumentStore.update(pod, getMessage().decoder().getId());
 		} catch (IOException e1) {}
 		
 		try 

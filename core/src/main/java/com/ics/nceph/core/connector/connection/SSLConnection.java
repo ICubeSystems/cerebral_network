@@ -15,6 +15,7 @@ import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
 import com.ics.nceph.core.connector.Connector;
+import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -97,10 +98,11 @@ public class SSLConnection extends Connection
 	 * @param sendBufferSize
 	 * @param cerebralConnectorAddress
 	 * @throws IOException
+	 * @throws ConnectionException 
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-    SSLConnection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws IOException, ConnectionInitializationException
+    SSLConnection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws IOException, ConnectionInitializationException, ConnectionException
 	{
 		super(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
 	}

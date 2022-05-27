@@ -8,9 +8,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
-
 import javax.net.ssl.SSLContext;
-
 import com.ics.cerebrum.worker.CerebralReader;
 import com.ics.cerebrum.worker.CerebralWriter;
 import com.ics.logger.BootstraperLog;
@@ -19,6 +17,7 @@ import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.Reactor;
@@ -104,29 +103,24 @@ public class CerebralConnector extends Connector
 		// 1. Increment the totalConnectionsServed by 1
 		setTotalConnectionsServed(getTotalConnectionsServed()+1);
 		// 2. Create a new connection builder object
-		Connection connection = new Connection.Builder()
-				.id(getTotalConnectionsServed())
-				.connector(this)
-				.build();
-		
-		// 3. Add the connection object to load balancer for read/ write allocations
-		getConnectionLoadBalancer().add(connection);
-		getActiveConnections().put(connection.getId(), connection);
-		
-		// 4. If there are outgoing messages in the buffer then transfer them to the connections relayQueue
-		if (getRelayQueue().size() > 0)
+		try 
 		{
+			Connection connection = new Connection.Builder()
+					.id(getTotalConnectionsServed())
+					.connector(this)
+					.build();
+			
 			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
-										 .connectionId(String.valueOf(connection.getId()))
-										 .action("Enqueueing")
-										 .data(new LogData()
-												 .entry("Relay size", String.valueOf(getRelayQueue().size()))
-												 .toString())
-										 .description("messages from the outgoing buffer (relayQueue) to connection's relayQueue")
-										 .logInfo());
-			while(!getRelayQueue().isEmpty())
-				connection.enqueueMessage(getRelayQueue().poll());
-			connection.setInterest(SelectionKey.OP_WRITE);
+					.connectionId(String.valueOf(connection.getId()))
+					.action("initialise connection")
+					.data(new LogData()
+							.entry("state", String.valueOf(connection.getState().getValue()))
+							.entry("Port", String.valueOf(connection.getConnector().getPort()))
+							.toString())
+					.logInfo());
+			
+		} catch (ConnectionException e) {
+			e.printStackTrace();
 		}
 	}
 	
