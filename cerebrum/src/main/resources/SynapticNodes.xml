@@ -15,6 +15,8 @@
 		</writerPool>
 		<subscriptions>
 			<eventType>1000</eventType>
+			<eventType>4000</eventType>
+			<eventType>5000</eventType>
 		</subscriptions>
 	</synapticNode>
 	<synapticNode>
@@ -33,6 +35,7 @@
 		<subscriptions>
 			<eventType>1000</eventType>
 			<eventType>2000</eventType>
+			<eventType>3000</eventType>
 		</subscriptions>
 	</synapticNode>
 </synapticNodes>

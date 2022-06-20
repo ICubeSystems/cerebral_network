@@ -2,8 +2,8 @@ package com.ics.nceph.core.receptor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.event.ThreeWayAcknowledgement;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.data.ThreeWayAcknowledgementData;
 
 /**
  * 
@@ -12,21 +12,21 @@ import com.ics.nceph.core.message.Message;
  */
 public abstract class ThreeWayAcknowledgementReceptor extends Receptor 
 {
-	private ThreeWayAcknowledgement threeWayAck;
+	private ThreeWayAcknowledgementData threeWayAck;
 	
 	public ThreeWayAcknowledgementReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 		try 
 		{
-			threeWayAck = (ThreeWayAcknowledgement) message.decoder().getData(ThreeWayAcknowledgement.class);
+			threeWayAck = (ThreeWayAcknowledgementData) message.decoder().getData(ThreeWayAcknowledgementData.class);
 		} catch (JsonProcessingException e) 
 		{
 			e.printStackTrace();
 		}
 	}
 
-	public ThreeWayAcknowledgement getThreeWayAcknowledgement() {
+	public ThreeWayAcknowledgementData getThreeWayAcknowledgement() {
 		return threeWayAck;
 	}
 }

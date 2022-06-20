@@ -40,7 +40,7 @@ public abstract class Affector
 				.messageId(getMessage().decoder().getId())
 				.action("RECEIVED")
 				.data(new LogData()
-						.entry("type", MessageType.getClassByType(getMessage().decoder().getType()))
+						.entry("messageType", MessageType.getNameByType(getMessage().decoder().getType()))
 						.entry("dataBytes", String.valueOf(getMessage().decoder().getDataLength()))
 						.toString())
 				.logInfo());

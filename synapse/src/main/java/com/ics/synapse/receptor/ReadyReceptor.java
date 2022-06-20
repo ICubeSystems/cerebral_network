@@ -2,20 +2,20 @@ package com.ics.synapse.receptor;
 
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.util.Date;
+
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.ConnectionState;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AuthenticationMessage;
 import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.data.ReadyConfirmedData;
 import com.ics.nceph.core.message.data.ReadyData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
@@ -57,7 +57,7 @@ public class ReadyReceptor extends Receptor
 					.logInfo());
 			return;
 		}
-		try {		
+		try {
 			// 2.1 Set CREDENTIALS network record
 			poa.setCredentialsNetworkRecord(readyData.getCredentialsNetworkRecord());
 			// 2.2 Set READY read record
@@ -67,12 +67,9 @@ public class ReadyReceptor extends Receptor
 			// 2.4 Set AUTHENTICATION write record
 			poa.setAuthenticationWriteRecord(readyData.getAuthenticationWriteRecord());
 			// 2.5 Set READY network record
-			poa.setReadyNetworkRecord(new NetworkRecord.Builder().start(readyData.getReadyNetworkRecord()).end(new Date()).build());
+			poa.setReadyNetworkRecord(buildNetworkRecord());
 			// 2.6 Set connection state
-			poa.setConnectionMessageState(PoaState.READY);
-			// TODO: (to be removed by Anshul after my checkin)
-			// 2.8 Set READYCONFIRMED NetworkRecord
-			poa.setReadyConfirmedNetworkRecord(new NetworkRecord.Builder().start(new Date()).build());
+			poa.setPoaState(PoaState.READY);
 			// 2.7 Update the POA in the local DocumentStore
 			DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
 			
@@ -102,11 +99,10 @@ public class ReadyReceptor extends Receptor
 							.credentialsWriteRecord(poa.getCredentialsWriteRecord()) // 5.1 Set CREDENTIALS write record
 							.readyReadRecord(getMessage().getReadRecord()) // 5.2 Set READY read record
 							.readyNetworkRecord(poa.getReadyNetworkRecord()) // 5.3 Set READY network record
-							.readyConfirmedNetwork(poa.getReadyNetworkRecord().getStart()) // 5.4 Set delete POA time
 							.build()) // 4.4 Set READY event data
 					.build();
 			// 4.5 Enqueue the message on the connection to be sent to the cerebrum
-			getIncomingConnection().enqueueMessage(readyConfirmMessage);
+			getIncomingConnection().enqueueMessage(readyConfirmMessage, QueuingContext.QUEUED_FROM_RECEPTOR);
 			// 4.6 Change the interest of the connection to write
 			getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 		}catch(DocumentSaveFailedException | MessageBuildFailedException e) 

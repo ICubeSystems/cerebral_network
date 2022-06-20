@@ -12,7 +12,12 @@ import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.message.Message;
 /**
- * 
+ * This class executes within a write worker thread after the channel write operation is done (after sending ERROR message).<br>
+ * Updates following POA attributes:
+ * <ol>
+ * 	<li> <b>state:</b> set to AUTH_ERROR only if it is not yet AUTH_ERROR.</li>
+ *  <li> <b>AuthenticationErrorWriteRecord:</b> Time taken (IORecord) to write the ERROR message on the channel </li>
+ * </ol> 
  * @author Chandan Verma
  * @version 1.0
  * @since 09-Apr-2022
@@ -37,16 +42,17 @@ public class AuthErrorAffector extends Affector
 					.logInfo());
 			return;
 		}
-		if(poa.getConnectionMessageState().getState() < PoaState.AUTH_ERROR.getState()) 
+		if(poa.getPoaState().getState() < PoaState.AUTH_ERROR.getState()) 
 		{
 			// 1.1 Set delete POA time
-			poa.setDeletePoaTime(new Date());
+			poa.setDeletePoaTime(new Date().getTime());
 			// 1.2 Set AUTH_ERROR write record
 			poa.setAuthenticationErrorWriteRecord(getMessage().getWriteRecord());
 			// 1.3 Set connection state
-			poa.setConnectionMessageState(PoaState.AUTH_ERROR);
+			poa.setPoaState(PoaState.AUTH_ERROR);
 			// 1.4 Update the POA in the local DocumentStore
-			try {
+			try 
+			{
 				DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
 				// Log
 				NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()

@@ -1,7 +1,5 @@
 package com.ics.nceph.core.message;
 
-import java.util.Date;
-
 /**
  * This class records the time taken in the IO operation involved like:
  * 1. Reading a message from the socket channel
@@ -15,7 +13,7 @@ public class IORecord extends TimeRecord
 {
 	IORecord() {super();}
 	
-	private IORecord(Date start, Date end) 
+	private IORecord(long start, long end) 
 	{
 		super(start, end);
 	}
@@ -28,17 +26,17 @@ public class IORecord extends TimeRecord
 	 */
 	public static class Builder
 	{
-		private Date start;
+		private long start;
 		
-		private Date end;
+		private long end;
 		
-		public Builder start(Date start)
+		public Builder start(long start)
 		{
 			this.start = start;
 			return this;
 		}
 		
-		public Builder end(Date end)
+		public Builder end(long end)
 		{
 			this.end = end;
 			return this;

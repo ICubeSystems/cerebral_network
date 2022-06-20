@@ -2,7 +2,7 @@ package com.ics.nceph.core.receptor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.event.Event;
+import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -13,21 +13,21 @@ import com.ics.nceph.core.message.Message;
  */
 public abstract class EventReceptor extends Receptor 
 {
-	private Event event;
+	private EventData event;
 	
 	public EventReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 		try 
 		{
-			event = (Event) message.decoder().getData(Event.class);
+			event = (EventData) message.decoder().getData(EventData.class);
 		} catch (JsonProcessingException e) 
 		{
 			e.printStackTrace();
 		}
 	}
 	
-	public Event getEvent() {
+	public EventData getEvent() {
 		return event;
 	}
 }

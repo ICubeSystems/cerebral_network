@@ -10,7 +10,12 @@ import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
 /**
- * 
+ * This class executes within a write worker thread after the channel write operation is done (after sending READY message).<br>
+ * Updates following POA attributes:
+ * <ol>
+ * 	<li> <b>state:</b> set to READY only if it is not yet READY.</li>
+ *  <li> <b>ReadyWriteRecord:</b> Time taken (IORecord) to write the READY message on the channel </li>
+ * </ol>
  * @author Chandan Verma
  * @version 1.0
  * @since 08-Apr-2022
@@ -35,12 +40,12 @@ public class ReadyAffector extends Affector
 					.logInfo());
 			return;
 		}
-		if(poa.getConnectionMessageState().getState() < PoaState.READY.getState()) 
+		if(poa.getPoaState().getState() < PoaState.READY.getState()) 
 		{
 			// 1.1 Set READY write record
 			poa.setReadyWriteRecord(getMessage().getWriteRecord());
 			// 1.2 Set connection state
-			poa.setConnectionMessageState(PoaState.READY);
+			poa.setPoaState(PoaState.READY);
 			// 2. Update the POA in the local DocumentStore
 			try {
 				DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());

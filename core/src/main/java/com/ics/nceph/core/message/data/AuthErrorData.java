@@ -1,7 +1,7 @@
 package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
-import java.util.Date;
+
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 /**
@@ -16,7 +16,7 @@ public class AuthErrorData extends MessageData implements Serializable
 
 	private NetworkRecord credentialsNetworkRecord;
 
-	private Date authenticationErrorNetworkRecord;
+	private long authenticationErrorNetworkRecord;
 
 	private IORecord credentialsReadRecord;
 
@@ -24,7 +24,7 @@ public class AuthErrorData extends MessageData implements Serializable
 
 	public AuthErrorData() {}
 
-	public AuthErrorData(NetworkRecord credentialsNetworkRecord, Date authenticationErrorNetworkRecord, IORecord credentialsReadRecord, IORecord authenticationWriteRecord) 
+	public AuthErrorData(NetworkRecord credentialsNetworkRecord, long authenticationErrorNetworkRecord, IORecord credentialsReadRecord, IORecord authenticationWriteRecord) 
 	{
 		this.credentialsNetworkRecord = credentialsNetworkRecord;
 		this.authenticationErrorNetworkRecord = authenticationErrorNetworkRecord;
@@ -37,7 +37,7 @@ public class AuthErrorData extends MessageData implements Serializable
 		return credentialsNetworkRecord;
 	}
 
-	public Date getAuthenticationErrorNetworkRecord() 
+	public long getAuthenticationErrorNetworkRecord() 
 	{
 		return authenticationErrorNetworkRecord;
 	}
@@ -60,7 +60,7 @@ public class AuthErrorData extends MessageData implements Serializable
 
 		private IORecord authenticationWriteRecord;
 
-		private Date authenticationErrorNetworkRecord;
+		private long authenticationErrorNetworkRecord;
 
 		public Builder credentialsNetworkRecord(NetworkRecord CredentialsNetworkRecord)
 		{
@@ -79,7 +79,7 @@ public class AuthErrorData extends MessageData implements Serializable
 			this.authenticationWriteRecord = authenticationWriteRecord;;
 			return this;
 		}
-		public Builder authenticationErrorNetworkRecord(Date authenticationErrorNetworkRecord)
+		public Builder authenticationErrorNetworkRecord(long authenticationErrorNetworkRecord)
 		{
 			this.authenticationErrorNetworkRecord = authenticationErrorNetworkRecord;
 			return this;

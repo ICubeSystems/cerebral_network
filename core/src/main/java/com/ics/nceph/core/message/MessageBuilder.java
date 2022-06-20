@@ -29,6 +29,8 @@ public class MessageBuilder
 	
 	public long mId;
 	
+	public long networkRecord;
+	
 	public int messageCounter;
 	
 	byte[] tempBytes;
@@ -44,6 +46,8 @@ public class MessageBuilder
 	byte[] messageId = new byte[6];
 	
 	byte[] dataLength = new byte[4];
+	
+	byte[] timeStamp = new byte[8];
 	
 	byte[] data;
 	
@@ -80,6 +84,10 @@ public class MessageBuilder
 		this.data = data;
 	}
 	
+	public void setTimeStamp(byte[] timeStamp) {
+		this.timeStamp = timeStamp;
+	}
+
 	public void saveTempBytes(byte[] tempBytes) throws IOException 
 	{
 		// If the tempBytes is set to null then assign the incoming bytes else merge and then assign
@@ -107,6 +115,9 @@ public class MessageBuilder
 		
 		// Set the messageCounter
 		this.messageCounter = ByteUtil.convertToInt(counter);
+		
+		// Set network start time
+		this.networkRecord = ByteUtil.convertToLong(timeStamp);
 	}
 	
 	/**
@@ -143,7 +154,7 @@ public class MessageBuilder
 	public void startReading()
 	{
 		this.state = MessageBuilderState.READ_STARTED.getValue();
-		this.readRecordBuilder = new IORecord.Builder().start(new Date());
+		this.readRecordBuilder = new IORecord.Builder().start(new Date().getTime());
 	}
 	
 	public boolean isReadReady()
@@ -176,7 +187,8 @@ public class MessageBuilder
 				messageId, 
 				dataLength, 
 				data, 
-				this.readRecordBuilder.end(new Date()).build()
+				this.readRecordBuilder.end(new Date().getTime()).build(),
+				timeStamp
 				);
 	}
 }

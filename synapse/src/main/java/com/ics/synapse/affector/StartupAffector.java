@@ -10,7 +10,12 @@ import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
 /**
- * 
+ * This class executes within a write worker thread after the channel write operation is done (after sending STARTUP message).<br>
+ * Updates following POA attributes:
+ * <ol>
+ * 	<li> <b>state:</b> set to STARTUP only if it is not yet STARTUP.</li>
+ *  <li> <b>StartupWriteRecord:</b> Time taken (IORecord) to write the STARTUP message on the channel </li>
+ * </ol> 
  * @author Chandan Verma
  * @version 1.0
  * @since 29-Mar-2022
@@ -35,12 +40,12 @@ public class StartupAffector extends Affector
 					.logInfo());
 			return;
 		}
-		if(poa.getConnectionMessageState().getState() < PoaState.STARTUP.getState()) 
+		if(poa.getPoaState().getState() < PoaState.STARTUP.getState()) 
 		{
 			// 1.1 Set STARTUP write record
 			poa.setStartupWriteRecord(getMessage().getWriteRecord());
 			// 1.2 Set connection state
-			poa.setConnectionMessageState(PoaState.STARTUP);
+			poa.setPoaState(PoaState.STARTUP);
 			// 3. Update the POA in the local DocumentStore
 			try {
 				DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());

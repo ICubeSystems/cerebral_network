@@ -1,5 +1,9 @@
 package com.ics.console;
-
+/**
+ * 
+ * @author Anshul
+ * @since 01-Apr-2022
+ */
 public class ConsoleColors {
     // Reset
     public static final String RESET = "\033[0m";  // Text Reset

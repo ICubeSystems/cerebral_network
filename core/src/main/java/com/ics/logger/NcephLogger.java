@@ -17,4 +17,6 @@ public class NcephLogger
 	public static final Logger CONNECTION_LOGGER = LogManager.getLogger("connection");
 	
 	public static final Logger GENERAL_LOGGER = LogManager.getLogger("general");
+	
+	public static final Logger MONITOR_LOGGER = LogManager.getLogger("monitor");
 }

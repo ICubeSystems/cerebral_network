@@ -20,41 +20,41 @@ import com.ics.util.ByteUtil;
  */
 public class CerebralIncomingMessageType extends IncomingMessageType
 {
-	CerebralIncomingMessageType(int type, Class<? extends Receptor> processorClass) 
+	CerebralIncomingMessageType(int type, Class<? extends Receptor> processorClass, String typeName) 
 	{
-		super(type, processorClass);
+		super(type, processorClass, typeName);
 	}
 	
 	/**
 	 * This message type is used to publish an event in the network
 	 */
-	public static CerebralIncomingMessageType PUBLISH_EVENT = new CerebralIncomingMessageType(0x03, PublishedEventReceptor.class);
+	public static CerebralIncomingMessageType PUBLISH_EVENT = new CerebralIncomingMessageType(0x03, PublishedEventReceptor.class, "PUBLISH_EVENT");
 	/**
 	 * This message type is used to startup the connection
 	 */
-	public static CerebralIncomingMessageType STARTUP = new CerebralIncomingMessageType(0x00, StartupReceptor.class);
+	public static CerebralIncomingMessageType STARTUP = new CerebralIncomingMessageType(0x00, StartupReceptor.class, "STARTUP");
 	/**
 	 * This message type is used to Credentials the connection
 	 */
-	public static CerebralIncomingMessageType CREDENTIALS = new CerebralIncomingMessageType(0x01, CredentialsReceptor.class);
+	public static CerebralIncomingMessageType CREDENTIALS = new CerebralIncomingMessageType(0x01, CredentialsReceptor.class, "CREDENTIALS");
 	/**
 	 * This message type is used to Ready_Confirm the connection
 	 */
-	public static CerebralIncomingMessageType READY_CONFIRMED = new CerebralIncomingMessageType(0x07, ReadyConfirmedReceptor.class);
+	public static CerebralIncomingMessageType READY_CONFIRMED = new CerebralIncomingMessageType(0x0E, ReadyConfirmedReceptor.class, "READY_CONFIRMED");
 	
 	/**
 	 * This message type is used to publish an event in the network
 	 */
-	public static CerebralIncomingMessageType ACK_RECEIVED = new CerebralIncomingMessageType(0x05, ThreeWayEventAcknowledgementReceptor.class);
+	public static CerebralIncomingMessageType ACK_RECEIVED = new CerebralIncomingMessageType(0x05, ThreeWayEventAcknowledgementReceptor.class, "ACK_RECEIVED");
 	/**
 	 * This message type is used to recieve acknowledgement of publish event
 	 */
-	public static CerebralIncomingMessageType RELAYED_EVENT_ACK = new CerebralIncomingMessageType(0x04, RelayedEventAcknowledgeReceptor.class);
+	public static CerebralIncomingMessageType RELAYED_EVENT_ACK = new CerebralIncomingMessageType(0x04, RelayedEventAcknowledgeReceptor.class, "RELAYED_EVENT_ACK");
 	
 	/**
 	 * Synaptic node sends a notification that relay event acknowledged successfully and POR is deleted from snaptic side.
 	 */
-	public static CerebralIncomingMessageType POR_DELETED = new CerebralIncomingMessageType(0x0D, PorDeletedReceptor.class);
+	public static CerebralIncomingMessageType POR_DELETED = new CerebralIncomingMessageType(0x0D, PorDeletedReceptor.class, "POR_DELETED");
 	
 	/**
 	 * 

@@ -1,7 +1,7 @@
 package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
-import java.util.Date;
+
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 /**
@@ -14,7 +14,7 @@ public class AuthenticationData extends MessageData implements Serializable
 {
 	private static final long serialVersionUID = 1L;
 
-	private Date authenticationNetworkRecord;
+	private long authenticationNetworkRecord;
 
 	private NetworkRecord startupNetworkRecord;
 
@@ -22,7 +22,7 @@ public class AuthenticationData extends MessageData implements Serializable
 
 	public AuthenticationData() {}
 
-	public AuthenticationData(Date authenticationNetworkRecord, NetworkRecord startupNetworkRecord, IORecord startupReadRecord) 
+	public AuthenticationData(long authenticationNetworkRecord, NetworkRecord startupNetworkRecord, IORecord startupReadRecord) 
 	{
 		super();
 		this.authenticationNetworkRecord = authenticationNetworkRecord;
@@ -30,7 +30,7 @@ public class AuthenticationData extends MessageData implements Serializable
 		this.startupNetworkRecord = startupNetworkRecord;
 	}
 
-	public Date getAuthenticationNetworkRecord() 
+	public long getAuthenticationNetworkRecord() 
 	{
 		return authenticationNetworkRecord;
 	}
@@ -47,13 +47,13 @@ public class AuthenticationData extends MessageData implements Serializable
 
 	public static class Builder
 	{
-		private Date authenticationNetworkRecord;
+		private long authenticationNetworkRecord;
 
 		private NetworkRecord startupNetworkRecord;
 
 		private IORecord startupReadRecord;
 
-		public Builder authenticationNetworkRecord(Date networkRecord)
+		public Builder authenticationNetworkRecord(long networkRecord)
 		{
 			this.authenticationNetworkRecord = networkRecord;
 			return this;

@@ -2,8 +2,8 @@ package com.ics.nceph.core.receptor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.event.AcknowledgementDone;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.data.AcknowledgementDoneData;
 
 /**
  * 
@@ -12,21 +12,21 @@ import com.ics.nceph.core.message.Message;
  */
 public abstract class PodReceptor extends Receptor 
 {
-	private AcknowledgementDone pod;
+	private AcknowledgementDoneData pod;
 	
 	public PodReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 		try 
 		{
-			pod = (AcknowledgementDone) message.decoder().getData(AcknowledgementDone.class);
+			pod = (AcknowledgementDoneData) message.decoder().getData(AcknowledgementDoneData.class);
 		} catch (JsonProcessingException e) 
 		{
 			e.printStackTrace();
 		}
 	}
 
-	public AcknowledgementDone getPod() {
+	public AcknowledgementDoneData getPod() {
 		return pod;
 	}
 }

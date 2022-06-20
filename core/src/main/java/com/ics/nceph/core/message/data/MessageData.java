@@ -3,6 +3,7 @@ package com.ics.nceph.core.message.data;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
@@ -16,14 +17,14 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
  */
 public abstract class MessageData 
 {
-	Date createdOn;
+	long createdOn;
 	
 	public MessageData() 
 	{
-		createdOn = new Date();
+		createdOn = new Date().getTime();
 	}
 
-	public Date getCreatedOn() 
+	public long getCreatedOn() 
 	{
 		return createdOn;
 	}

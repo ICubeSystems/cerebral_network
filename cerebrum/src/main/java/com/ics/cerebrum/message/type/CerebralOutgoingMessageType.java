@@ -1,9 +1,9 @@
 package com.ics.cerebrum.message.type;
 
-import com.ics.cerebrum.affector.DeletePodAffector;
-import com.ics.cerebrum.affector.EventAcknowledgementAffector;
 import com.ics.cerebrum.affector.AuthErrorAffector;
 import com.ics.cerebrum.affector.AuthenticationAffector;
+import com.ics.cerebrum.affector.DeletePodAffector;
+import com.ics.cerebrum.affector.EventAcknowledgementAffector;
 import com.ics.cerebrum.affector.ReadyAffector;
 import com.ics.cerebrum.affector.RelayedEventAffector;
 import com.ics.cerebrum.affector.ThreeWayRelayEventAcknowledgementAffector;
@@ -15,44 +15,44 @@ import com.ics.util.ByteUtil;
 public class CerebralOutgoingMessageType extends OutgoingMessageType 
 {
 
-	public CerebralOutgoingMessageType(int type, Class<? extends Affector> affectorClass) 
+	public CerebralOutgoingMessageType(int type, Class<? extends Affector> affectorClass, String typeName) 
 	{
-		super(type, affectorClass);
+		super(type, affectorClass, typeName);
 		// TODO Auto-generated constructor stub
 	}
 	
 	/**
 	 * This message type is used to publish an event in the network
 	 */
-	public static CerebralOutgoingMessageType RELAY_EVENT = new CerebralOutgoingMessageType(0x0B, RelayedEventAffector.class);
+	public static CerebralOutgoingMessageType RELAY_EVENT = new CerebralOutgoingMessageType(0x0B, RelayedEventAffector.class, "RELAY_EVENT");
 	
 	/**
 	 * This message type is used to recieve acknowledgement of publish event
 	 */
-	public static CerebralOutgoingMessageType NCEPH_EVENT_ACK = new CerebralOutgoingMessageType(0x09, EventAcknowledgementAffector.class);
+	public static CerebralOutgoingMessageType NCEPH_EVENT_ACK = new CerebralOutgoingMessageType(0x09, EventAcknowledgementAffector.class, "NCEPH_EVENT_ACK");
 	
 	/**
 	 * This message type is used to recieve acknowledgement of publish event
 	 */
-	public static CerebralOutgoingMessageType DELETE_POD = new CerebralOutgoingMessageType(0x0A, DeletePodAffector.class);
+	public static CerebralOutgoingMessageType DELETE_POD = new CerebralOutgoingMessageType(0x0A, DeletePodAffector.class, "DELETE_POD");
 	
 	/**
 	 * This message type is used to startup the connection
 	 */
-	public static CerebralOutgoingMessageType RELAY_ACK_RECEIVED = new CerebralOutgoingMessageType(0x0C, ThreeWayRelayEventAcknowledgementAffector.class);
+	public static CerebralOutgoingMessageType RELAY_ACK_RECEIVED = new CerebralOutgoingMessageType(0x0C, ThreeWayRelayEventAcknowledgementAffector.class, "RELAY_ACK_RECEIVED");
 	
 	/**
 	 * This message type is used to Authentication Message in the network
 	 */
-	public static CerebralOutgoingMessageType AUTHENTICATE = new CerebralOutgoingMessageType(0x06, AuthenticationAffector.class);
+	public static CerebralOutgoingMessageType AUTHENTICATE = new CerebralOutgoingMessageType(0x06, AuthenticationAffector.class, "AUTHENTICATE");
 	/**
 	 * This message type is used to set READY the connection state
 	 */
-	public static CerebralOutgoingMessageType READY = new CerebralOutgoingMessageType(0x07, ReadyAffector.class);
+	public static CerebralOutgoingMessageType READY = new CerebralOutgoingMessageType(0x07, ReadyAffector.class, "READY");
 	/**
 	 * This message type is used to set AUTH_FAILED the connection state
 	 */
-	public static CerebralOutgoingMessageType ERROR = new CerebralOutgoingMessageType(0x08, AuthErrorAffector.class);
+	public static CerebralOutgoingMessageType ERROR = new CerebralOutgoingMessageType(0x08, AuthErrorAffector.class, "ERROR");
 	/**
 	 * 
 	 */

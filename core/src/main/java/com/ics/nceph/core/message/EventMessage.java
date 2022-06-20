@@ -1,11 +1,13 @@
 package com.ics.nceph.core.message;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.BitSet;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.nceph.core.event.Event;
+import com.ics.nceph.core.event.EventData;
+import com.ics.nceph.core.message.exception.MessageBuildFailedException;
+import com.ics.util.ByteUtil;
 
 /**
  * 
@@ -20,6 +22,10 @@ public class EventMessage extends Message
 		super(flags, type, data);
 	}
 	
+	EventMessage(byte type, byte flags, byte[] data, byte[] messageId, byte[] sourceId)
+	{
+		super(flags, type, data, messageId, sourceId);
+	}
 	/**
 	 * 
 	 * @author Anurag Arya
@@ -32,11 +38,41 @@ public class EventMessage extends Message
 		
 		private byte[] data;
 		
-		public Builder event(Event event) throws IOException 
+		private byte[] messageId;
+		
+		private byte[] sourceId;
+		
+		public Builder event(EventData event) throws MessageBuildFailedException 
 		{
-			ObjectMapper mapper = new ObjectMapper();
-			String eventJSON = mapper.writeValueAsString(event);
-			this.data = eventJSON.getBytes(StandardCharsets.UTF_8);
+			try {
+				ObjectMapper mapper = new ObjectMapper();
+				String eventJSON = mapper.writeValueAsString(event);
+				this.data = eventJSON.getBytes(StandardCharsets.UTF_8);
+			} catch (JsonProcessingException e) {
+				throw new MessageBuildFailedException("JsonProcessingException", e);
+			}
+			return this;
+		}
+		
+		public Builder messageId(byte[] messageId) {
+			this.messageId = messageId;
+			return this;
+		}
+		
+		public Builder mid(String mid) {
+			String[] idArray = mid.split("-",2);
+			this.messageId = ByteUtil.convertToByteArray(Integer.valueOf(idArray[1]), 6);
+			this.sourceId = ByteUtil.convertToByteArray(Integer.valueOf(idArray[0]), 2);
+			return this;
+		}
+		
+		public Builder type(byte type) {
+			this.type = type;
+			return this;
+		}
+		
+		public Builder sourceId(byte[] sourceId) {
+			this.sourceId = sourceId;
 			return this;
 		}
 		
@@ -44,6 +80,16 @@ public class EventMessage extends Message
 		{
 			flags.set(MessageFlag.TRACE_FLAG.getPosition());
 			return new EventMessage(type, flags.toByteArray()[0], data);
+		}
+		
+		/**
+		 * 
+		 * @return
+		 */
+		public EventMessage buildAgain() 
+		{
+			flags.set(MessageFlag.TRACE_FLAG.getPosition());
+			return new EventMessage(type, flags.toByteArray()[0], data, messageId, sourceId);
 		}
 	}
 }

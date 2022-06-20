@@ -1,18 +1,19 @@
 package com.ics.synapse.receptor;
 
-import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.util.Date;
 
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
+import com.ics.nceph.core.document.PodState;
 import com.ics.nceph.core.document.ProofOfDelivery;
-import com.ics.nceph.core.event.ThreeWayAcknowledgement;
-import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.NetworkRecord;
+import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
+import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.data.ThreeWayAcknowledgementData;
+import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.receptor.AcknowledgementReceptor;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
@@ -34,7 +35,7 @@ public class EventAcknowledgementReceptor extends AcknowledgementReceptor
 	{
 		// 1. Load POD: Ideally POD will always be loaded for the ack message
 		ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
-		
+
 		// Following are the cases when the POD will not be found for the message id:
 		// a. POD is deleted by mistake on the synaptic node
 		// b. POD was deleted properly following the DELETE message from cerebrum, but cerebrum has repeated the ACK for this message
@@ -59,51 +60,67 @@ public class EventAcknowledgementReceptor extends AcknowledgementReceptor
 			// 1.2 Load the POD again
 			pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
 		}
-		
-		// 2. Update POD - create a NetworkRecord for NCEPH_EVENT_ACK
-		NetworkRecord networkRecord = new NetworkRecord.Builder()
-										  .start(getAcknowledgement().getAckNetworkRecord().getStart())
-										  .end(new Date()).build();
-		// 2.1 Set PUBLISH_EVENT read record on the cerebrum
-		pod.setReadRecord(getAcknowledgement().getReadRecord());
-		// 2.2 Set NCEPH_EVENT_ACK read record on the synapse
-		pod.setAckReadRecord(getMessage().getReadRecord());
-		// 2.3 Set NCEPH_EVENT_ACK network record
-		pod.setAckNetworkRecord(networkRecord);
-		// 2.4 Set the acknowledgement attempts
-		pod.incrementAcknowledgementAttempts();
-		// 2.5 ACK_RECEIVED network record with just the start
-		NetworkRecord threeWayAckNetworkRecord = new NetworkRecord.Builder().start(new Date()).build();		
-		pod.setThreeWayAckNetworkRecord(threeWayAckNetworkRecord);	
-		// 2.6 Update the POD in the local storage
-		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
-		} catch (IOException e1) {}
-		
 		try 
 		{
+
+			// 2. Update POD
+			// 2.1 Set PUBLISH_EVENT read record on the cerebrum
+			pod.setReadRecord(getAcknowledgement().getReadRecord());
+			// 2.2 Set NCEPH_EVENT_ACK read record on the synapse
+			pod.setAckReadRecord(getMessage().getReadRecord());
+			// 2.3 Set PUBLISH_EVENT network record on the synapse
+			pod.setEventNetworkRecord(getAcknowledgement().getEventNetworkRecord());
+			// 2.4 Set NCEPH_EVENT_ACK network record
+			pod.setAckNetworkRecord(buildNetworkRecord());
+			// 2.5 Set the acknowledgement attempts
+			pod.incrementAcknowledgementAttempts();
+			// 2.6 Set the threeWayAck attempts
+			pod.incrementThreeWayAckAttempts();
+			// 2.7 Set Pod State to ACKNOWLEDGED
+			pod.setPodState(PodState.ACKNOWLEDGED);
+			// 2.8 Update the POD in the local storage
+			DocumentStore.update(pod, getMessage().decoder().getId());
+
 			// 3.0 Create the message data for ACK_RECEIVED message to be sent to cerebrum
-			ThreeWayAcknowledgement threeWayAck = new ThreeWayAcknowledgement.Builder()
-												  .threeWayAckNetworkRecord(threeWayAckNetworkRecord) //ACK_RECEIVED network record with just the start
-												  .writeRecord(pod.getWriteRecord()) // WriteRecord of PUBLISH_EVENT
-												  .ackNetworkRecord(networkRecord) // NCEPH_EVENT_ACK network record
-												  .build();
 			// 3.1 Create the ACK_RECEIVED message 			
 			Message message = new AcknowledgeMessage.Builder()
-					.data(threeWayAck)
+					.data(new ThreeWayAcknowledgementData.Builder()
+							.writeRecord(pod.getWriteRecord()) // WriteRecord of PUBLISH_EVENT
+							.ackNetworkRecord(buildNetworkRecord()) // NCEPH_EVENT_ACK network record
+							.build())
 					.messageId(getMessage().getMessageId())
 					.type(SynapticOutgoingMessageType.ACK_RECEIVED.getMessageType())
 					.sourceId(getMessage().getSourceId())
 					.build();
 			// 3.2 Enqueue ACK_RECEIVED on the incoming connection
-			getIncomingConnection().enqueueMessage(message);
+
+			getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
 			getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
-		} catch (IOException e) 
+		} 
+		catch (DocumentSaveFailedException e){} 
+		catch (MessageBuildFailedException e1) 
 		{
+			// Log
 			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())
-					.action("ACK_RECEIVED Build Error")
-					.logError(),e);
+					.action("ACK_RECEIVED build failed")
+					.logError(),e1);
+			// decrement acknowledgement attempts in the pod		
+			pod.decrementThreeWayAckAttempts();
+			// Save the POD
+			try 
+			{
+				DocumentStore.update(pod, getMessage().decoder().getId());
+			} catch (DocumentSaveFailedException e) 
+			{
+				//Log
+				NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+						.messageId(String.valueOf(getMessage().decoder().getId()))
+						.action("Pod updation failed")
+						.description("threeWayAck counter decrement failed after MessageBuildFailedException")
+						.logError());
+			}
+			return;
 		}
 	}
 }

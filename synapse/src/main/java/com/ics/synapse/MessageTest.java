@@ -19,7 +19,7 @@ public class MessageTest
 		//System.out.println(byteArray.length);
 		ByteBuffer buffer = ByteBuffer.allocate(32);
 		buffer.put(byteArray);
-		//Event event = new Event.Builder().eventId(1000).name("test event").build();
+		//EventData event = new EventData.Builder().eventId(1000).name("test event").build();
 		
 		//ByteArrayOutputStream baos = new ByteArrayOutputStream();
 		//ObjectOutputStream oos = new ObjectOutputStream(baos);

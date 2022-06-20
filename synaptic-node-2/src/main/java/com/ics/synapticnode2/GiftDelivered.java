@@ -5,7 +5,7 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.nceph.core.event.Event;
+import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.synapse.ncephEvent.NcephEvent;
@@ -18,7 +18,6 @@ import com.ics.synapse.ncephEvent.NcephEvent;
 
 public class GiftDelivered implements NcephEvent, Serializable
 {
-
 	private static final long serialVersionUID = -3996054630188026396L;
 
 	private String giftCode;
@@ -76,9 +75,9 @@ public class GiftDelivered implements NcephEvent, Serializable
 	}
 
 	@Override
-	public Event toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	public EventData toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
 	{
-		return new Event.Builder().eventId(4000).objectJSON(toJSON()).build();
+		return new EventData.Builder().eventId(4000).objectJSON(toJSON()).build();
 	}
 
 	public static class Builder {

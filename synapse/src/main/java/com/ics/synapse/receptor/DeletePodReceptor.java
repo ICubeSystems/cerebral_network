@@ -2,10 +2,12 @@ package com.ics.synapse.receptor;
 
 import java.io.IOException;
 
+import com.ics.env.Environment;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.document.DocumentStore;
+import com.ics.nceph.core.document.PodState;
 import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.receptor.PodReceptor;
@@ -40,10 +42,20 @@ public class DeletePodReceptor extends PodReceptor
 		
 		// 2. Set ThreeWayAckNetworkRecord and save to local storage. Save is only required in case the delete operation fails
 		pod.setThreeWayAckNetworkRecord(getPod().getThreeWayAckNetworkRecord());
+		// 2.4 Set the delePod attempts
+		pod.incrementDeletePodAttempts();
+		// 2.5 Set Pod State to FINISHED
+		pod.setPodState(PodState.FINISHED);
 		try {
 			DocumentStore.update(pod, getMessage().decoder().getId());
+			// MOCK CODE: to test the reliable delivery of the messages
+			if(Environment.isDev() && pod.getMessageId().equals("1-15")) {
+				System.out.println("forceStop"+getMessage().decoder().getId());
+				return;
+			}
+			// END MOCK CODE
 		} catch (IOException e) {}
-		
+
 		// 3. Delete the POD from local storage
 		if (!DocumentStore.delete(getMessage().decoder().getId(),pod))
 		{

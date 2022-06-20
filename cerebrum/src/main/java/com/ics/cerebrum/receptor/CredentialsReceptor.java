@@ -2,7 +2,7 @@ package com.ics.cerebrum.receptor;
 
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.util.Date;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.logger.ConnectionLog;
@@ -11,15 +11,15 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.ConnectionState;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AuthenticationMessage;
 import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.NetworkRecord;
-import com.ics.nceph.core.message.data.CredentialsData;
 import com.ics.nceph.core.message.data.AuthErrorData;
+import com.ics.nceph.core.message.data.CredentialsData;
 import com.ics.nceph.core.message.data.ReadyData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.receptor.Receptor;
@@ -70,24 +70,18 @@ public class CredentialsReceptor extends Receptor
 			// 2.4 Set AUTHENTICATION network record
 			poa.setAuthenticationNetworkRecord(credentialsData.getAuthenticationNetworkRecord());
 			// 2.5 Set CREDENTIALS network record
-			poa.setCredentialsNetworkRecord(new NetworkRecord.Builder().start(credentialsData.getCredentialsNetworkRecord()).end(new Date()).build());
+			poa.setCredentialsNetworkRecord(buildNetworkRecord());
 			// 2.6 Set connection state
-			poa.setConnectionMessageState(PoaState.CREDENTIALS);
+			poa.setPoaState(PoaState.CREDENTIALS);
 			// 2.7 Update the POA in the local DocumentStore
 			DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
 			
 			// Check Credentials
 			if(credentialsData.getCredentials().equals("NCEPH"))
 			{
-				// TODO: (to be removed by Anshul after my checkin)
-				// 3. Set READY network record
-				poa.setReadyNetworkRecord(new NetworkRecord.Builder().start(new Date()).build());
-				// TODO: (to be removed by Anshul after my checkin)
-				// 3.1 Update the POA in the local DocumentStore
-				DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
-				// 3.2 Set incoming connection state READY
+				// 3 Set incoming connection state READY
 				getIncomingConnection().setState(ConnectionState.READY);
-				// 3.3 Add the connection object to load balancer for read/ write allocations
+				// 3.1 Add the connection object to load balancer for read/ write allocations
 				getIncomingConnection().getConnector().getConnectionLoadBalancer().add(getIncomingConnection());
 				getIncomingConnection().getConnector().getActiveConnections().put(getIncomingConnection().getId(), getIncomingConnection());
 
@@ -112,22 +106,16 @@ public class CredentialsReceptor extends Receptor
 								.credentialsNetworkRecord(poa.getCredentialsNetworkRecord()) // 4.4.2 Set CREDENTIALS network record
 								.credentialsReadRecord(getMessage().getReadRecord()) // 4.4.3 Set CREDENTIALS read record
 								.authenticationWriteRecord(poa.getAuthenticationWriteRecord())  // 4.4.4 Set AUTHENTICATION write record
-								.readyNetworkRecord(poa.getReadyNetworkRecord().getStart())  // 4.4.5 Set READY network record
 								.build()) // 4.5 Set READY message data
 						.build();
 				// 4.6 Enqueue the message on the connection to be sent to the synapse
-				getIncomingConnection().enqueueMessage(readyMessage);
+				getIncomingConnection().enqueueMessage(readyMessage, QueuingContext.QUEUED_FROM_RECEPTOR);
 				// 4.7 Change the interest of the connection to write
 				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 			} else {
 				// 5. Error Message
-				// TODO: (to be removed by Anshul after my checkin)
-				// 5.1 Set ERROR network record
-				poa.setAuthenticationErrorNetworkRecord(new NetworkRecord.Builder().start(new Date()).build());
-				// TODO: (to be removed by Anshul after my checkin)
-				// 5.2 Update the POA in the local DocumentStore
-				DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
-				// 5.3 Set incoming connection state AUTH_FAILED
+				
+				// 5.1 Set incoming connection state AUTH_FAILED
 				getIncomingConnection().setState(ConnectionState.AUTH_FAILED);
 
 				NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
@@ -150,11 +138,10 @@ public class CredentialsReceptor extends Receptor
 								.credentialsNetworkRecord(poa.getCredentialsNetworkRecord()) // 6.3.2 Set CREDENTIALS network record
 								.credentialsReadRecord(getMessage().getReadRecord()) // 6.3.3 Set CREDENTIALS read record
 								.authenticationWriteRecord(poa.getAuthenticationWriteRecord()) // 6.3.4 Set AUTHENTICATION write record
-								.authenticationErrorNetworkRecord(poa.getAuthenticationErrorNetworkRecord().getStart()) // 6.3.5 Set ERROR network record
 								.build()) // 6.4 Set ERROR message data
 						.build();
 				// 6.5 Enqueue the message on the connection to be sent to the synapse
-				getIncomingConnection().enqueueMessage(ErrorMessage);
+				getIncomingConnection().enqueueMessage(ErrorMessage, QueuingContext.QUEUED_FROM_RECEPTOR);
 				// 6.6 Change the interest of the connection to write
 				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 			}

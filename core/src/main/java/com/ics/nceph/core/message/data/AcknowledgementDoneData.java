@@ -1,8 +1,7 @@
-package com.ics.nceph.core.event;
+package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
 
-import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.NetworkRecord;
 
 /**
@@ -11,7 +10,7 @@ import com.ics.nceph.core.message.NetworkRecord;
  * @version 1.0
  * @since 30-Mar-2022
  */
-public class AcknowledgementDone extends MessageData implements Serializable
+public class AcknowledgementDoneData extends MessageData implements Serializable
 {
 	/**
 	 * 
@@ -26,9 +25,9 @@ public class AcknowledgementDone extends MessageData implements Serializable
 	/**
 	 * Default constructor used by ObjectMapper to serialize/ deserialize this object
 	 */
-	public AcknowledgementDone() {}
+	public AcknowledgementDoneData() {}
 	
-	private AcknowledgementDone(NetworkRecord threeWayAckNetworkRecord)
+	private AcknowledgementDoneData(NetworkRecord threeWayAckNetworkRecord)
 	{
 		this.threeWayAckNetworkRecord = threeWayAckNetworkRecord;
 	}	
@@ -49,9 +48,9 @@ public class AcknowledgementDone extends MessageData implements Serializable
 		}
 		
 		
-		public AcknowledgementDone build() 
+		public AcknowledgementDoneData build() 
 		{
-			return new AcknowledgementDone(threeWayAckNetworkRecord);
+			return new AcknowledgementDoneData(threeWayAckNetworkRecord);
 		}
 	}
 }

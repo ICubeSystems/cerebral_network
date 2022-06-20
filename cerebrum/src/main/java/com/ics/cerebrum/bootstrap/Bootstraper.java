@@ -64,8 +64,6 @@ public class Bootstraper
 			connector.assignReactor(ReactorCluster.getReactor());
 		}
 		
-		
-		
 		// 4. Run the reactors
 		reactorCluster.run();
 	}

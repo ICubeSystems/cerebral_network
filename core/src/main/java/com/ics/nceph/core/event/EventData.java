@@ -13,24 +13,25 @@ import com.ics.nceph.core.message.data.MessageData;
  * @version 1.0
  * @since 24-Dec-2021
  */
-public class Event extends MessageData implements Serializable
+public class EventData extends MessageData implements Serializable
 {
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
 	
+	//TODO this should be renamed to eventType. Then introduce eventId as well
 	Integer eventId;
 
 	String objectJSON;
 	
-	Date createdOn;
+	long createdOn;
 	
-	public Event() {}
+	public EventData() {}
 	
-	private Event(Integer eventId, String objectJSON)
+	private EventData(Integer eventId, String objectJSON)
 	{
-		createdOn = new Date();
+		createdOn = new Date().getTime();
 		this.eventId = eventId;
 		this.objectJSON = objectJSON;
 	}
@@ -43,7 +44,7 @@ public class Event extends MessageData implements Serializable
 		return eventId;
 	}
 	
-	public Date getCreatedOn() {
+	public long getCreatedOn() {
 		return createdOn;
 	}
 	
@@ -83,9 +84,9 @@ public class Event extends MessageData implements Serializable
 			return this;
 		}
 		
-		public Event build()
+		public EventData build()
 		{
-			return new Event(eventId, objectJSON);
+			return new EventData(eventId, objectJSON);
 		}
 	}
 }

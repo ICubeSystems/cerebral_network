@@ -1,27 +1,29 @@
 package com.ics.cerebrum.receptor;
 
-import java.io.IOException;
 import java.nio.channels.SelectionKey;
-import java.util.Date;
 
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
+import com.ics.env.Environment;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
+import com.ics.nceph.core.document.PorState;
 import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.document.ProofOfRelay;
-import com.ics.nceph.core.event.ThreeWayAcknowledgement;
-import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.NetworkRecord;
+import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
+import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.data.ThreeWayAcknowledgementData;
+import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.receptor.AcknowledgementReceptor;
 
 /**
  * 
  * @author Anshul
  * @version 1.0
- * * @since 10-Apr-2022
+ * @since 10-Apr-2022
  */
 public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor 
 {
@@ -36,7 +38,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 
 		// 1. Load POD: Ideally POD will always be loaded for the ack message
 		ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
-				
+
 		// Following are the cases when the POD will not be found for the message id:
 		// a. POD is deleted by mistake on the synaptic node
 		// b. POD was deleted properly following the DELETE message from cerebrum, but cerebrum has repeated the ACK for this message
@@ -50,7 +52,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			return;
 		}
 		ProofOfRelay por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
-		
+
 		// 1.1 Make sure that WriteRecord is written in the POR. If not then try to load again after 1000 ms. 
 		// This happens when the RelayedEventAffector executes after RelayedEventAcknowledgeReceptor	
 		while(por.getWriteRecord()==null) 
@@ -64,34 +66,38 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
 		}
 		
-		
-		// 2. Update POR - create a NetworkRecord for RELAYED_EVENT_ACK
-		NetworkRecord networkRecord = new NetworkRecord.Builder()
-										  .start(getAcknowledgement().getAckNetworkRecord().getStart())
-										  .end(new Date()).build();
-		// 2.1 Set RELAY_EVENT read record on the Synapse
-		por.setReadRecord(getAcknowledgement().getReadRecord());
-		// 2.2 Set RELAYED_EVENT_ACK network record
-		por.setAckNetworkRecord(networkRecord);
-		// 2.3 Set the acknowledgement attempts
-		por.incrementAcknowledgementAttempts();
-		// 2.4 Set RELAYED_EVENT_ACK read record 
-		por.setAckReadRecord(getMessage().getReadRecord());;
-		// 2.5 RELAY_ACK_RECEIVED network record with just the start
-		NetworkRecord threeWayAckNetworkRecord = new NetworkRecord.Builder().start(new Date()).build();		
-		por.setThreeWayAckNetworkRecord(threeWayAckNetworkRecord);	
-		// 2.6 Update the POR in the local storage
-		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
-		} catch (IOException e1) {}
-		
-		try 
+		try
 		{
+			// 2. Update POR - create a NetworkRecord for RELAYED_EVENT_ACK
+			// 2.1 Set RELAY_EVENT read record on the Synapse
+			por.setReadRecord(getAcknowledgement().getReadRecord());
+			// 2.2 Set RELAYED_EVENT_ACK network record
+			por.setAckNetworkRecord(buildNetworkRecord());
+			// 2.3 Set the acknowledgement attempts
+			por.incrementAcknowledgementAttempts();
+			// 2.4 Set the threeWayAck attempts
+			por.incrementThreeWayAckAttempts();
+			// 2.5 Set RELAY_EVENT network record on the synapse
+			por.setEventNetworkRecord(getAcknowledgement().getEventNetworkRecord());
+			// 2.6 Set RELAYED_EVENT_ACK read record 
+			por.setAckReadRecord(getMessage().getReadRecord());
+			// 2.7 Set Por State to ACKNOWLEDGED
+			por.setPorState(PorState.ACKNOWLEDGED);
+			// 2.7 Update the POD in the local storage
+			DocumentStore.update(pod, getMessage().decoder().getId());
+			
+			// MOCK CODE: to test the reliable delivery of the messages
+			if(Environment.isDev() && por.getMessageId().equals("1-30")) 
+			{
+				System.out.println("forceStop"+getMessage().decoder().getId());
+				return;
+			}
+			// END MOCK CODE
+			
 			// 3.0 Create the message data for RELAY_ACK_RECEIVED message to be sent to synapse
-			ThreeWayAcknowledgement threeWayAck = new ThreeWayAcknowledgement.Builder()
-					  .threeWayAckNetworkRecord(threeWayAckNetworkRecord)
-					  .writeRecord(por.getWriteRecord())
-					  .ackNetworkRecord(networkRecord).build();
+			ThreeWayAcknowledgementData threeWayAck = new ThreeWayAcknowledgementData.Builder()
+					.writeRecord(por.getWriteRecord())
+					.ackNetworkRecord(buildNetworkRecord()).build();
 			// 3.1 Create the RELAY_ACK_RECEIVED message 
 			Message message = new AcknowledgeMessage.Builder()
 					.data(threeWayAck)
@@ -100,15 +106,28 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 					.sourceId(getMessage().getSourceId())
 					.build();
 			// 3.2 Enqueue RELAY_ACK_RECEIVED on the incoming connection
-			getIncomingConnection().enqueueMessage(message);
+			getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
 			getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
-			
-		} catch (IOException e) {
+
+		} 
+		catch (DocumentSaveFailedException e){} 
+		catch (MessageBuildFailedException e1) 
+		{
+			// Log
 			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())
-					.action("RELAY_ACK_RECEIVED Build Error")
-					.logError(),e);
+					.action("RELAY_ACK_RECEIVED build failed")
+					.logError(),e1);
+
+			// decrement acknowledgement attempts in the pod		
+			por.decrementThreeWayAckAttempts();
+			// Save the POD
+			try 
+			{
+				DocumentStore.update(pod, getMessage().decoder().getId());
+			} catch (DocumentSaveFailedException e){}
+			return;
 		}
-	
+
 	}
 }

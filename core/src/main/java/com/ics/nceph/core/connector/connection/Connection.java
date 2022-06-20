@@ -7,7 +7,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,6 +58,7 @@ public class Connection implements Comparable<Connection>
 	private SelectionKey key;
 	
 	private int relayTimeout;
+	
 	/**
 	 * Queue of messages to be relayed to the subscriber nodes.
 	 */
@@ -76,6 +76,14 @@ public class Connection implements Comparable<Connection>
 	
 	int plainTextBufferSize = NcephConstants.READER_BUFFER_SIZE;
 
+	/**
+	 * 
+	 * @return
+	 */
+	public ConcurrentLinkedQueue<Message> getRelayQueue() {
+		return relayQueue;
+	}
+	
 	/**
 	 * Constructs a connection for cerebral connector
 	 * 
@@ -179,7 +187,7 @@ public class Connection implements Comparable<Connection>
 		relayQueue = new ConcurrentLinkedQueue<Message>();
 		// set last used time of the connection
 		setLastUsed(System.currentTimeMillis());
-		System.out.println("Initializing connection "+ id + ", attaching it to selector of reactor " + reactor.getReactorId() + " for read/ write operation");
+		
 	}
 
 	
@@ -224,6 +232,7 @@ public class Connection implements Comparable<Connection>
 			while(!relayQueue.isEmpty())
 			{
 				Message message = relayQueue.poll();
+				getConnector().removeConnectionQueuedUpMessage(message);
 				getConnector().enqueueMessage(message);
 			}
 		}
@@ -287,8 +296,6 @@ public class Connection implements Comparable<Connection>
 		}
 
 		// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
-
-
 		disengage(operationStatus, false);
 	}
 
@@ -371,36 +378,8 @@ public class Connection implements Comparable<Connection>
 				{
 					// Relay the message
 					writer.write(relayQueue.peek());
-					// Log
-					NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
-							.messageId(relayQueue.peek().decoder().getId())
-							.action("Write done")
-							.data(new LogData()
-									.entry("type", String.valueOf(relayQueue.peek().decoder().getType()))
-									.entry("id", String.valueOf(getId()))
-									.toString()
-									)
-							.logInfo());
 					// Update the last used of the connection
 					setLastUsed(System.currentTimeMillis());
-					// Check if the writer has sent the above message fully and is ready for new message
-					if (writer.isReady())
-					{
-						// Remove the message from the relayQueue & Store message sent to the outgoing message register
-						Message message = relayQueue.poll();
-						getConnector().storeOutgoingMessage(message);
-						// Open a write thread to do the post writing work like updating the ACK status of the messages
-						getConnector().createPostWriteWorker(message, this);
-						// Log
-						NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
-								.messageId(message.decoder().getId())
-								.action("Write Worker Initiated")
-								.data(new LogData()
-										.entry("type", String.valueOf(message.decoder().getType()))
-										.toString()
-										)
-								.logInfo());
-					}
 				}
 			}
 			// In case there is an IO exception while writing to the socket
@@ -427,6 +406,7 @@ public class Connection implements Comparable<Connection>
 				.waitBeforeWriteAgain(60000*5) // 5 Minutes wait before retrying the write operation
 				.build()
 				.start(); // Start the thread
+				
 			}
 
 			// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
@@ -481,6 +461,7 @@ public class Connection implements Comparable<Connection>
 				", state=" + state +
 				", relayQueueSize=" + relayQueue.size() +
 				", WriterReady=" + writer.isReady() +
+				", IdleTime=" + getIdleTime() +
 				'}';
 	}
 
@@ -500,15 +481,26 @@ public class Connection implements Comparable<Connection>
     }
     
 	/**
-	 * Adds the event to the event queue to be published on this connection's socket channel
+	 * Adds the message in the relay queue of this connection to be written over the socket channel. <br>
+	 * This method checks for duplicity of the message. 
+	 * Only <b>exception</b> is when the message is being enqueued from the <code>{@link ConnectorMonitorThread}</code> thread. 
+	 * Assumption is that the monitor thread resends the message only after checking the state of POD/POR on expiry of transmission window.
 	 * 
-	 * @param event to be published
+	 * 
+	 * @param message - message to be published
+	 * @param context - QueuingContext
 	 * @return void
 	 */
-	public void enqueueMessage(Message message)
+	public void enqueueMessage(Message message, QueuingContext context)
 	{
-		//TODO: create a arraylist of ids such that relay queue does not have a duplicate message. 
-		//Check that array before enqueue. Add to that array when enqueue and remove when dequeue
+		// DUPLICACY CHECK: Check if the message has already been sent.  
+		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+				&& (context.duplicacyCheckEnabled() && getConnector().isAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
+				|| getConnector().isAlreadyQueuedUpOnConnection(message)))
+			return;
+		// store message to connectionQueuedUpMessageRegister 
+		getConnector().storeConnectionQueuedUpMessage(message);
+		// add the message to the relay queue
 		relayQueue.add(message);
 		//LOG
 		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
@@ -517,26 +509,11 @@ public class Connection implements Comparable<Connection>
 				.data(
 						new LogData()
 						.entry("port", String.valueOf(connector.getPort()))
-						.entry("id", String.valueOf(getId()))
+						.entry("connectionId", String.valueOf(getId()))
 						.entry("workerClass", MessageType.getClassByType(message.decoder().getType()))
+						.entry("CallerClass", Thread.currentThread().getStackTrace()[2].getFileName())
 						.toString())
 				.logInfo());
-	}
-	
-	/**
-	 * Returns the list of events to be published on the socket channel 
-	 * 
-	 * @return ArrayList<Event>
-	 */
-	public ArrayList<Message> dequeueMessages() 
-	{
-		ArrayList<Message> messageToPublish = new ArrayList<Message>();
-		synchronized (relayQueue) 
-		{
-			while (relayQueue.peek() != null)
-				messageToPublish.add(relayQueue.poll());
-			return messageToPublish;
-		}
 	}
 	
 	public boolean isReady()
@@ -622,7 +599,7 @@ public class Connection implements Comparable<Connection>
 		 * Maximum waiting time in milliseconds before the write operation on the socket times out and breaks the socket write loop. 
 		 * Defaulted to 2 minutes unless specified in the organs.xml
 		 */
-		private Integer relayTimeout = 60000*2;
+		private Integer relayTimeout = 60000*5;
 		
 		InetSocketAddress cerebralConnectorAddress;
 		

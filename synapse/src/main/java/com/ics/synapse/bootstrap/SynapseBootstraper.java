@@ -33,7 +33,7 @@ import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 public class SynapseBootstraper 
 {
 	ReactorCluster reactorCluster;
-
+	
 	@Value("${synapticConnector.name}")
 	private String connectorName;
 			

@@ -1,7 +1,5 @@
 package com.ics.nceph.core.message;
 
-import java.util.Date;
-
 /**
  * This class records the time taken by the message to transmit completely from source to destination. It gives a measure of latency for a message in the network.
  * 
@@ -13,7 +11,7 @@ public class NetworkRecord extends TimeRecord
 {
 	NetworkRecord() {super();}
 
-	NetworkRecord(Date start, Date end) 
+	NetworkRecord(long start, long end) 
 	{
 		super(start, end);
 	}
@@ -26,17 +24,17 @@ public class NetworkRecord extends TimeRecord
 	 */
 	public static class Builder
 	{
-		Date start;
+		long start;
 		
-		Date end;
+		long end;
 		
-		public Builder start(Date start)
+		public Builder start(long start)
 		{
 			this.start = start;
 			return this;
 		}
 		
-		public Builder end(Date end)
+		public Builder end(long end)
 		{
 			this.end = end;
 			return this;

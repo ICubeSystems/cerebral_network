@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.nceph.core.event.Event;
+import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.synapse.ncephEvent.NcephEvent;
@@ -68,9 +68,9 @@ public class GiftStatus implements Serializable,NcephEvent
 	}
 	
 	@Override
-	public Event toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	public EventData toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
 	{
-		return new Event.Builder().eventId(5000).objectJSON(toJSON()).build();
+		return new EventData.Builder().eventId(5000).objectJSON(toJSON()).build();
 	}
 	
 	public static class Builder

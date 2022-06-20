@@ -3,12 +3,14 @@ package com.ics.synapse.receptor;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.util.Date;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
@@ -65,12 +67,12 @@ public class AuthenticationReceptor extends Receptor
 			// 2.3 Set STARTUP network record
 			poa.setStartupNetworkRecord(authenticationData.getStartupNetworkRecord());
 			// 2.4 Set AUTHENTICATION network record
-			poa.setAuthenticationNetworkRecord(new NetworkRecord.Builder().start(authenticationData.getAuthenticationNetworkRecord()).end(new Date()).build());
+			poa.setAuthenticationNetworkRecord(buildNetworkRecord());
 			// 2.5 Set CREDENTIALS network record
 			// TODO: (to be removed by Anshul after my checkin)
-			poa.setCredentialsNetworkRecord(new NetworkRecord.Builder().start(new Date()).build());
+			poa.setCredentialsNetworkRecord(new NetworkRecord.Builder().start(new Date().getTime()).build());
 			// 2.6 Set connection state
-			poa.setConnectionMessageState(PoaState.AUTHENTICATE);
+			poa.setPoaState(PoaState.AUTHENTICATE);
 			// 2.7 Update the POA in the local DocumentStore
 			DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId());
 			
@@ -89,7 +91,7 @@ public class AuthenticationReceptor extends Receptor
 					.build();
 			
 			// 4. Enqueue the message on the connection to be sent to the Cerebrum
-			getIncomingConnection().enqueueMessage(credentialsMessage);
+			getIncomingConnection().enqueueMessage(credentialsMessage, QueuingContext.QUEUED_FROM_RECEPTOR);
 			// 5. Change the interest of the connection to write
 			getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 		}catch(DocumentSaveFailedException | MessageBuildFailedException e) 

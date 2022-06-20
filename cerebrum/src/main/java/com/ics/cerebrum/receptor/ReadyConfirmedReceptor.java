@@ -1,8 +1,8 @@
 package com.ics.cerebrum.receptor;
 
 import java.io.IOException;
-import java.nio.channels.SelectionKey;
 import java.util.Date;
+
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
@@ -13,7 +13,6 @@ import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.data.ReadyConfirmedData;
 import com.ics.nceph.core.receptor.Receptor;
 
@@ -63,12 +62,12 @@ public class ReadyConfirmedReceptor extends Receptor
 			// 2.3 Set READY network record
 			poa.setReadyNetworkRecord(readyConfirmData.getReadyNetworkRecord());
 			// TODO 2.4 Set delete POA time
-			poa.setDeletePoaTime(new Date());
+			poa.setDeletePoaTime(new Date().getTime());
 			// 2.5 Set Connection State 
-			poa.setConnectionMessageState(PoaState.READYCONFIRMED);
+			poa.setPoaState(PoaState.READYCONFIRMED);
 			// TODO: (to be removed by Anshul after my checkin)
 			// 2.6 Set READYCONFIRMED NetworkRecord
-			poa.setReadyConfirmedNetworkRecord(new NetworkRecord.Builder().start(readyConfirmData.getReadyConfirmedNetwork()).end(new Date()).build());
+			poa.setReadyConfirmedNetworkRecord(buildNetworkRecord());
 			// 2.7 Set READYCONFIRMED readRecord
 			poa.setReadyConfirmedReadRecord(getMessage().getReadRecord());
 			// 2.8 Update the POA in the local DocumentStore
@@ -100,36 +99,5 @@ public class ReadyConfirmedReceptor extends Receptor
 			return ;
 		}
 
-		// 3. If there are outgoing messages in the buffer then transfer them to the connections relayQueue
-		if (getIncomingConnection().getConnector().getRelayQueue().size() > 0)
-		{
-			// Log
-			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
-					.connectionId(String.valueOf(getIncomingConnection().getId()))
-					.action("Enqueueing")
-					.data(new LogData()
-							.entry("Connection ID", String.valueOf(getIncomingConnection().getId()))
-							.entry("Port", String.valueOf(getIncomingConnection().getConnector().getPort()))
-							.entry("Relay size", String.valueOf(getIncomingConnection().getConnector().getRelayQueue().size()))
-							.toString())
-					.description("messages from the outgoing buffer (relayQueue) to connection's relayQueue")
-					.logInfo());
-
-
-			while(!getIncomingConnection().getConnector().getRelayQueue().isEmpty()) {
-				NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
-						.connectionId(String.valueOf(getIncomingConnection().getId()))
-						.action("Enqueueing")
-						.data(new LogData()
-								.entry("Relay size", String.valueOf(getIncomingConnection().getConnector().getRelayQueue().size()))
-								.toString())
-						.description("messages from the outgoing buffer (relayQueue) to connection's relayQueue")
-						.logInfo());
-
-				for (int i = 0; i < 10 && !getIncomingConnection().getConnector().getRelayQueue().isEmpty(); i++)
-					getIncomingConnection().enqueueMessage(getIncomingConnection().getConnector().getRelayQueue().poll());
-				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
-			}
-		}
 	}
 }

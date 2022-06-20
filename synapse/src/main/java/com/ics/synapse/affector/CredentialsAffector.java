@@ -10,7 +10,12 @@ import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
 /**
- * 
+ * This class executes within a write worker thread after the channel write operation is done (after sending CREDENTIALS message).<br>
+ * Updates following POA attributes:
+ * <ol>
+ * 	<li> <b>state:</b> set to CREDENTIALS only if it is not yet CREDENTIALS.</li>
+ *  <li> <b>CredentialsWriteRecord:</b> Time taken (IORecord) to write the CREDENTIALS message on the channel </li>
+ * </ol>
  * @author Chandan Verma
  * @version 1.0
  * @since 04-Apr-2022
@@ -35,12 +40,12 @@ public class CredentialsAffector extends Affector
 					.logInfo());
 			return;
 		}
-		if(poa.getConnectionMessageState().getState() < PoaState.CREDENTIALS.getState()) 
+		if(poa.getPoaState().getState() < PoaState.CREDENTIALS.getState()) 
 		{
 			// 1.1 Set CREDENTIALS read record
 			poa.setCredentialsWriteRecord(getMessage().getWriteRecord());
 			// 1.2 Set connection state
-			poa.setConnectionMessageState(PoaState.CREDENTIALS);
+			poa.setPoaState(PoaState.CREDENTIALS);
 			try {
 				// 3. Update the POA in the local storage
 				DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());

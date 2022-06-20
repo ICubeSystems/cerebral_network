@@ -8,27 +8,28 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
+
 import javax.net.ssl.SSLContext;
+
 import com.ics.cerebrum.worker.CerebralReader;
 import com.ics.cerebrum.worker.CerebralWriter;
 import com.ics.logger.BootstraperLog;
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
+import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.Reactor;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 
 /**
- * Connector implementation for the Event relay server node.
+ * Connector implementation for the EventData relay server node.
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -88,17 +89,14 @@ public class CerebralConnector extends Connector
 	/**
 	 * This method accepts a {@link SocketChannel} from the {@link ServerSocketChannel} when their is an incoming connection request from any service/ application on this connector
 	 * 
-	 * @throws IOException
-	 * @throws ImproperReactorClusterInstantiationException
-	 * @throws ReactorNotAvailableException
-	 * @return void
-	 *
 	 * @author Anurag Arya
 	 * @version 1.0
 	 * @throws ConnectionInitializationException 
+	 * @throws IOException
+	 * @return void
 	 * @since 22-Dec-2021
 	 */
-	public synchronized void acceptConnection() throws IOException, ConnectionInitializationException
+	public void acceptConnection() throws IOException, ConnectionInitializationException
 	{
 		// 1. Increment the totalConnectionsServed by 1
 		setTotalConnectionsServed(getTotalConnectionsServed()+1);
@@ -266,7 +264,7 @@ public class CerebralConnector extends Connector
 								sslContext
 								);
 			// 2. Initialize the monitor thread
-			connnector.initializeMonitor(new CerebralMonitor(), 60, 60);
+			connnector.initializeMonitor(new CerebralMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 			// 3. Return the connector
 			return connnector;
 		}

@@ -2,6 +2,7 @@ package com.ics.synapse.receptor;
 
 import java.io.IOException;
 import java.util.Date;
+
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
@@ -12,7 +13,6 @@ import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.data.AuthErrorData;
 import com.ics.nceph.core.receptor.Receptor;
 /**
@@ -61,11 +61,11 @@ public class AuthErrorReceptor extends Receptor
 			// 2.4 Set AUTHENTICATION write record
 			poa.setAuthenticationWriteRecord(authErrorData.getAuthenticationWriteRecord());
 			// 2.5 Set ERROR network record
-			poa.setAuthenticationErrorNetworkRecord(new NetworkRecord.Builder().start(authErrorData.getAuthenticationErrorNetworkRecord()).end(new Date()).build());
+			poa.setAuthenticationErrorNetworkRecord(buildNetworkRecord());
 			// 2.6 Set delete POA time
-			poa.setDeletePoaTime(new Date());
+			poa.setDeletePoaTime(new Date().getTime());
 			// 2.7 Set connection state
-			poa.setConnectionMessageState(PoaState.AUTH_ERROR);
+			poa.setPoaState(PoaState.AUTH_ERROR);
 			// 2.7 Update the POA in the local DocumentStore
 			DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
 			// 2.8 Set incoming connection state AUTH_FAILED

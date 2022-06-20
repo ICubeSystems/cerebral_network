@@ -1,9 +1,8 @@
-package com.ics.nceph.core.event;
+package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
 
 import com.ics.nceph.core.message.IORecord;
-import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.NetworkRecord;
 
 /**
@@ -12,7 +11,7 @@ import com.ics.nceph.core.message.NetworkRecord;
  * @version 1.0
  * @since 30-Mar-2022
  */
-public class ThreeWayAcknowledgement extends MessageData implements Serializable
+public class ThreeWayAcknowledgementData extends MessageData implements Serializable
 {
 	/**
 	 * 
@@ -37,9 +36,9 @@ public class ThreeWayAcknowledgement extends MessageData implements Serializable
 	/**
 	 * Default constructor used by ObjectMapper to serialize/ deserialize this object
 	 */
-	public ThreeWayAcknowledgement() {}
+	public ThreeWayAcknowledgementData() {}
 	
-	private ThreeWayAcknowledgement(NetworkRecord threeWayAckNetworkRecord, IORecord writeRecord, NetworkRecord ackNetworkRecord)
+	private ThreeWayAcknowledgementData(NetworkRecord threeWayAckNetworkRecord, IORecord writeRecord, NetworkRecord ackNetworkRecord)
 	{
 		this.threeWayAckNetworkRecord = threeWayAckNetworkRecord;
 		this.writeRecord = writeRecord;
@@ -93,9 +92,9 @@ public class ThreeWayAcknowledgement extends MessageData implements Serializable
 			return this;
 		}
 		
-		public ThreeWayAcknowledgement build() 
+		public ThreeWayAcknowledgementData build() 
 		{
-			return new ThreeWayAcknowledgement(threeWayAckNetworkRecord, writeRecord, ackNetworkRecord);
+			return new ThreeWayAcknowledgementData(threeWayAckNetworkRecord, writeRecord, ackNetworkRecord);
 		}
 	}
 }

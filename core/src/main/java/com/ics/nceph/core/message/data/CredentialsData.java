@@ -1,7 +1,7 @@
 package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
-import java.util.Date;
+
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 /**
@@ -20,13 +20,13 @@ public class CredentialsData extends MessageData implements Serializable
 
 	private NetworkRecord authenticationNetworkRecord;
 
-	private Date credentialsNetworkRecord;
+	private long credentialsNetworkRecord;
 
 	private String credentials;
 
 	public CredentialsData() {}
 
-	public CredentialsData(NetworkRecord authenticationNetworkRecord, Date credentialsNetworkRecord, String credentials, IORecord startupWriteRecord, IORecord authenticationReadRecord) 
+	public CredentialsData(NetworkRecord authenticationNetworkRecord, long credentialsNetworkRecord, String credentials, IORecord startupWriteRecord, IORecord authenticationReadRecord) 
 	{
 		super();
 		this.authenticationNetworkRecord = authenticationNetworkRecord;
@@ -41,7 +41,7 @@ public class CredentialsData extends MessageData implements Serializable
 		return authenticationNetworkRecord;
 	}
 
-	public Date getCredentialsNetworkRecord() 
+	public long getCredentialsNetworkRecord() 
 	{
 		return credentialsNetworkRecord;
 	}
@@ -69,7 +69,7 @@ public class CredentialsData extends MessageData implements Serializable
 
 		private NetworkRecord authenticationNetworkRecord;
 
-		private Date credentialsNetworkRecord;
+		private long credentialsNetworkRecord;
 
 		private String credentials;
 
@@ -91,7 +91,7 @@ public class CredentialsData extends MessageData implements Serializable
 			return this;
 		}
 
-		public Builder credentialsNetworkRecord(Date credentialsNetworkRecord)
+		public Builder credentialsNetworkRecord(long credentialsNetworkRecord)
 		{
 			this.credentialsNetworkRecord = credentialsNetworkRecord;
 			return this;

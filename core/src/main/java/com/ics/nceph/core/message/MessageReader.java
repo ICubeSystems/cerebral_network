@@ -14,6 +14,7 @@ import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.SSLConnection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
+import com.ics.nceph.core.message.type.MessageType;
 import com.ics.util.ByteUtil;
 
 /**
@@ -129,7 +130,8 @@ public class MessageReader
 							.messageId(message.decoder().getId())
 							.action("Read Done")
 							.data(new LogData()
-									.entry("type", String.valueOf(message.decoder().getType()))
+									.entry("messageType", MessageType.getNameByType(message.decoder().getType()))
+									.entry("connectionId", String.valueOf(connection.getId()))
 									.toString())
 							.logInfo());
 					// Create a reader thread per message
@@ -139,13 +141,13 @@ public class MessageReader
 							.messageId(message.decoder().getId())
 							.action("Read Worker Initiated")
 							.data(new LogData()
-									.entry("type", String.valueOf(message.decoder().getType()))
+									.entry("messageType", MessageType.getNameByType(message.decoder().getType()))
+									.entry("workerClass", MessageType.getClassByType(message.decoder().getType()))
 									.toString()
 									)
 							.logInfo());
 					// Put the message in the connectors incomingMessageStore
 					connection.getConnector().storeIncomingMessage(message);
-					//messages.put(String.valueOf(message.decoder().getType() + message.decoder().getId()), message);
 					// Reset the messageBuilder to start reading a new message
 					messageBuilder.reset();
 				}
@@ -211,6 +213,10 @@ public class MessageReader
 		byte[] messageId = new byte[6];
 		headerBuffer.get(messageId, 0, 6);
 		messageBuilder.setMessageId(messageId);
+		//set timestamp
+		byte[] timeStamp = new byte[8];
+		headerBuffer.get(timeStamp, 0, 8);
+		messageBuilder.setTimeStamp(timeStamp);
 		// set dataLength
 		byte[] dataLength = new byte[4];
 		headerBuffer.get(dataLength, 0, 4);
@@ -232,7 +238,9 @@ public class MessageReader
     {
         encryptedDataToRead.clear();
         // read encrypted socket data to {encryptedDataToRead} byte buffer
-        int bytesRead = connection.getSocket().read(encryptedDataToRead);
+        int bytesRead = 0;
+		bytesRead = connection.getSocket().read(encryptedDataToRead);
+		
         if (bytesRead > 0) {
             encryptedDataToRead.flip();
             while (encryptedDataToRead.hasRemaining()) 

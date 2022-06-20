@@ -6,12 +6,16 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.util.Date;
+
 import javax.net.ssl.SSLContext;
+
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
+import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.connection.exception.AuthenticationFailedException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
@@ -137,9 +141,7 @@ public class SynapticConnector extends Connector
 	public void initiateAuthentication(Connection connection) throws MessageBuildFailedException, DocumentSaveFailedException
 	{
 		// 1. Create the STARTUP event 
-		StartupData startupData = new StartupData.Builder()
-				.startupNetworkRecord(new Date())// TODO: (to be removed by Anshul after my checkin) //startup network record with just the start
-				.build();
+		StartupData startupData = new StartupData.Builder().build();
 		
 		// 2. Create the STARTUP message 
 		Message startupMessage = new StartupMessage.Builder().data(startupData).build();
@@ -152,13 +154,13 @@ public class SynapticConnector extends Connector
 		// 3.3 Set STARTUP network record 
 		// TODO: (to be removed by Anshul after my checkin)
 		poa.setStartupNetworkRecord(new NetworkRecord.Builder()
-				.start(startupData.getStartupNetworkRecord())
+				.start(new Date().getTime())
 				.build());
 		// 3.4 Save the POA in the local DocumentStore
 		DocumentStore.save(poa, ProofOfAuthentication.DOC_PREFIX + startupMessage.decoder().getId());
 		
 		// 4. Enqueue the message on the connection to be sent to the Cerebrum
-		connection.enqueueMessage(startupMessage);
+		connection.enqueueMessage(startupMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
 		// 4.1 Set the interest of the connection to write
 		connection.setInterest(SelectionKey.OP_WRITE);
 		
@@ -351,7 +353,7 @@ public class SynapticConnector extends Connector
 			connnector.start();
 			
 			// 4. Initialize the monitor thread
-			connnector.initializeMonitor(new SynapticMonitor(), 60, 60);
+			connnector.initializeMonitor(new SynapticMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 
 			// 5. Return the connector
 			return connnector;

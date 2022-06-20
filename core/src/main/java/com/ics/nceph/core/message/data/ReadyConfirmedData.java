@@ -1,7 +1,7 @@
 package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
-import java.util.Date;
+
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 
@@ -27,11 +27,11 @@ public class ReadyConfirmedData extends MessageData implements Serializable
 
 	private NetworkRecord readyNetworkRecord;
 
-	private Date readyConfirmedNetwork;
+	private long readyConfirmedNetwork;
 
 	public ReadyConfirmedData() {}
 
-	public ReadyConfirmedData(IORecord credentialsWriteRecord, IORecord readyReadRecord, NetworkRecord readyNetworkRecord, Date readyConfirmedNetwork)  
+	public ReadyConfirmedData(IORecord credentialsWriteRecord, IORecord readyReadRecord, NetworkRecord readyNetworkRecord, long readyConfirmedNetwork)  
 	{
 		this.credentialsWriteRecord = credentialsWriteRecord;
 		this.readyReadRecord = readyReadRecord;
@@ -69,7 +69,7 @@ public class ReadyConfirmedData extends MessageData implements Serializable
 		return readyReadRecord;
 	}
 	
-	public Date getReadyConfirmedNetwork() {
+	public long getReadyConfirmedNetwork() {
 		return readyConfirmedNetwork;
 	}
 
@@ -81,7 +81,7 @@ public class ReadyConfirmedData extends MessageData implements Serializable
 
 		private NetworkRecord readyNetworkRecord;
 
-		private Date readyConfirmedNetwork;
+		private long readyConfirmedNetwork;
 
 		public Builder credentialsWriteRecord(IORecord credentialsWriteRecord)
 		{
@@ -101,7 +101,7 @@ public class ReadyConfirmedData extends MessageData implements Serializable
 			return this;
 		}
 		
-		public Builder readyConfirmedNetwork(Date readyConfirmedNetwork)
+		public Builder readyConfirmedNetwork(long readyConfirmedNetwork)
 		{
 			this.readyConfirmedNetwork = readyConfirmedNetwork;
 			return this;

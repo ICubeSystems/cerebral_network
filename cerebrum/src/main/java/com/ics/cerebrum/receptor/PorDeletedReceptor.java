@@ -6,6 +6,7 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.document.DocumentStore;
+import com.ics.nceph.core.document.PorState;
 import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.message.Message;
@@ -38,13 +39,18 @@ public class PorDeletedReceptor extends PodReceptor
 					.logInfo());
 			return;
 		}
-		
+
 		ProofOfRelay por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
-		// 2. Set ThreeWayRelayAckNetworkRecord and save to local storage.
+		// 2. Increment relay count only if porstate is not finished already.
+		if(por.getPorState() != PorState.FINISHED)
+			pod.incrementRelayCount();
+		// 3. Set ThreeWayRelayAckNetworkRecord and save to local storage.
 		por.setThreeWayAckNetworkRecord(getPod().getThreeWayAckNetworkRecord());
-		
+		por.incrementDeletePorAttempts();
+		por.setPorState(PorState.FINISHED);
 		try {
 			DocumentStore.update(pod, getMessage().decoder().getId());
-		} catch (IOException e) {}
+		} catch (IOException e) {
+		}
 	}
 }

@@ -59,7 +59,7 @@ public class ProofOfAuthentication extends Document
 			
 	private String messageId;
 
-	private Date createdOn;
+	private long createdOn;
 
 	private IORecord startupWriteRecord;
 
@@ -97,19 +97,19 @@ public class ProofOfAuthentication extends Document
 	
 	private NetworkRecord readyConfirmedNetworkRecord;
 
-	private PoaState connectionMessageState;
+	private PoaState poaState;
 
-	private Date deletePoaTime;
+	private long deletePoaTime;
 
 	public ProofOfAuthentication() {
 		super.changeLog = new ArrayList<String>();
 	}
 
-	public ProofOfAuthentication(String messageId, Date createdOn) 
+	public ProofOfAuthentication(String messageId, long createdOn) 
 	{
 		this.messageId = messageId;
 		this.createdOn = createdOn;
-		this.connectionMessageState = PoaState.INITIAL;
+		this.poaState = PoaState.INITIAL;
 		super.changeLog = new ArrayList<String>();
 		changeLog.add("New");
 	}
@@ -119,7 +119,7 @@ public class ProofOfAuthentication extends Document
 		return messageId;
 	}
 
-	public Date getCreatedOn() 
+	public long getCreatedOn() 
 	{
 		return createdOn;
 	}
@@ -140,7 +140,7 @@ public class ProofOfAuthentication extends Document
 		outOfSync("messageId");
 	}
 
-	public void setCreatedOn(Date createdOn) 
+	public void setCreatedOn(long createdOn) 
 	{
 		this.createdOn = createdOn;
 		outOfSync("createdOn");
@@ -203,12 +203,12 @@ public class ProofOfAuthentication extends Document
 		outOfSync("authenticationErrorNetworkRecord");
 	}
 
-	public Date getDeletePoaTime() 
+	public long getDeletePoaTime() 
 	{
 		return deletePoaTime;
 	}
 
-	public void setDeletePoaTime(Date deletePoaTime) 
+	public void setDeletePoaTime(long deletePoaTime) 
 	{
 		this.deletePoaTime = deletePoaTime;
 		outOfSync("deletePoaTime");
@@ -299,13 +299,13 @@ public class ProofOfAuthentication extends Document
 		outOfSync("readyWriteRecord");
 	}
 
-	public PoaState getConnectionMessageState() {
-		return connectionMessageState;
+	public PoaState getPoaState() {
+		return poaState;
 	}
 
-	public void setConnectionMessageState(PoaState connectioState) {
-		this.connectionMessageState = connectioState;
-		outOfSync("connectionMessageState");
+	public void setPoaState(PoaState connectioState) {
+		this.poaState = connectioState;
+		outOfSync("State");
 	}
 	
 	public IORecord getReadyConfirmedWriteRecord() {
@@ -357,7 +357,7 @@ public class ProofOfAuthentication extends Document
 	{
 		private String messageId;
 
-		private Date createdOn;
+		private long createdOn;
 
 		public Builder messageId(String messageId)
 		{
@@ -365,7 +365,7 @@ public class ProofOfAuthentication extends Document
 			return this;
 		}
 
-		public Builder createdOn(Date createdOn)
+		public Builder createdOn(long createdOn)
 		{
 			this.createdOn = createdOn;
 			return this;
@@ -373,7 +373,7 @@ public class ProofOfAuthentication extends Document
 
 		public ProofOfAuthentication build()
 		{
-			return new ProofOfAuthentication(messageId, this.createdOn == null? new Date() : this.createdOn);
+			return new ProofOfAuthentication(messageId, this.createdOn == 0L? new Date().getTime() : this.createdOn);
 		}
 	}
 }

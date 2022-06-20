@@ -3,11 +3,12 @@ package com.ics.nceph.core.document;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.nceph.core.Configuration;
-import com.ics.nceph.core.event.Event;
+import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 
@@ -26,15 +27,15 @@ import com.ics.nceph.core.message.NetworkRecord;
  * 							Synaptic Node																	Cerebral Node
  * 
  * 													  				 	  PUBLISH_EVENT
- * 	1)					Event 1 (Gift created) 		  			--------------------------------> 		Event Message Received
+ * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		EventData Message Received
  * 						Create this (createdOn, writeRecord)		
  * 
  * 																		  NCEPH_EVENT_ACK
- * 	2)					Ack received (for Event 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
+ * 	2)					Ack received (for EventData 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
  * 						Update this (ackNetworkRecord)													Create this (createdOn, readRecord, ackNetworkRecord.start)
  * 	
  * 																		   ACK_RECEIVED
- * 	3)		Acknowledge the receipt of Ack (for Event 1)		-------------------------------->   	ACK_RECEIVED Message Received
+ * 	3)		Acknowledge the receipt of Ack (for EventData 1)		-------------------------------->   	ACK_RECEIVED Message Received
  * 			Update this (3wayAckNetworkRecord.start)														Update this (writeRecord, ackNetworkRecord, 3wayAckNetworkRecord)
  * 
  * 																		   DELETE_this
@@ -56,7 +57,7 @@ import com.ics.nceph.core.message.NetworkRecord;
  *							Synaptic Node																	Cerebral Node
  * 
  * 													  				 	  PUBLISH_EVENT
- * 	1)					Event 1 (Gift created) 		  			--------------------------------> 		Message Received
+ * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		Message Received
  * 						Create this (createdOn)		
  * 
  * 																		 NCEPH_EVENT_ACK
@@ -68,11 +69,11 @@ import com.ics.nceph.core.message.NetworkRecord;
  * 						Resend messages with undeleted thiss 	
  * 
  *   																   NCEPH_EVENT_ACK_AGAIN
- * 	4)					Ack received (for Event 1) 				<-------------------------------- 		Re-Acknowledge the receipt of the PUBLISH_EVENT message to the sender		  
+ * 	4)					Ack received (for EventData 1) 				<-------------------------------- 		Re-Acknowledge the receipt of the PUBLISH_EVENT message to the sender		  
  * 																										Update this (ackSentOn, ackAttempt++)
  * 
  *  																	   ACK_RECEIVED
- * 	5)		Acknowledge the receipt of Ack (for Event 1)		-------------------------------->   	ACK_RECEIVED Message Received
+ * 	5)		Acknowledge the receipt of Ack (for EventData 1)		-------------------------------->   	ACK_RECEIVED Message Received
  * 																										Update this (networkRecords & ackNetworkRecord)
  * 
  * 																		   DELETE_this
@@ -85,7 +86,7 @@ import com.ics.nceph.core.message.NetworkRecord;
  * 							Synaptic Node																	Cerebral Node
  * 
  * 													  				 	  PUBLISH_EVENT
- * 	1)					Event 1 (Gift created) 		  			--------------------------------> 		Message Received
+ * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		Message Received
  * 						Create this (createdOn)		
  * try {
 			 FileChannel channel = new RandomAccessFile(file, lockingMode).getChannel();
@@ -118,15 +119,15 @@ import com.ics.nceph.core.message.NetworkRecord;
  *							Synaptic Node																	Cerebral Node
  * 
  * 													  				 	   PUBLISH_EVENT
- * 	1)					Event 1 (Gift created) 		  			--------------------------------> 		Message Received
+ * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		Message Received
  * 						Create this (createdOn)		
  * 
  * 																		 NCEPH_EVENT_ACK
- * 	2.1)				Ack received (for Event 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
+ * 	2.1)				Ack received (for EventData 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
  * 						Delete this 																		Create this (createdOn, ackSentOn)
  * 	
  * 																	   NCEPH_EVENT_ACK_AGAIN
- * 	2.2)				Ack received (for Event 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
+ * 	2.2)				Ack received (for EventData 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
  * 						Delete this 																		Create this (createdOn, ackSentOn)
  * 																										In case when the PUBLISH_EVENT message is sent again due to 
  * 																										fail over of the synaptic node. Or connector monitoring thread finds out 
@@ -134,7 +135,7 @@ import com.ics.nceph.core.message.NetworkRecord;
  * 																										Or RelayTimeoutException is thrown while writing the NCEPH_EVENT_ACK message
  * 
  * 																		   ACK_RECEIVED
- * 	3.1)	Acknowledge the receipt of Ack (for Event 1)try {
+ * 	3.1)	Acknowledge the receipt of Ack (for EventData 1)try {
 			 FileChannel channel = new RandomAccessFile(file, lockingMode).getChannel();
 			 // Acquire an exclusive lock on this channel's file (blocks until lock can be retrieved)
 			 lock = channel.lock();
@@ -145,7 +146,7 @@ import com.ics.nceph.core.message.NetworkRecord;
  * 																										Update this (ackReceivedOn)
  * 
  * 																	   ACK_RECEIVED_AGAIN
- * 	3.2)	Ack already received and processed (for Event 1)	-------------------------------->   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
+ * 	3.2)	Ack already received and processed (for EventData 1)	-------------------------------->   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
  * 			In case when cerebrum does not receive 
  * 			ACK_RECEIVED message due to any reasons 
  * 			like crash or network failure. And it sends 
@@ -158,13 +159,13 @@ import com.ics.nceph.core.message.NetworkRecord;
  */
 public class ProofOfDelivery extends Document
 {
-	//private int sourceId;
+	private int portNumber;
 	
 	private String messageId;
 	
-	private Event event;
+	private EventData event;
 	
-	private Date createdOn;
+	private long createdOn;
 	
 	private IORecord writeRecord;
 	
@@ -178,15 +179,27 @@ public class ProofOfDelivery extends Document
 	
 	private IORecord threeWayAckReadRecord;
 	
+	private NetworkRecord eventNetworkRecord;
+	
 	private NetworkRecord ackNetworkRecord;
 	
 	private NetworkRecord threeWayAckNetworkRecord;
 	
 	private int acknowledgementAttempts = 0;
 	
+	private int publishAttempts = 0;
+	
+	private int threeWayAckAttempts = 0;
+	
+	private int deletePodAttempts = 0;
+	
 	private int subscriberCount;
 	
+	private PodState podState;
+	
 	private ConcurrentHashMap<Integer, ProofOfRelay> pors;
+	
+	private AtomicInteger relayCount;
 	
 	//acknowledgementStatus
 	
@@ -194,12 +207,15 @@ public class ProofOfDelivery extends Document
 		super.changeLog = new ArrayList<String>();
 	}
 	
-	ProofOfDelivery(String messageId, Event event, Date createdOn)
+	ProofOfDelivery(String messageId, EventData event, long createdOn, int portNumber)
 	{
 		this.createdOn = createdOn;
 		this.messageId = messageId;
 		this.event = event;
+		this.portNumber = portNumber;
 		super.changeLog = new ArrayList<String>();
+		this.podState = PodState.INITIAL;
+		this.relayCount = new AtomicInteger(0);
 		changeLog.add("New");
 	}
 	
@@ -210,15 +226,19 @@ public class ProofOfDelivery extends Document
 		return Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location");
 	}
 	
+	public int getPortNumber() {
+		return portNumber;
+	}
+
 	public String getMessageId() {
 		return messageId;
 	}
 	
-	public Event getEvent() {
+	public EventData getEvent() {
 		return event;
 	}
 	
-	public Date getCreatedOn() {
+	public long getCreatedOn() {
 		return createdOn;
 	}
 	
@@ -262,20 +282,76 @@ public class ProofOfDelivery extends Document
 		outOfSync("ThreeWayAckNetworkRecord");
 	}
 
+	public NetworkRecord getEventNetworkRecord() {
+		return eventNetworkRecord;
+	}
+
+	public void setEventNetworkRecord(NetworkRecord eventNetworkRecord) {
+		this.eventNetworkRecord = eventNetworkRecord;
+		outOfSync("EventNetworkRecord");
+	}
+
 	public int getAcknowledgementAttempts() {
 		return acknowledgementAttempts;
 	}
 
-	public void incrementAcknowledgementAttempts() {
-		this.acknowledgementAttempts++;
+	public int getPublishAttempts() {
+		return publishAttempts;
 	}
 
+	public int getThreeWayAckAttempts() {
+		return threeWayAckAttempts;
+	}
+
+	public int getDeletePodAttempts() {
+		return deletePodAttempts;
+	}
+	
+	public void incrementPublishAttempts() {
+		this.publishAttempts++;
+		outOfSync("publishAttempts");
+	}
+	
+	public void incrementAcknowledgementAttempts() {
+		this.acknowledgementAttempts++;
+		outOfSync("acknowledgementAttempts");
+	}
+	
+	public void incrementThreeWayAckAttempts() {
+		this.threeWayAckAttempts++;
+		outOfSync("threeWayAckAttempts");
+	}
+	
+	public void incrementDeletePodAttempts() {
+		this.deletePodAttempts++;
+		outOfSync("deletePodAttempts");
+	}
+	
+	public void decrementPublishAttempts() {
+		this.publishAttempts--;
+		outOfSync("publishAttempts");
+	}
+	
+	public void decrementAcknowledgementAttempts() {
+		this.acknowledgementAttempts--;
+		outOfSync("acknowledgementAttempts");
+	}
+	
+	public void decrementThreeWayAckAttempts() {
+		this.threeWayAckAttempts--;
+		outOfSync("threeWayAckAttempts");
+	}
+	
+	public void decrementDeletePodAttempts() {
+		this.deletePodAttempts--;
+		outOfSync("deletePodAttempts");
+	}
+	
 	public IORecord getAckWriteRecord() {
 		return ackWriteRecord;
 	}
 
-	public void setAckWriteRecord(IORecord ackWriteRecord) 
-	{
+	public void setAckWriteRecord(IORecord ackWriteRecord) {
 		this.ackWriteRecord = ackWriteRecord;
 		outOfSync("AckWriteRecord");
 	}
@@ -331,6 +407,30 @@ public class ProofOfDelivery extends Document
 		outOfSync("SubscriberCount");
 	}
 
+
+	public PodState getPodState() {
+		return podState;
+	}
+
+	public void setPodState(PodState podState) {
+		this.podState = podState;
+		outOfSync("PodState");
+	}
+
+	public AtomicInteger getRelayCount() {
+		return relayCount;
+	}
+
+	public void incrementRelayCount() {
+		this.relayCount.incrementAndGet();
+		outOfSync("incrementRelayCount");
+	}
+
+	public void decrementRelayCount() {
+		this.relayCount.decrementAndGet();
+		outOfSync("decrementRelayCount");
+	}
+
 	public String toString()
 	{
 		ObjectMapper mapper = new ObjectMapper();
@@ -343,6 +443,29 @@ public class ProofOfDelivery extends Document
 		return null;
 	}
 	
+	public void decrementAttempts()
+	{
+		if(podState.getState() == 100 || podState.getState() == 200)
+			decrementPublishAttempts();
+		else
+			decrementThreeWayAckAttempts();
+	}
+	
+	/**
+	 * 
+	 */
+	public void addPor(int port, ProofOfRelay por)
+	{
+		if(this.getPors() == null) // Create new POR hashmap if the message is not relayed to any of the subscriber so far
+		{
+			ConcurrentHashMap<Integer, ProofOfRelay> porHashMap = new ConcurrentHashMap<Integer, ProofOfRelay>();
+			porHashMap.put(port, por);
+			this.setPors(porHashMap);
+		}
+		else 
+			this.getPors().put(port, por);
+	}
+	
 	/**
 	 * 
 	 * @return String status
@@ -351,47 +474,53 @@ public class ProofOfDelivery extends Document
 	{
 		String status = "";
 		// BAD CODE - need to change this to use JSON Schema
-		if(this.getCreatedOn() == null)
+		if(this.getCreatedOn() == 0L)
 			status = "CreatedOn: NULL";
 
 		if(this.getReadRecord() == null)
 			status = status + ", ReadRecord: NULL";
-		else if(this.getReadRecord().getStart() == null)
+		else if(this.getReadRecord().getStart() == 0L)
 			status = status + ", ReadRecord.start: NULL";
-		else if(this.getReadRecord().getEnd() == null)
+		else if(this.getReadRecord().getEnd() == 0L)
 			status = status + ", ReadRecord.end: NULL";
 
 		if(this.getWriteRecord() == null)
 			status = status + ", WriteRecord: NULL";
-		else if(this.getWriteRecord().getStart() == null)
+		else if(this.getWriteRecord().getStart() == 0L)
 			status = status + ", WriteRecord.start: NULL";
-		else if(this.getWriteRecord().getEnd() == null)
+		else if(this.getWriteRecord().getEnd() == 0L)
 			status = status + ", WriteRecord.end: NULL";
 
 		if(this.getAckNetworkRecord() == null)
 			status = status + ", AckNetworkRecord: NULL";
-		else if(this.getAckNetworkRecord().getStart() == null)
+		else if(this.getAckNetworkRecord().getStart() == 0L)
 			status = status + ", AckNetworkRecord.start: NULL";
-		else if(this.getAckNetworkRecord().getEnd() == null)
+		else if(this.getAckNetworkRecord().getEnd() == 0L)
 			status = status + ", AckNetworkRecord.end: NULL";
 
 		if(this.getThreeWayAckNetworkRecord() == null)
 			status = status + ", ThreeWayAckNetworkRecord: NULL";
-		else if(this.getThreeWayAckNetworkRecord().getStart() == null)
+		else if(this.getThreeWayAckNetworkRecord().getStart() == 0L)
 			status = status + ", ThreeWayAckNetworkRecord.start: NULL";
-		else if(this.getThreeWayAckNetworkRecord().getEnd() == null)
+		else if(this.getThreeWayAckNetworkRecord().getEnd() == 0L)
 			status = status + ", ThreeWayAckNetworkRecord.end: NULL";
+		
+		if (this.relayCount.intValue() != this.subscriberCount) {
+			status = status + ", Not Relayed to all subscriber";
+		}
 		
 		return status;
 	}
 	
 	public static class Builder
 	{
+		private int portNumber;
+		
 		private String messageId;
 		
-		private Event event;
+		private EventData event;
 		
-		private Date createdOn;
+		private long createdOn;
 		
 		public Builder messageId(String messageId)
 		{
@@ -399,13 +528,19 @@ public class ProofOfDelivery extends Document
 			return this;
 		}
 		
-		public Builder event(Event event)
+		public Builder portNumber(int portNumber)
+		{
+			this.portNumber = portNumber;
+			return this;
+		}
+		
+		public Builder event(EventData event)
 		{
 			this.event = event;
 			return this;
 		}
 		
-		public Builder createdOn(Date createdOn)
+		public Builder createdOn(long createdOn)
 		{
 			this.createdOn = createdOn;
 			return this;
@@ -413,7 +548,7 @@ public class ProofOfDelivery extends Document
 		
 		public ProofOfDelivery build()
 		{
-			return new ProofOfDelivery(messageId, event, this.createdOn == null? new Date() : this.createdOn);
+			return new ProofOfDelivery(messageId, event, this.createdOn == 0L? new Date().getTime() : this.createdOn, portNumber);
 		}
 	}
 

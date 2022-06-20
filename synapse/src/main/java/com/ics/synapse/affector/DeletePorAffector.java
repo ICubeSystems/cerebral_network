@@ -21,5 +21,8 @@ public class DeletePorAffector extends Affector
 	@Override
 	public void process() 
 	{
+		
+		
+		
 	}
 }

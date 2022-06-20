@@ -10,7 +10,12 @@ import com.ics.nceph.core.document.ProofOfAuthentication;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
 /**
- * 
+ * This class executes within a write worker thread after the channel write operation is done (after sending AUTHENTICATE message).<br>
+ * Updates following POA attributes:
+ * <ol>
+ * 	<li> <b>state:</b> set to AUTHENTICATE only if it is not yet AUTHENTICATE.</li>
+ *  <li> <b>AuthenticationWriteRecord:</b> Time taken (IORecord) to write the AUTHENTICATE message on the channel </li>
+ * </ol>
  * @author Chandan Verma
  * @version 1.0
  * @since 03-Apr-2022
@@ -35,12 +40,12 @@ public class AuthenticationAffector extends Affector
 					.logInfo());
 			return;
 		}
-		if(poa.getConnectionMessageState().getState() < PoaState.AUTHENTICATE.getState()) 
+		if(poa.getPoaState().getState() < PoaState.AUTHENTICATE.getState()) 
 		{
 			// 1.2 Set AUTHENTICATION write record
 			poa.setAuthenticationWriteRecord(getMessage().getWriteRecord());
 			// 1.3 Set connection state
-			poa.setConnectionMessageState(PoaState.AUTHENTICATE);
+			poa.setPoaState(PoaState.AUTHENTICATE);
 			// 3. Update the POA in the local DocumentStore
 			try {
 				DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId());

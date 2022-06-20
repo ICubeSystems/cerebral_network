@@ -7,6 +7,7 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.worker.Reader;
 
@@ -39,7 +40,7 @@ public abstract class Receptor
 				.messageId(getMessage().decoder().getId())
 				.action("RECEIVED")
 				.data(new LogData()
-						.entry("type", MessageType.getClassByType(getMessage().decoder().getType()))
+						.entry("messageType", MessageType.getNameByType(getMessage().decoder().getType()))
 						.entry("dataBytes", String.valueOf(getMessage().decoder().getDataLength()))
 						.toString())
 				.logInfo());
@@ -58,6 +59,13 @@ public abstract class Receptor
 
 	public Connection getIncomingConnection() {
 		return incomingConnection;
+	}
+	
+	public NetworkRecord buildNetworkRecord() 
+	{
+		return new NetworkRecord.Builder()
+				.start(getMessage().decoder().getTimestamp())
+				.end(message.getReadRecord().getStart()).build();
 	}
 	
 	public static class Builder

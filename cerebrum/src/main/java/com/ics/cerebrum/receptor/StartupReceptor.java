@@ -3,11 +3,13 @@ package com.ics.cerebrum.receptor;
 import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.util.Date;
+
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
@@ -61,12 +63,12 @@ public class StartupReceptor extends Receptor
 				// 2.3 Set STARTUP read record
 				poa.setStartupReadRecord(getMessage().getReadRecord());
 				// 2.4 Set STARTUP network record
-				poa.setStartupNetworkRecord(new NetworkRecord.Builder().start(startupData.getStartupNetworkRecord()).end(new Date()).build());
+				poa.setStartupNetworkRecord(buildNetworkRecord());
 				// 2.5 Set AUTHENTICATION network record
 				// TODO: (to be removed by Anshul after my checkin)
-				poa.setAuthenticationNetworkRecord(new NetworkRecord.Builder().start(new Date()).build());
+				poa.setAuthenticationNetworkRecord(new NetworkRecord.Builder().start(new Date().getTime()).build());
 				// 2.6 Set connection state
-				poa.setConnectionMessageState(PoaState.STARTUP);
+				poa.setPoaState(PoaState.STARTUP);
 				// 2.7 Save the POA in the local DocumentStore
 				DocumentStore.save(poa, ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId());
 				
@@ -83,7 +85,7 @@ public class StartupReceptor extends Receptor
 						.build();
 				
 				// 4 Enqueue AUTHENTICATION for sending
-				getIncomingConnection().enqueueMessage(authenticationMessage);
+				getIncomingConnection().enqueueMessage(authenticationMessage, QueuingContext.QUEUED_FROM_RECEPTOR);
 				// 5 Set the interest of the connection to write
 				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 			}catch(DocumentSaveFailedException | MessageBuildFailedException e) 

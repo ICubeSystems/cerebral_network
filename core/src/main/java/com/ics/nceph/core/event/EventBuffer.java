@@ -33,22 +33,22 @@ public class EventBuffer
 		buffer.clear();
 	}
 	
-	EventBuffer(Event event) throws IOException
+	EventBuffer(EventData event) throws IOException
 	{
 		toBuffer(event);
 	}
 	
 	/**
-	 * Return the Event instance from the ByteBuffer
+	 * Return the EventData instance from the ByteBuffer
 	 * 
-	 * @return Event
+	 * @return EventData
 	 * @throws IOException 
 	 * @throws ClassNotFoundException 
 	 */
-	public Event toEvent() throws ClassNotFoundException, IOException 
+	public EventData toEvent() throws ClassNotFoundException, IOException 
 	{
 		buffer.flip();
-		return (Event)toObject();
+		return (EventData)toObject();
 	}
 	
 	/**
@@ -106,7 +106,7 @@ public class EventBuffer
 	{
 		int capacity = 0;
 		
-		Event event;
+		EventData event;
 		
 		/**
 		 * Set the capacity of the new {@link ByteBuffer}, in bytes
@@ -120,12 +120,12 @@ public class EventBuffer
 		}
 		
 		/**
-		 * Set the {@link Event} instance to be converted to the ByteBuffer for sending on the socket channel
+		 * Set the {@link EventData} instance to be converted to the ByteBuffer for sending on the socket channel
 		 * 
 		 * @param event
 		 * @return Builder
 		 */
-		public Builder event(Event event) {
+		public Builder event(EventData event) {
 			this.event = event;
 			return this;
 		}
@@ -133,7 +133,7 @@ public class EventBuffer
 		/**
 	     * Creates a new EventBuffer instance. EventBuffer are used for the following purpose:<br>
 	     * <ol>
-	     * 		<li>Reading the event from the socket channel - in this case, {@link EventBuffer.Builder#event(Event)} should not be called during the build. 
+	     * 		<li>Reading the event from the socket channel - in this case, {@link EventBuffer.Builder#event(EventData)} should not be called during the build. 
 	     * 			The new buffer's position will be zero, its limit will be its capacity its mark will be undefined, 
 	     * 			each of its elements will be initialized to zero, and its byte order will be {@link ByteOrder#BIG_ENDIAN BIG_ENDIAN}.
 	     * 		<li>Writing an event to a socket channel - in this case {@link EventBuffer.Builder#capacity(int)} should not be called during the build.</li>
@@ -148,7 +148,7 @@ public class EventBuffer
 		{
 			// Throw an ImproperEventBufferInstantiationException if both event and capacity are set before the build call 
 			if (event != null && capacity != 0)
-				throw new ImproperEventBufferInstantiationException(new Exception("Can not instantiate EventBuffer with Event and Capacity"));
+				throw new ImproperEventBufferInstantiationException(new Exception("Can not instantiate EventBuffer with EventData and Capacity"));
 			
 			// If the buffer is being created for writing on the socket channel
 			if (event != null)

@@ -7,8 +7,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ImportResource;
 
-import com.cs.synapticNode2Thread.GiftDeliveredThread;
-import com.cs.synapticNode2Thread.GiftStatusThread;
 import com.ics.synapse.bootstrap.SynapseBootstraper;
 
 @SpringBootApplication
@@ -33,12 +31,13 @@ public class SynapticNode2Application implements CommandLineRunner
 		synapseBootstraper.boot();
 		// 2. Present the menu options
 		
-//		Delivered Gift
-		GiftDeliveredThread giftDelivered = new GiftDeliveredThread();
-		giftDelivered.start();
-		
-// 		Gift Status
-		GiftStatusThread giftStatus = new GiftStatusThread();
-		giftStatus.start();
+////		Delivered Gift
+//		GiftDeliveredThread giftDelivered = new GiftDeliveredThread();
+//		giftDelivered.start();
+//		
+//// 		Gift Status
+//		GiftStatusThread giftStatus = new GiftStatusThread();
+//		giftStatus.start();
+
 	}
 }

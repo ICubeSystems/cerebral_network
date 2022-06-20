@@ -12,6 +12,8 @@ import javax.xml.bind.JAXBException;
 import com.ics.cerebrum.nodes.xml.Subscriptions;
 import com.ics.cerebrum.nodes.xml.SynapticNode;
 import com.ics.cerebrum.nodes.xml.SynapticNodes;
+import com.ics.logger.BootstraperLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.reactor.ReactorCluster;
@@ -62,7 +64,10 @@ public class ConnectorClusterInitializer
 		// 4. Loop over synaptic nodes and create CerebralConnector per node. And create subscription meta data for the cerebrum.
 		for (SynapticNode synapticNode : synapticNodes.getNodes()) 
 		{
-			System.out.println("Creating Connector "+synapticNode.getName()+" on port " + synapticNode.getPort());
+			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+					.action("Creating Connector")
+					.description("Creating Connector "+synapticNode.getName()+" on port " + synapticNode.getPort())
+					.logInfo());
 			
 			// 4.1 Create CerebralConnector per node
 			CerebralConnector connector = new CerebralConnector.Builder()

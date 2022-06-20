@@ -2,7 +2,7 @@ package com.ics.synapse.ncephEvent;
 
 import java.io.IOException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.ics.nceph.core.event.Event;
+import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 /**
@@ -13,5 +13,5 @@ import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
  */
 public interface NcephEvent 
 {
-	 Event toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException;
+	 EventData toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException;
 }

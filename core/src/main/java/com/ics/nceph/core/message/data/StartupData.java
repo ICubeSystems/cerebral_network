@@ -1,7 +1,6 @@
 package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
-import java.util.Date;
 /**
  * 
  * @author Chandan Verma
@@ -12,34 +11,19 @@ public class StartupData extends MessageData implements Serializable
 {
 	private static final long serialVersionUID = 1L;
 
-	private Date startupNetworkRecord;
-
 	public StartupData() {}
 
-	public StartupData(Date startupNetworkRecord) 
+	public StartupData(long startupNetworkRecord) 
 	{
 		super();
-		this.startupNetworkRecord = startupNetworkRecord;
 	}
 
-	public Date getStartupNetworkRecord() 
-	{
-		return startupNetworkRecord;
-	}
 
 	public static class Builder
 	{
-		private Date startupNetworkRecord;
-
-		public Builder startupNetworkRecord(Date startupNetworkRecord)
-		{
-			this.startupNetworkRecord = startupNetworkRecord;
-			return this;
-		}
-
 		public StartupData build() 
 		{
-			return new StartupData(startupNetworkRecord);
+			return new StartupData();
 		}
 	}
 }

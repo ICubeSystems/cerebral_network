@@ -1,10 +1,9 @@
-package com.ics.nceph.core.event;
+package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
 
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
-import com.ics.nceph.core.message.data.MessageData;
 
 /**
  * 
@@ -12,7 +11,7 @@ import com.ics.nceph.core.message.data.MessageData;
  * @version 1.0
  * @since 30-Mar-2022
  */
-public class Acknowledgement extends MessageData implements Serializable
+public class AcknowledgementData extends MessageData implements Serializable
 {
 	/**
 	 * 
@@ -28,16 +27,20 @@ public class Acknowledgement extends MessageData implements Serializable
 	 * Network latency time for this ACK. Start is set on the sending side, ackNetworkRecord is completed once it is received on the receiving side.
 	 */
 	NetworkRecord ackNetworkRecord;
-	
+	/**
+	 * Network latency time for this event
+	 */
+	NetworkRecord eventNetworkRecord;
 	/**
 	 * Default constructor used by ObjectMapper to serialize/ deserialize this object
 	 */
-	public Acknowledgement() {}
+	public AcknowledgementData() {}
 	
-	private Acknowledgement(IORecord readRecord, NetworkRecord ackNetworkRecord)
+	private AcknowledgementData(IORecord readRecord, NetworkRecord ackNetworkRecord, NetworkRecord eventNetworkRecord)
 	{
 		this.readRecord = readRecord;
 		this.ackNetworkRecord = ackNetworkRecord;
+		this.eventNetworkRecord = eventNetworkRecord;
 	}
 	
 	public IORecord getReadRecord() {
@@ -48,12 +51,18 @@ public class Acknowledgement extends MessageData implements Serializable
 		return ackNetworkRecord;
 	}
 	
+	public NetworkRecord getEventNetworkRecord() {
+		return eventNetworkRecord;
+	}
+
 
 	public static class Builder
 	{
 		private IORecord readRecord;
 
 		private NetworkRecord ackNetworkRecord;
+		
+		private NetworkRecord eventNetworkRecord;
 		
 		public Builder readRecord(IORecord readRecord)
 		{
@@ -67,9 +76,15 @@ public class Acknowledgement extends MessageData implements Serializable
 			return this;
 		}
 		
-		public Acknowledgement build() 
+		public Builder eventNetworkRecord(NetworkRecord eventNetworkRecord)
 		{
-			return new Acknowledgement(readRecord, ackNetworkRecord);
+			this.eventNetworkRecord = eventNetworkRecord;
+			return this;
+		}
+		
+		public AcknowledgementData build() 
+		{
+			return new AcknowledgementData(readRecord, ackNetworkRecord, eventNetworkRecord);
 		}
 	}
 }

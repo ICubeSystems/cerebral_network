@@ -1,7 +1,7 @@
 package com.ics.nceph.core.message.data;
 
 import java.io.Serializable;
-import java.util.Date;
+
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 /**
@@ -20,11 +20,11 @@ public class ReadyData extends MessageData implements Serializable
 
 	private IORecord authenticationWriteRecord;
 
-	private Date readyNetworkRecord;
+	private long readyNetworkRecord;
 
 	public ReadyData() {}
 
-	public ReadyData(NetworkRecord credentialsNetworkRecord, IORecord credentialsReadRecord, IORecord authenticationWriteRecord, Date readyNetworkRecord)  
+	public ReadyData(NetworkRecord credentialsNetworkRecord, IORecord credentialsReadRecord, IORecord authenticationWriteRecord, long readyNetworkRecord)  
 	{
 		this.credentialsNetworkRecord = credentialsNetworkRecord;
 		this.credentialsReadRecord = credentialsReadRecord;
@@ -37,7 +37,7 @@ public class ReadyData extends MessageData implements Serializable
 		return credentialsNetworkRecord;
 	}
 
-	public Date getReadyNetworkRecord() 
+	public long getReadyNetworkRecord() 
 	{
 		return readyNetworkRecord;
 	}
@@ -60,7 +60,7 @@ public class ReadyData extends MessageData implements Serializable
 
 		private IORecord authenticationWriteRecord;
 
-		private Date readyNetworkRecord;
+		private long readyNetworkRecord;
 
 		public Builder credentialsNetworkRecord(NetworkRecord credentialsNetworkRecord)
 		{
@@ -74,7 +74,7 @@ public class ReadyData extends MessageData implements Serializable
 			return this;
 		}
 
-		public Builder readyNetworkRecord(Date readyNetworkRecord)
+		public Builder readyNetworkRecord(long readyNetworkRecord)
 		{
 			this.readyNetworkRecord = readyNetworkRecord;
 			return this;

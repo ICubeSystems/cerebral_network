@@ -2,8 +2,8 @@ package com.ics.nceph.core.receptor;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.event.Acknowledgement;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.data.AcknowledgementData;
 
 /**
  * 
@@ -12,21 +12,21 @@ import com.ics.nceph.core.message.Message;
  */
 public abstract class AcknowledgementReceptor extends Receptor 
 {
-	private Acknowledgement ack;
+	private AcknowledgementData ack;
 	
 	public AcknowledgementReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 		try 
 		{
-			ack = (Acknowledgement) message.decoder().getData(Acknowledgement.class);
+			ack = (AcknowledgementData) message.decoder().getData(AcknowledgementData.class);
 		} catch (JsonProcessingException e) 
 		{
 			e.printStackTrace();
 		}
 	}
 
-	public Acknowledgement getAcknowledgement() {
+	public AcknowledgementData getAcknowledgement() {
 		return ack;
 	}
 }

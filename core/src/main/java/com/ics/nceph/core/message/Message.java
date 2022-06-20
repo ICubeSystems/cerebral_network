@@ -24,6 +24,10 @@ import com.ics.util.ByteUtil;
  *    +---------+---------+---------+---------+
  *    |               Message_id              |
  *    +---------+---------+---------+---------+
+ *    |         Time_for_first_byte           |
+ *    +---------+---------+---------+---------+
+ *    |         Time_for_first_byte           |
+ *    +---------+---------+---------+---------+
  *    |                M_length               |
  *    +---------+---------+---------+---------+
  *    |                                       |
@@ -62,6 +66,7 @@ import com.ics.util.ByteUtil;
  *  		<li><b>0x05: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the NCEPH_EVENT_ACK message</li>
  *  		<li><b>0x0D: POR_DELETED</b> - Synaptic node sends a notification that relayv event acknowledged successfully and POR is deleted from snaptic side.</li>
  *  		<li><b>0x07: READY_CONFIRM</b> - Synaptic node send READY_CONFIRM message to Cerebrum then cerebrum relay message to Synaptic node
+
  *  	</ul>
  *  	<b>Cerebral message incomingMessageType</b> - messages generated via cerebral node (consumed by synaptic nodes):
  *  	<ul>
@@ -84,7 +89,10 @@ import com.ics.util.ByteUtil;
  *  <li><b>Message Id</b> - 6 byte. When sending request messages, this message id must be set by the client. 
  *  	This will be unique for every message per node (client application/ nceph server)</li>
  * 	<li><b>Message Length</b> - 4 byte. Length of the message body in number of bytes</li>
+ *  <li><b>TimeStamp</b> - 8 byte. timestamp of the message when it starts writing to the connection</li>
  * </ol>
+ * 
+ * To filter meessage logs use : ^((?!1-75).)*\R
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -102,6 +110,7 @@ public class Message
 	
 	private IORecord writeRecord;
 	
+	
 	private final byte genesis = (byte)-127;
 	
 	byte counter;
@@ -115,6 +124,8 @@ public class Message
 	byte[] messageId = new byte[6];
 	
 	byte[] dataLength = new byte[4];
+	
+	byte[] timeStamp = new byte[8];
 	
 	byte[] data;
 	
@@ -131,7 +142,7 @@ public class Message
 	 * @param dataLength
 	 * @param data
 	 */
-	Message(byte counter, byte flags, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord)
+	Message(byte counter, byte flags, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord, byte[] timestamp)
 	{
 		this.counter = counter;
 		this.flags = flags;
@@ -141,6 +152,7 @@ public class Message
 		this.dataLength = dataLength;
 		this.data = data;
 		this.readRecord = readRecord;
+		this.timeStamp = timestamp;
 	}
 	
 	
@@ -200,6 +212,7 @@ public class Message
 						, type) // Message Type [1 Bytes] 
 				, sourceId // Source id (node id which is creating the message) [2 Bytes]
 				, messageId // Message id [6 Bytes]
+				, timeStamp // timestamp [8 Bytes]
 				, dataLength // Data Length [4 Bytes]
 				, data); //Actual Data
 		
@@ -249,6 +262,10 @@ public class Message
 		this.counter = counter;
 	}
 	
+	public void setTimeStamp(byte[] timeStamp) {
+		this.timeStamp = timeStamp;
+	}
+
 	public IORecord getReadRecord() {
 		return readRecord;
 	}
@@ -302,11 +319,16 @@ public class Message
 			return ByteUtil.convertToInt(Message.this.counter);
 		}
 		
+		public long getTimestamp()
+		{
+			return ByteUtil.convertToLong(Message.this.timeStamp);
+		}
+		
 		public Object getData(Class<? extends MessageData> dataHoldingClass) throws JsonProcessingException
 		{
 			// Get the JSON string form byte array
 			String json = ByteUtil.toObjectJSON(Message.this.data);
-			// Get the Event object from the JSON string
+			// Get the EventData object from the JSON string
 			ObjectMapper mapper = new ObjectMapper();
 			return mapper.readValue(json, dataHoldingClass);
 		}

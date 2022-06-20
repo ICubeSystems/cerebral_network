@@ -6,7 +6,7 @@ import java.util.Date;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.nceph.core.Configuration;
-import com.ics.nceph.core.event.Event;
+import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 
@@ -25,15 +25,15 @@ import com.ics.nceph.core.message.NetworkRecord;
  * 							Cerebral Node																	Synaptic Node
  * 
  * 													  				 	  RELAY_EVENT
- * 	1)					Event 1 (Event relay) 		  			--------------------------------> 		Event Message Received
+ * 	1)					EventData 1 (EventData relay) 		  			--------------------------------> 		EventData Message Received
  * 						Create POD (relayedOn, writeRecord)		
  * 
  * 																		  NCEPH_EVENT_ACK
- * 	2)					Ack received (for Event 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
+ * 	2)					Ack received (for EventData 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
  * 						Update POD (ackNetworkRecord)													Create POD (relayedOn, readRecord, ackNetworkRecord.start)
  * 	
  * 																		   ACK_RECEIVED
- * 	3)		Acknowledge the receipt of Ack (for Event 1)		-------------------------------->   	ACK_RECEIVED Message Received
+ * 	3)		Acknowledge the receipt of Ack (for EventData 1)		-------------------------------->   	ACK_RECEIVED Message Received
  * 			Update POD (3wayAckNetworkRecord.start)														Update POD (writeRecord, ackNetworkRecord, 3wayAckNetworkRecord)
  * 
  * 																		   DELETE_POD
@@ -55,13 +55,13 @@ public class ProofOfRelay extends Document
 	private String messageId;
 	
 	//Created on
-	private Date relayedOn;
+	private long relayedOn;
 	
 	private Date deliveredOn;
 	
 	private Date ackReceivedOn;
 	
-	private Event event;
+	private EventData event;
 	
 	private IORecord writeRecord;
 	
@@ -75,28 +75,39 @@ public class ProofOfRelay extends Document
 	
 	private IORecord threeWayAckReadRecord;
 	
+	private NetworkRecord eventNetworkRecord;
+	
 	private NetworkRecord ackNetworkRecord;
 	
 	private NetworkRecord threeWayAckNetworkRecord;
 	
 	private Date DeleteReqTime;
 	
+	private PorState porState;
+	
 	private int acknowledgementAttempts = 0;
+	
+	private int relayAttempts = 0;
+	
+	private int threeWayAckAttempts = 0;
+	
+	private int deletePorAttempts = 0;
 	
 	ProofOfRelay(){
 		super.changeLog = new ArrayList<String>();
 	}
 	
-	ProofOfRelay(String messageId, Event event, Date createdOn)
+	ProofOfRelay(String messageId, EventData event, long createdOn)
 	{
 		this.relayedOn = createdOn;
 		this.messageId = messageId;
 		this.event = event;
+		this.porState = PorState.INITIAL;
 		super.changeLog = new ArrayList<String>();
 		changeLog.add("New");
 	}
 
-	public Event getEvent() {
+	public EventData getEvent() {
 		return event;
 	}
 
@@ -116,9 +127,58 @@ public class ProofOfRelay extends Document
 		return acknowledgementAttempts;
 	}
 
+	public int getRelayAttempts() {
+		return relayAttempts;
+	}
+
+	public int getThreeWayAckAttempts() {
+		return threeWayAckAttempts;
+	}
+
+	public int getDeletePorAttempts() {
+		return deletePorAttempts;
+	}
+	
+	public void incrementRelayAttempts() {
+		this.relayAttempts++;
+		outOfSync("relayAttempts");
+	}
+	
 	public void incrementAcknowledgementAttempts() {
 		this.acknowledgementAttempts++;
+		outOfSync("acknowledgementAttempts");
 	}
+	
+	public void incrementThreeWayAckAttempts() {
+		this.threeWayAckAttempts++;
+		outOfSync("threeWayAckAttempts");
+	}
+	
+	public void incrementDeletePorAttempts() {
+		this.deletePorAttempts++;
+		outOfSync("deletePorAttempts");
+	}
+	
+	public void decrementRelayAttemptsAttempts() {
+		this.relayAttempts--;
+		outOfSync("publishAttempts");
+	}
+	
+	public void decrementAcknowledgementAttempts() {
+		this.acknowledgementAttempts--;
+		outOfSync("acknowledgementAttempts");
+	}
+	
+	public void decrementThreeWayAckAttempts() {
+		this.threeWayAckAttempts--;
+		outOfSync("threeWayAckAttempts");
+	}
+	
+	public void decrementDeletePorAttempts() {
+		this.deletePorAttempts--;
+		outOfSync("deletePorAttempts");
+	}
+	
 	public void setReadRecord(IORecord readRecord) {
 		this.readRecord = readRecord;
 		outOfSync("ReadRecord");
@@ -128,7 +188,7 @@ public class ProofOfRelay extends Document
 		return messageId;
 	}
 
-	public Date getRelayedOn() {
+	public long getRelayedOn() {
 		return relayedOn;
 	}
 
@@ -138,6 +198,7 @@ public class ProofOfRelay extends Document
 
 	public void setDeliveredOn(Date deliveredOn) {
 		this.deliveredOn = deliveredOn;
+		outOfSync("DeliveredOn");
 	}
 
 	public Date getAckReceivedOn() {
@@ -167,6 +228,15 @@ public class ProofOfRelay extends Document
 		outOfSync("ThreeWayAckNetworkRecord");
 	}
 
+	public NetworkRecord getEventNetworkRecord() {
+		return eventNetworkRecord;
+	}
+
+	public void setEventNetworkRecord(NetworkRecord eventNetworkRecord) {
+		this.eventNetworkRecord = eventNetworkRecord;
+		outOfSync("EventNetworkRecord");
+	}
+
 	public Date getDeleteReqTime() {
 		return DeleteReqTime;
 	}
@@ -182,6 +252,7 @@ public class ProofOfRelay extends Document
 
 	public void setAckWriteRecord(IORecord ackWriteRecord) {
 		this.ackWriteRecord = ackWriteRecord;
+		outOfSync("AckWriteRecord");
 	}
 
 	public IORecord getAckReadRecord() {
@@ -190,6 +261,7 @@ public class ProofOfRelay extends Document
 
 	public void setAckReadRecord(IORecord ackReadRecord) {
 		this.ackReadRecord = ackReadRecord;
+		outOfSync("AckReadRecord");
 	}
 
 	public IORecord getThreeWayAckWriteRecord() {
@@ -198,6 +270,7 @@ public class ProofOfRelay extends Document
 
 	public void setThreeWayAckWriteRecord(IORecord threeWayAckWriteRecord) {
 		this.threeWayAckWriteRecord = threeWayAckWriteRecord;
+		outOfSync("ThreeWayAckWriteRecord");
 	}
 
 	public IORecord getThreeWayAckReadRecord() {
@@ -206,8 +279,18 @@ public class ProofOfRelay extends Document
 
 	public void setThreeWayAckReadRecord(IORecord threeWayAckReadRecord) {
 		this.threeWayAckReadRecord = threeWayAckReadRecord;
+		outOfSync("ThreeWayAckReadRecord");
 	}
 	
+	public PorState getPorState() {
+		return porState;
+	}
+
+	public void setPorState(PorState porState) {
+		this.porState = porState;
+		outOfSync("PorState");
+	}
+
 	public String toString()
 	{
 		ObjectMapper mapper = new ObjectMapper();
@@ -218,6 +301,14 @@ public class ProofOfRelay extends Document
 			e.printStackTrace();
 		}
 		return null;
+	}
+	
+	public void decrementAttempts()
+	{
+		if(porState.getState() == 100 || porState.getState() == 200)
+			decrementRelayAttemptsAttempts();
+		else
+			decrementThreeWayAckAttempts();
 	}
 	
 	@Override
@@ -231,9 +322,9 @@ public class ProofOfRelay extends Document
 	{
 		private String messageId;
 		
-		private Event event;
+		private EventData event;
 		
-		private Date relayedOn;
+		private long relayedOn;
 		
 		public Builder messageId(String messageId)
 		{
@@ -241,13 +332,13 @@ public class ProofOfRelay extends Document
 			return this;
 		}
 		
-		public Builder event(Event event)
+		public Builder event(EventData event)
 		{
 			this.event = event;
 			return this;
 		}
 		
-		public Builder relayedOn(Date relayedOn)
+		public Builder relayedOn(long relayedOn)
 		{
 			this.relayedOn = relayedOn;
 			return this;
@@ -255,7 +346,7 @@ public class ProofOfRelay extends Document
 		
 		public ProofOfRelay build()
 		{
-			return new ProofOfRelay(messageId, event, this.relayedOn == null? new Date() : this.relayedOn);
+			return new ProofOfRelay(messageId, event, this.relayedOn  == 0L? new Date().getTime() : this.relayedOn);
 		}
 	}
 }

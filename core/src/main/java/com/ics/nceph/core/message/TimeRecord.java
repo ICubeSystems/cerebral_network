@@ -1,7 +1,5 @@
 package com.ics.nceph.core.message;
 
-import java.util.Date;
-
 /**
  * 
  * @author Anurag Arya
@@ -10,23 +8,23 @@ import java.util.Date;
  */
 public class TimeRecord 
 {
-	private Date start;
+	private long start;
 	
-	private Date end;
+	private long end;
 	
 	TimeRecord() {}
 	
-	TimeRecord(Date start, Date end)
+	TimeRecord(long start, long end)
 	{
 		this.start = start;
 		this.end = end;
 	}
 	
-	public Date getStart() {
+	public long getStart() {
 		return start;
 	}
 	
-	public Date getEnd() {
+	public long getEnd() {
 		return end;
 	}
 }
