@@ -1,6 +1,6 @@
 package com.ics.nceph.core.message;
 
-import java.util.BitSet;
+import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 
@@ -12,14 +12,14 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
  */
 public class StartupMessage extends Message
 {
-	StartupMessage(byte type, byte flags, byte[] data) 
+	StartupMessage(byte type, byte eventType, byte[] data) throws IdGenerationFailedException 
 	{
-		super(flags, type, data);
+		super(eventType, type, data);
 	}
 
 	public static class Builder
 	{
-		private BitSet flags = new BitSet(8);
+		private byte eventType;
 
 		private byte type = 0x00;
 
@@ -31,10 +31,10 @@ public class StartupMessage extends Message
 			return this;
 		}
 
-		public StartupMessage build() 
+		public StartupMessage build() throws IdGenerationFailedException 
 		{
-			flags.set(MessageFlag.TRACE_FLAG.getPosition());
-			return new StartupMessage(type, flags.toByteArray()[0], data);
+			eventType = Integer.valueOf(0).byteValue();
+			return new StartupMessage(type, eventType, data);
 		}
 	}
 }

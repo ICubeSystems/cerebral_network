@@ -1,20 +1,25 @@
-package com.ics.synapticNode1Thread;
+package com.ics.menu.eventThreads;
 
-import com.ics.synapse.Emitter;
-import com.ics.synapticnode1.GiftRedeem;
 import java.time.LocalDateTime; // Import the LocalDateTime class
 import java.time.format.DateTimeFormatter; // Import the DateTimeFormatter class
+
+import com.ics.menu.GiftRedeem;
+import com.ics.synapse.Emitter;
 /**
  * 
  * @author Chandan Verma
  * @since 07-Mar-2022
  */
 //LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm"))
-public class GiftRedeemThread extends Thread
+public class GiftRedeemThread extends EventThread
 {
+	public GiftRedeemThread(Integer totalEvents){
+		super(totalEvents);
+	}
+	
 	public void run()
 	{
-		for (int i = 1; i <= 1000; i++)
+		for (int i = 1; i <= getNumberOfEvents(); i++)
 		{
 			try {
 				GiftRedeem giftRedeem = new GiftRedeem.Builder()

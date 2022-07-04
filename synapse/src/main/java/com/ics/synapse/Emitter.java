@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.channels.SelectionKey;
 
 import com.ics.env.Environment;
+import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
@@ -55,9 +56,10 @@ public final class Emitter extends OSInfo
 	 * @return void
 	 * @throws IOException 
 	 * @throws EmitException 
+	 * @throws IdGenerationFailedException 
 	 */
 
-	public static void emit(EventData event) throws EmitException
+	public static void emit(EventData event) throws EmitException, IdGenerationFailedException
 	{
 		// 1. Convert the event to the message object
 		Message message;
@@ -75,7 +77,7 @@ public final class Emitter extends OSInfo
 				.data(
 						new LogData()
 						.entry("eventId", String.valueOf(event.getEventId()))
-						.entry("createdOd", String.valueOf(event.getCreatedOn()))
+						.entry("createdOn", String.valueOf(event.getCreatedOn()))
 						.toString())
 				.logInfo());
 		

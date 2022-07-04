@@ -14,6 +14,8 @@ import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 
+import com.ics.logger.ConnectionLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
@@ -172,7 +174,7 @@ public class SSLConnection extends Connection
      *
      * @param socketChannel - the socket channel that connects the two nodes
      * @throws IOException - if an error occurs during read/write on the socket channel
-	 * @throws DocumentSaveFailedException 
+	 * @throws IdGenerationFailedException 
      */
     public void doHandshake() throws IOException, SSLHandshakeException 
     {
@@ -198,7 +200,12 @@ public class SSLConnection extends Connection
 	                    try {
 	                        engine.closeInbound();
 	                    } catch (SSLException e) {
-	                    	System.out.println("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.");
+	                    	// LOG: Connection: Connection close inbound.
+	                		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+	                				.connectionId(String.valueOf(getId()))
+	                				.action("close inbound")
+	                				.description("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream.")
+	                				.logInfo());
 	                    }
 	                    engine.closeOutbound();
 	                    // After closeOutbound the engine will be set to WRAP state, in order to try to send a close message to the client.
@@ -211,7 +218,12 @@ public class SSLConnection extends Connection
 	                    encryptedDataToRead.compact();
 	                    handshakeStatus = result.getHandshakeStatus();
 	                } catch (SSLException sslException) {
-	                	System.out.println("A problem was encountered while processing the data that caused the SSLEngine to abort. Will try to properly close connection...");
+	                	// LOG: Connection: Connection close inbound.
+                		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+                				.connectionId(String.valueOf(getId()))
+                				.action("close inbound")
+                				.description("A problem was encountered while processing the data that caused the SSLEngine to abort. Will try to properly close connection...")
+                				.logInfo());
 	                    engine.closeOutbound();
 	                    handshakeStatus = engine.getHandshakeStatus();
 	                    break;
@@ -374,10 +386,19 @@ public class SSLConnection extends Connection
     {
         try 
         {
-        	System.out.println("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream (-1)");
+        	// LOG: Connection: Connection close inbound.
+    		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+    				.connectionId(String.valueOf(getId()))
+    				.action("close inbound")
+    				.description("This engine was forced to close inbound, without having received the proper SSL/TLS close notification message from the peer, due to end of stream (-1)")
+    				.logInfo());
             engine.closeInbound();
         } catch (Exception e) {
-        	System.out.println("Exception in engine.closeInbound()");
+        	NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
+    				.connectionId(String.valueOf(getId()))
+    				.action("close inbound")
+    				.description("Exception in engine.closeInbound()")
+    				.logError(),e);
         }
         closeConnection();
         throw new SocketException("Connection closed: engine status - CLOSED");

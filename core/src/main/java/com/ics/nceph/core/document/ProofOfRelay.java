@@ -52,11 +52,6 @@ public class ProofOfRelay extends Document
 {
 	public static String DOC_PREFIX = "p";
 	
-	private String messageId;
-	
-	//Created on
-	private long relayedOn;
-	
 	private Date deliveredOn;
 	
 	private Date ackReceivedOn;
@@ -99,7 +94,7 @@ public class ProofOfRelay extends Document
 	
 	ProofOfRelay(String messageId, EventData event, long createdOn)
 	{
-		this.relayedOn = createdOn;
+		this.createdOn = createdOn;
 		this.messageId = messageId;
 		this.event = event;
 		this.porState = PorState.INITIAL;
@@ -186,10 +181,6 @@ public class ProofOfRelay extends Document
 	
 	public String getMessageId() {
 		return messageId;
-	}
-
-	public long getRelayedOn() {
-		return relayedOn;
 	}
 
 	public Date getDeliveredOn() {
@@ -316,6 +307,11 @@ public class ProofOfRelay extends Document
 	{
 		// TODO Auto-generated method stub
 		return Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location");
+	}
+	
+	@Override
+	public String getName() {
+		return "POR";
 	}
 	
 	public static class Builder

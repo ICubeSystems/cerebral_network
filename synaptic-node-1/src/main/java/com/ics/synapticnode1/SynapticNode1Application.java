@@ -1,7 +1,5 @@
 package com.ics.synapticnode1;
 
-import java.math.BigDecimal;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.Banner;
 import org.springframework.boot.CommandLineRunner;
@@ -9,7 +7,6 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ImportResource;
 
-import com.ics.synapse.Emitter;
 import com.ics.synapse.bootstrap.SynapseBootstraper;
 
 @SpringBootApplication
@@ -33,37 +30,7 @@ public class SynapticNode1Application implements CommandLineRunner
 		// 1. Start the connector
 		synapseBootstraper.boot();
 		
-		for (int i = 1; i <= 100; i++)
-		{
-			try
-			{
-				GiftItem gi = new GiftItem.Builder()
-						.recipientName("Receiver " + i)
-						.senderName("Sender " + i)
-						.giftCode("570087975676400" + i)
-						.amount(new BigDecimal(100.0))
-						.balance(new BigDecimal(100.0))
-						.build();
-
-				Emitter.emit(gi.toEvent());
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-			}
-		}
 		
-////		Create GiftItem
-//		GiftItemThread createGift = new GiftItemThread();
-//		createGift.start();
-//		
-//////		Redeem Gift
-//		GiftRedeemThread redeemGift = new GiftRedeemThread();
-//		redeemGift.start();
-//		
-//////		Refund Gift
-//		GiftRefundThread refundGift = new GiftRefundThread();
-//		refundGift.start();
 		
 
 	}

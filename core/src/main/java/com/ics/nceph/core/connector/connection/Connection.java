@@ -17,6 +17,7 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
+import com.ics.nceph.core.connector.ConnectorMonitorThread;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
@@ -24,7 +25,6 @@ import com.ics.nceph.core.message.MessageReader;
 import com.ics.nceph.core.message.MessageWriter;
 import com.ics.nceph.core.message.RelayFailedMessageHandlingThread;
 import com.ics.nceph.core.message.exception.RelayTimeoutException;
-import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -368,18 +368,19 @@ public class Connection implements Comparable<Connection>
 		// 1. Write only if the relayQueue has any message to write
 		if (relayQueue.size() > 0)
 		{
-			// 2. Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
-			engage();
-
-			// 3. Loop over the relayQueue till it is empty
+			// 2. Loop over the relayQueue till it is empty
 			try 
 			{
 				while(!relayQueue.isEmpty())
 				{
-					// Relay the message
+					// 2.1 Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
+					engage();
+					// 2.2 Relay the message
 					writer.write(relayQueue.peek());
-					// Update the last used of the connection
+					// 2.3 Update the last used of the connection
 					setLastUsed(System.currentTimeMillis());
+					// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
+					disengage(operationStatus, writer.isReady()?false:true);
 				}
 			}
 			// In case there is an IO exception while writing to the socket
@@ -395,6 +396,7 @@ public class Connection implements Comparable<Connection>
 				}
 				else
 					operationStatus = false;
+				disengage(operationStatus, writer.isReady() ? false : true);
 			}
 			// The client/ receiver end of the socket is not able to accept the bytes within the set relayTimeout. 
 			// Then the RelayTimeoutException will be thrown and it will breaks the above write loop (stopping further relay of messages). 
@@ -406,11 +408,8 @@ public class Connection implements Comparable<Connection>
 				.waitBeforeWriteAgain(60000*5) // 5 Minutes wait before retrying the write operation
 				.build()
 				.start(); // Start the thread
-				
+				disengage(operationStatus, writer.isReady() ? false : true);
 			}
-
-			// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
-			disengage(operationStatus, writer.isReady() ? false : true);
 		}
 
 		// 4. Set the connnection's socket channel interest to read
@@ -496,7 +495,7 @@ public class Connection implements Comparable<Connection>
 		// DUPLICACY CHECK: Check if the message has already been sent.  
 		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
 				&& (context.duplicacyCheckEnabled() && getConnector().isAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
-				|| getConnector().isAlreadyQueuedUpOnConnection(message)))
+				|| getConnector().isAlreadyQueuedUpOnConnection(message) || getConnector().isAlreadyQueuedUpOnConnector(message)))
 			return;
 		// store message to connectionQueuedUpMessageRegister 
 		getConnector().storeConnectionQueuedUpMessage(message);
@@ -510,7 +509,6 @@ public class Connection implements Comparable<Connection>
 						new LogData()
 						.entry("port", String.valueOf(connector.getPort()))
 						.entry("connectionId", String.valueOf(getId()))
-						.entry("workerClass", MessageType.getClassByType(message.decoder().getType()))
 						.entry("CallerClass", Thread.currentThread().getStackTrace()[2].getFileName())
 						.toString())
 				.logInfo());

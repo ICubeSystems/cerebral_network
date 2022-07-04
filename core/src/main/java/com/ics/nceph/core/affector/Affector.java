@@ -42,6 +42,7 @@ public abstract class Affector
 				.data(new LogData()
 						.entry("messageType", MessageType.getNameByType(getMessage().decoder().getType()))
 						.entry("dataBytes", String.valueOf(getMessage().decoder().getDataLength()))
+						.entry("workerClass", MessageType.getClassByType(getMessage().decoder().getType()))
 						.toString())
 				.logInfo());
 		process();

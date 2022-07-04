@@ -1,6 +1,5 @@
 package com.ics.nceph.core.message;
 
-import java.util.BitSet;
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 
@@ -12,14 +11,14 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
  */
 public class AuthenticationMessage extends Message
 {
-	AuthenticationMessage(byte type, byte flags, byte[] data, byte[] messageId, byte[] sourceId) 
+	AuthenticationMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId) 
 	{
-		super(flags, type, data, messageId, sourceId);
+		super(eventType, type, data, messageId, sourceId);
 	}
 
 	public static class Builder
 	{
-		private BitSet flags = new BitSet(8);
+		private byte eventType;
 
 		private byte type;
 
@@ -54,8 +53,8 @@ public class AuthenticationMessage extends Message
 
 		public AuthenticationMessage build() 
 		{
-			flags.set(MessageFlag.TRACE_FLAG.getPosition());
-			return new AuthenticationMessage(type, flags.toByteArray()[0], data, messageId, sourceId);
+			eventType = Integer.valueOf(0).byteValue();
+			return new AuthenticationMessage(type, eventType, data, messageId, sourceId);
 		}
 	}
 }

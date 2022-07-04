@@ -22,6 +22,8 @@ public class EventData extends MessageData implements Serializable
 	
 	//TODO this should be renamed to eventType. Then introduce eventId as well
 	Integer eventId;
+	
+	Integer eventType;
 
 	String objectJSON;
 	
@@ -29,10 +31,11 @@ public class EventData extends MessageData implements Serializable
 	
 	public EventData() {}
 	
-	private EventData(Integer eventId, String objectJSON)
+	private EventData(Integer eventId, Integer eventType, String objectJSON)
 	{
 		createdOn = new Date().getTime();
 		this.eventId = eventId;
+		this.eventType = eventType;
 		this.objectJSON = objectJSON;
 	}
 
@@ -42,6 +45,10 @@ public class EventData extends MessageData implements Serializable
 
 	public Integer getEventId() {
 		return eventId;
+	}
+	
+	public Integer getEventType() {
+		return eventType;
 	}
 	
 	public long getCreatedOn() {
@@ -69,12 +76,20 @@ public class EventData extends MessageData implements Serializable
 	public static class Builder
 	{
 		private Integer eventId;
+		
+		private Integer eventType;
 
 		private String objectJSON;
 		
 		public Builder eventId(Integer eventId)
 		{
 			this.eventId = eventId;
+			return this;
+		}
+		
+		public Builder eventType(Integer eventType)
+		{
+			this.eventType = eventType;
 			return this;
 		}
 		
@@ -86,7 +101,7 @@ public class EventData extends MessageData implements Serializable
 		
 		public EventData build()
 		{
-			return new EventData(eventId, objectJSON);
+			return new EventData(eventId, eventType, objectJSON);
 		}
 	}
 }

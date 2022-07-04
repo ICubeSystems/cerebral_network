@@ -1,10 +1,10 @@
 package com.ics.nceph.core.message;
 
 import java.nio.charset.StandardCharsets;
-import java.util.BitSet;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.util.ByteUtil;
@@ -17,14 +17,14 @@ import com.ics.util.ByteUtil;
  */
 public class EventMessage extends Message 
 {
-	EventMessage(byte type, byte flags, byte[] data)
+	EventMessage(byte type, byte eventType, byte[] data) throws IdGenerationFailedException
 	{
-		super(flags, type, data);
+		super(eventType, type, data);
 	}
 	
-	EventMessage(byte type, byte flags, byte[] data, byte[] messageId, byte[] sourceId)
+	EventMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId)
 	{
-		super(flags, type, data, messageId, sourceId);
+		super(eventType, type, data, messageId, sourceId);
 	}
 	/**
 	 * 
@@ -32,7 +32,7 @@ public class EventMessage extends Message
 	 */
 	public static class Builder
 	{
-		private BitSet flags = new BitSet(8);
+		private byte eventType;
 		
 		private byte type = 0x03;
 		
@@ -48,6 +48,7 @@ public class EventMessage extends Message
 				ObjectMapper mapper = new ObjectMapper();
 				String eventJSON = mapper.writeValueAsString(event);
 				this.data = eventJSON.getBytes(StandardCharsets.UTF_8);
+				this.eventType = Integer.valueOf(event.getEventType()).byteValue();
 			} catch (JsonProcessingException e) {
 				throw new MessageBuildFailedException("JsonProcessingException", e);
 			}
@@ -76,10 +77,9 @@ public class EventMessage extends Message
 			return this;
 		}
 		
-		public EventMessage build() 
+		public EventMessage build() throws IdGenerationFailedException 
 		{
-			flags.set(MessageFlag.TRACE_FLAG.getPosition());
-			return new EventMessage(type, flags.toByteArray()[0], data);
+			return new EventMessage(type, eventType, data);
 		}
 		
 		/**
@@ -88,8 +88,7 @@ public class EventMessage extends Message
 		 */
 		public EventMessage buildAgain() 
 		{
-			flags.set(MessageFlag.TRACE_FLAG.getPosition());
-			return new EventMessage(type, flags.toByteArray()[0], data, messageId, sourceId);
+			return new EventMessage(type, eventType, data, messageId, sourceId);
 		}
 	}
 }

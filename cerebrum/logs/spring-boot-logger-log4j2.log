@@ -1,3 +1,0 @@
-2022-03-16 17:18:26,690 INFO o.s.b.StartupInfoLogger [main] Starting Encephelon using Java 17.0.1 on DESKTOP-4VE4VIE with PID 8776 (C:\codebase\nceph-network\cerebrum\target\classes started by anura in C:\codebase\nceph-network\cerebrum)
-2022-03-16 17:18:26,693 INFO o.s.b.SpringApplication [main] No active profile set, falling back to default profiles: default
-2022-03-16 17:18:28,447 INFO o.s.b.StartupInfoLogger [main] Started Encephelon in 1.994 seconds (JVM running for 2.497)

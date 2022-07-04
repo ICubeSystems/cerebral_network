@@ -75,6 +75,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 						.action("Enqueueing")
 						.data(new LogData()
 								.entry("Relay size", String.valueOf(connector.getRelayQueue().size()))
+								.entry("ConnectionId", String.valueOf(connection.getId()))
 								.toString())
 						.description("messages from the outgoing buffer (relayQueue) to connection's relayQueue")
 						.logInfo());
@@ -101,8 +102,14 @@ public class CerebralMonitor extends ConnectorMonitorThread
 		{
 			// 2.1 get all files from the POD directory
 			// 2.2 if there are no pods then exit ProcessPOD block
-			if (messageDirectory.listFiles() == null)
+			if (messageDirectory.listFiles() == null) {
+				NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
+						.monitorPort(connector.getPort())
+						.action("Cerebral monitor")
+						.description("message dirctory empty")
+						.logInfo());
 				break ProcessPOD;
+			}
 
 			// 2.3 Loop over PODs to process
 			for (File podFile : messageDirectory.listFiles()) 
@@ -112,93 +119,96 @@ public class CerebralMonitor extends ConnectorMonitorThread
 				try 
 				{
 					// if file is older than X minutes and whose state is not finished then resend the message to the another node to make its state to finished
-					if(transmissionWindowElapsed(podFile))
+					if(emitTransmissionWindowElapsed(podFile))
 					{
 						// load pod file
 						pod = DocumentStore.load(podFile);
 						if(pod != null && pod.getPortNumber() == connector.getPort()) // Check if the pod was created by the port for which this monitor thread is running
 						{
 							// Get the subscriber connectors for this event
-							ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(pod.getEvent().getEventId());
+							ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(pod.getEvent().getEventType());
 							// Loop over the subscriber and check the PORs within the POD
 							for (Connector subscriberConnector : subscribers) 
 							{
 								// Get connection from subscriber's connector
 								Connection connection = subscriberConnector.getConnection();
 								// If there are no active connections in the connector then break.
-								if(connection == null) 
-									break;
-								
-								// get por from pod 
-								por = pod.getPors().get(subscriberConnector.getPort());
-								// If POR exists then check state and process accordingly
-								if (por != null)
-								{
-									switch (por.getPorState().getState()) 
+								if(connection != null) {
+
+									por = pod.getPors().get(subscriberConnector.getPort());
+									// If POR exists then check state and process accordingly
+									if (por != null)
 									{
-									case 100:// INITIAL state of POR
-									case 200:// RELAYED state of POR
-										// Build the EventMessage from POD
-										Message eventMessage = new EventMessage.Builder()
-										.type(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType())
-										.event(pod.getEvent())
-										.mid(por.getMessageId())
-										.buildAgain();
-										
-										enqueueMessage(connection, eventMessage);
-										// Set the RELAY_EVENT attempts
-										por.incrementRelayAttempts();
-										por.setPorState(PorState.RELAYED);
-										break;
-									case 300:// ACKNOWLEDGED state of POR
-									case 400:// ACK_RECIEVED state of POR
-										Message threeWayAckMessage = new AcknowledgeMessage.Builder()
-										.data(new ThreeWayAcknowledgementData.Builder()
-												.threeWayAckNetworkRecord(new NetworkRecord.Builder()
-														.start(new Date().getTime())
-														.build()) //ACK_RECEIVED network record with just the start
-												.writeRecord(pod.getWriteRecord()) // WriteRecord of PUBLISH_EVENT
-												.ackNetworkRecord(pod.getAckNetworkRecord()) // NCEPH_EVENT_ACK network record
-												.build())
-										.mid(por.getMessageId())
-										.type(CerebralOutgoingMessageType.RELAY_ACK_RECEIVED.getMessageType())
-										.build();
-										
-										enqueueMessage(connection, threeWayAckMessage);
-										// Set the RELAY_EVENT attempts
-										por.incrementThreeWayAckAttempts();
-										por.setPorState(PorState.ACK_RECIEVED);
-										break;
-									case 500:// FINISHED state of POR
-										break;
-									default:
-										break;
-									}
-									DocumentStore.update(pod, pod.getMessageId());
-								}
-								else // If POR does not exists then create a new POR and relay to the missing subscriber
-								{
-									// Create a new POR and relay the message to this subscriber
-									por = new ProofOfRelay.Builder()
-											.relayedOn(new Date().getTime())
-											.messageId(podFile.getName())
-											.build();
-									pod.addPor(subscriberConnector.getPort(), por);
+										// if relay transmissionWindow is not elapsed then do nothing and return
+										if (!relayTransmissionWindowElapsed(por))
+											return;
 
-									// Set the RELAY_EVENT attempts
-									por.incrementRelayAttempts();
-
-									// Save the POD
-									DocumentStore.update(pod, pod.getMessageId());
-
-									// Convert the event to the message object
-									Message eventMessage = new EventMessage.Builder()
+										switch (por.getPorState().getState()) 
+										{
+										case 100:// INITIAL state of POR
+										case 200:// RELAYED state of POR
+											// Build the EventMessage from POD
+											Message eventMessage = new EventMessage.Builder()
 											.type(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType())
 											.event(pod.getEvent())
 											.mid(por.getMessageId())
 											.buildAgain();
 
-									enqueueMessage(connection, eventMessage);
+											enqueueMessage(connection, eventMessage);
+											// Set the RELAY_EVENT attempts
+											por.incrementRelayAttempts();
+											por.setPorState(PorState.RELAYED);
+											break;
+										case 300:// ACKNOWLEDGED state of POR
+										case 400:// ACK_RECIEVED state of POR
+											Message threeWayAckMessage = new AcknowledgeMessage.Builder()
+											.data(new ThreeWayAcknowledgementData.Builder()
+													.threeWayAckNetworkRecord(new NetworkRecord.Builder()
+															.start(new Date().getTime())
+															.build()) //ACK_RECEIVED network record with just the start
+													.writeRecord(pod.getWriteRecord()) // WriteRecord of PUBLISH_EVENT
+													.ackNetworkRecord(pod.getAckNetworkRecord()) // NCEPH_EVENT_ACK network record
+													.build())
+											.mid(por.getMessageId())
+											.type(CerebralOutgoingMessageType.RELAY_ACK_RECEIVED.getMessageType())
+											.build();
+
+											enqueueMessage(connection, threeWayAckMessage);
+											// Set the RELAY_EVENT attempts
+											por.incrementThreeWayAckAttempts();
+											por.setPorState(PorState.ACK_RECIEVED);
+											break;
+										case 500:// FINISHED state of POR
+											break;
+										default:
+											break;
+										}
+										DocumentStore.update(pod, pod.getMessageId());
+									}
+									else // If POR does not exists then create a new POR and relay to the missing subscriber
+									{
+										// Create a new POR and relay the message to this subscriber
+										por = new ProofOfRelay.Builder()
+												.relayedOn(new Date().getTime())
+												.messageId(podFile.getName())
+												.build();
+										pod.addPor(subscriberConnector.getPort(), por);
+
+										// Set the RELAY_EVENT attempts
+										por.incrementRelayAttempts();
+
+										// Save the POD
+										DocumentStore.update(pod, pod.getMessageId());
+
+										// Convert the event to the message object
+										Message eventMessage = new EventMessage.Builder()
+												.type(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType())
+												.event(pod.getEvent())
+												.mid(por.getMessageId())
+												.buildAgain();
+
+										enqueueMessage(connection, eventMessage);
+									}
 								}
 							}
 						}

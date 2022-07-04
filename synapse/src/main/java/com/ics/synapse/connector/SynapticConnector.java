@@ -9,6 +9,7 @@ import java.util.Date;
 
 import javax.net.ssl.SSLContext;
 
+import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
@@ -137,8 +138,9 @@ public class SynapticConnector extends Connector
 	 * Send Startup message to cerebrum
 	 * @throws MessageBuildFailedException 
 	 * @throws DocumentSaveFailedException 
+	 * @throws IdGenerationFailedException 
 	 */
-	public void initiateAuthentication(Connection connection) throws MessageBuildFailedException, DocumentSaveFailedException
+	public void initiateAuthentication(Connection connection) throws MessageBuildFailedException, DocumentSaveFailedException, IdGenerationFailedException
 	{
 		// 1. Create the STARTUP event 
 		StartupData startupData = new StartupData.Builder().build();
@@ -152,7 +154,6 @@ public class SynapticConnector extends Connector
 				.createdOn(startupData.getCreatedOn()) // 3.2 Set createdOn
 				.build();
 		// 3.3 Set STARTUP network record 
-		// TODO: (to be removed by Anshul after my checkin)
 		poa.setStartupNetworkRecord(new NetworkRecord.Builder()
 				.start(new Date().getTime())
 				.build());
@@ -163,7 +164,6 @@ public class SynapticConnector extends Connector
 		connection.enqueueMessage(startupMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
 		// 4.1 Set the interest of the connection to write
 		connection.setInterest(SelectionKey.OP_WRITE);
-		
 	}
 
 	@Override

@@ -29,7 +29,7 @@ import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 public class DocumentStore 
 {
 	private static ConcurrentHashMap<String, Document> cache;
-	
+
 	private static boolean isUpdate;
 
 	private static final ObjectMapper mapper = new ObjectMapper()
@@ -45,36 +45,43 @@ public class DocumentStore
 	 * @throws DatabindException
 	 * @throws IOException
 	 */
-	public static void initiate() throws StreamReadException, DatabindException, IOException
+	public static void initiate() throws IOException
 	{
 		// 1. If cache is null then create new cache
 		if (cache == null)
 			cache = new ConcurrentHashMap<String, Document>();
-		
-		
+
 		// 2. Read the message directory on the local storage
-		File messageDirectory = new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location"));
-		// 2.1 If there are PODs in the local storage, then load them to cache
+		fillCache(new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")),ProofOfDelivery.class);
+		fillCache(new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")),ProofOfRelay.class);
+
+	}
+
+	private static void fillCache(File messageDirectory, Class<? extends Document> document) throws IOException {
+		//If there are PODs in the local storage, then load them to cache
 		if(messageDirectory.length()>0) 
 		{
 			float totalPods = messageDirectory.listFiles().length;
 			float loopCounter = 0;
 			for (File podFile : messageDirectory.listFiles()) 
 			{
-				ProofOfDelivery pod = mapper.readValue(podFile, ProofOfDelivery.class);
-				cache.put(pod.getMessageId(), pod);
+				Document doc;
+					doc = mapper.readValue(podFile, document);
+					cache.put(podFile.getName().substring(0, podFile.getName().lastIndexOf(".")), doc);
 				loopCounter++;
-    			float percentage = (loopCounter/totalPods)*100;
-    			
-    			// Print progress on console
-    			System.out.print((int)percentage+"%");
-    			if(percentage<10)
-    				System.out.print("\b\b");
-    			else if(percentage<100)
-    				System.out.print("\b\b\b");
-    			else
-    				System.out.println("\n");
-			}}
+				float percentage = (loopCounter/totalPods)*100;
+				// Print progress on console
+				System.out.print((int)percentage+"%");
+				if(percentage<10)
+					System.out.print("\b\b");
+				else if(percentage<100)
+					System.out.print("\b\b\b");
+				else
+					System.out.println("\n");
+			}
+		}
+		System.out.println(cache);
+	
 	}
 
 	/**
@@ -99,7 +106,7 @@ public class DocumentStore
 		{
 			try 
 			{
-				// If the POD is not in cache, then add the new POD to the cache. This should be the case when the POD is being created for the very first time
+				// If the document is not in cache, then add the new document to the cache. This should be the case when the document is being created for the very first time
 				if (!cache.containsKey(docName))
 					cache.put(docName, document);
 				// Save the document to the local storage
@@ -114,38 +121,37 @@ public class DocumentStore
 
 			if(document.changeLog.size()>0) 
 			{
-					ArrayList<String> changelog = document.changeLog;
-					synchronized (changelog) 
+				ArrayList<String> changelog = document.changeLog;
+				synchronized (changelog) 
+				{
+					try 
 					{
-						try {
-							NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
-									.messageId(docName)
-									.action(isUpdate?"POD updated":"POD saved")
-									.description(String.join(", ", changelog))
-									.data(
-											new LogData()
-											.entry("CallerClass", Thread.currentThread().getStackTrace()[isUpdate?3:2].getFileName())
-											.toString())
-									.logInfo());
-						} catch (Exception e) {}
-					}
-				
+						NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+								.messageId(docName)
+								.action(isUpdate ? (document.getName() + " updated") : (document.getName() + " saved"))
+								.description(String.join(", ", changelog))
+								.data(
+										new LogData()
+										.entry("CallerClass", Thread.currentThread().getStackTrace()[isUpdate?3:2].getFileName())
+										.toString())
+								.logInfo());
+					} catch (Exception e) {}
+				}
 			}
 			document.inSync();
-
 		} catch (IOException e) {
 			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
 					.messageId(docName)
-					.action(isUpdate?"POD updation failed":"POD creation failed")
-					.description("Error while updating the POD")
+					.action(isUpdate ? (document.getName() + " updation failed") : (document.getName() + " creation failed"))
+					.description("Error while updating the " + document.getName())
 					.logError(),e);
 			isUpdate = false;
 			throw new DocumentSaveFailedException(docName+".json file write failed", e);
-			
+
 		}
 		isUpdate = false;
 	}
-	
+
 	/**
 	 * 
 	 * @param document
@@ -156,18 +162,21 @@ public class DocumentStore
 	{
 		isUpdate = true;
 		File file = new File(document.localMessageStoreLocation() + docName + ".json");
-		if(file.exists()) {
+		// Check if the file exists
+		if(file.exists()) 
+		{
+			// Save the document
 			save(document, docName);
 			return;
 		}
+		// Log warning if the file does not exists
 		NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
 				.messageId(docName)
-				.action("Warning")
+				.action(document.getName() + " updation failed")
 				.description(docName + ".json not found")
 				.logError());
-		
 	}
-	
+
 	/**
 	 * Loads the ProofOfDelivery from document cache
 	 * 
@@ -181,17 +190,17 @@ public class DocumentStore
 
 	/**
 	 * 
-	 * @param pod
+	 * @param document
 	 * @return
 	 */
-	public static ProofOfDelivery load(File pod)
+	public static ProofOfDelivery load(File document)
 	{
 		try 
 		{
-			return mapper.readValue(pod, ProofOfDelivery.class);
+			return mapper.readValue(document, ProofOfDelivery.class);
 		} catch (IOException e) {
-			NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
-					.messageId(pod.getName())
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(document.getName())
 					.action("Mapping Error")
 					.description(e.getMessage())
 					.logError(),e);
@@ -208,22 +217,21 @@ public class DocumentStore
 	public static boolean delete(String docName, Document document) 
 	{
 		File file = new File( document.localMessageStoreLocation() + docName + ".json");
+		// If file is deleted successfully then remove from cache and return
 		if(file.delete()) 
 		{
 			cache.remove(docName, document);
-			System.out.println(docName + " deleted successfully");
 			//Log
 			NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 					.messageId(docName)
-					.action("deleted")
-					.description("POD deleted successfully")
+					.action(document.getName() + " deleted")
 					.logInfo());
 			return true;
 		}
-		//Log
-		NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+		//Log if file is not deleted
+		NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
 				.messageId(docName)
-				.action("Error in delete")
+				.action(document.getName() + " deletion failed")
 				.logError());
 		return false;
 	}

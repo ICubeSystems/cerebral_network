@@ -3,10 +3,11 @@ package com.ics.nceph.core.message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ics.id.IdGenerator;
+import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.util.ByteUtil;
@@ -100,8 +101,6 @@ import com.ics.util.ByteUtil;
  */
 public class Message 
 {
-	// TODO this should be initialized by local datastore or a central server should be used for id generation
-	private static AtomicInteger messageCounter = new AtomicInteger(1);
 	
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.
 	private static final int NODE_ID = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("node.id"));
@@ -115,7 +114,7 @@ public class Message
 	
 	byte counter;
 	
-	byte flags;
+	byte eventType;
 	
 	byte type;
 	
@@ -135,17 +134,17 @@ public class Message
 	 * This constructor should only be used to re-create the message object during the collection process at the receiving end
 	 *  
 	 * @param counter
-	 * @param flags
+	 * @param eventType
 	 * @param type
 	 * @param sourceId
 	 * @param messageId
 	 * @param dataLength
 	 * @param data
 	 */
-	Message(byte counter, byte flags, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord, byte[] timestamp)
+	Message(byte counter, byte eventType, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord, byte[] timestamp)
 	{
 		this.counter = counter;
-		this.flags = flags;
+		this.eventType = eventType;
 		this.type = type;
 		this.sourceId = sourceId;
 		this.messageId = messageId;
@@ -158,35 +157,47 @@ public class Message
 	
 	/**
 	 * 
-	 * @param flags
+	 * @param eventType
 	 * @param type
 	 * @param data
+	 * @throws IdGenerationFailedException 
 	 */
-	Message(byte flags, byte type, byte[] data)
+	Message(byte eventType, byte type, byte[] data) throws IdGenerationFailedException
 	{
-		this(flags, type, data, null, null);
+		init(eventType, type, data, null, null);
 	}
 	
 	/**
 	 * 
-	 * @param flags
+	 * @param eventType
 	 * @param type
 	 * @param data
 	 * @param messageId
 	 * @param sourceId
+	 * @throws IdGenerationFailedException 
 	 */
-	Message(byte flags, byte type, byte[] data, byte[] messageId, byte[] sourceId)
+	Message(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId)
+	{
+		try 
+		{
+			init(eventType, type, data, messageId, sourceId);
+		} catch (IdGenerationFailedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private void init(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId) throws IdGenerationFailedException
 	{
 		this.type = type;
-		this.flags = flags;
+		this.eventType = eventType;
 		this.data = data;
 		
-		
 		// Generate the message id from the message counter. This will be unique for the node.
-		this.messageId = (messageId!=null)?messageId:ByteUtil.convertToByteArray(messageCounter.getAndIncrement(), this.messageId.length);
+		this.messageId = (messageId!=null) ? messageId : ByteUtil.convertToByteArray(IdGenerator.getId((decoder().getType() == 0x0B || decoder().getType() == 0x03)?100:200), this.messageId.length);
 		
 		// Set the Id of the source node where this message is originating from. 
-		this.sourceId = (sourceId!=null)?sourceId:ByteUtil.convertToByteArray(NODE_ID, this.sourceId.length);
+		this.sourceId = (sourceId!=null) ? sourceId : ByteUtil.convertToByteArray(NODE_ID, this.sourceId.length);
 		
 		// Set the dataLength
 		dataLength = ByteUtil.convertToByteArray(data.length, dataLength.length);
@@ -208,7 +219,7 @@ public class Message
 				ByteUtil.merge(
 						genesis // Genesis byte [1 Bytes] 
 						, counter // Message counter within the connection [1 Bytes]
-						, flags // Flags (8 bit) [1 Bytes]
+						, eventType // eventType [1 Bytes]
 						, type) // Message Type [1 Bytes] 
 				, sourceId // Source id (node id which is creating the message) [2 Bytes]
 				, messageId // Message id [6 Bytes]
@@ -235,7 +246,7 @@ public class Message
 	}
 
 	public byte getFlags() {
-		return flags;
+		return eventType;
 	}
 
 	public byte getType() {
@@ -322,6 +333,11 @@ public class Message
 		public long getTimestamp()
 		{
 			return ByteUtil.convertToLong(Message.this.timeStamp);
+		}
+		
+		public int geteventType()
+		{
+			return ByteUtil.convertToInt(Message.this.eventType);
 		}
 		
 		public Object getData(Class<? extends MessageData> dataHoldingClass) throws JsonProcessingException

@@ -1,25 +1,19 @@
-package com.ics.synapticnode1;
+package com.ics.menu;
 
-import java.io.IOException;
-import java.io.Serializable;
 import java.math.BigDecimal;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.nceph.core.event.EventData;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
-import com.ics.synapse.ncephEvent.NcephEvent;
+
+import com.ics.synapse.ncephEvent.Event;
 /**
  * 
  * @author Chandan Verma
  * @since 04-Mar-2022
  */
 
-public class GiftRefund implements Serializable,NcephEvent
+public class GiftRefund extends Event
 {
 
 	private static final long serialVersionUID = -3996054630188026396L;
-
+	
 	private String giftCode;
 
 	private String recipientName;
@@ -34,6 +28,7 @@ public class GiftRefund implements Serializable,NcephEvent
 	
 	public GiftRefund(String giftCode, String recipientName,String senderName,BigDecimal amount,BigDecimal balance,String refundOn)
 	{
+		setType(3);
 		this.giftCode = giftCode;
 		this.senderName = senderName;
 		this.recipientName = recipientName;
@@ -71,18 +66,6 @@ public class GiftRefund implements Serializable,NcephEvent
 	public String getrefundOn()
 	{
 		return refundOn;
-	}
-
-	public String toJSON() throws JsonProcessingException
-	{
-		ObjectMapper mapper = new ObjectMapper();
-		return mapper.writeValueAsString(this);
-	}
-	
-	@Override
-	public EventData toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
-	{
-		return new EventData.Builder().eventId(3000).objectJSON(toJSON()).build();
 	}
 
 	public static class Builder

@@ -161,11 +161,7 @@ public class ProofOfDelivery extends Document
 {
 	private int portNumber;
 	
-	private String messageId;
-	
 	private EventData event;
-	
-	private long createdOn;
 	
 	private IORecord writeRecord;
 	
@@ -226,6 +222,11 @@ public class ProofOfDelivery extends Document
 		return Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location");
 	}
 	
+	@Override
+	public String getName() {
+		return "POD";
+	}
+	
 	public int getPortNumber() {
 		return portNumber;
 	}
@@ -236,10 +237,6 @@ public class ProofOfDelivery extends Document
 	
 	public EventData getEvent() {
 		return event;
-	}
-	
-	public long getCreatedOn() {
-		return createdOn;
 	}
 	
 	public IORecord getWriteRecord() {
@@ -474,7 +471,7 @@ public class ProofOfDelivery extends Document
 	{
 		String status = "";
 		// BAD CODE - need to change this to use JSON Schema
-		if(this.getCreatedOn() == 0L)
+		if(this.createdOn == 0L)
 			status = "CreatedOn: NULL";
 
 		if(this.getReadRecord() == null)

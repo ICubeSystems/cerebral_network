@@ -20,8 +20,8 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
+import com.ics.nceph.core.message.MasterMessageLedger;
 import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.MessageRegister;
 import com.ics.nceph.core.message.MessageWriter;
 import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -84,7 +84,7 @@ public abstract class Connector
 	 *   
 	 * </p>
 	 */
-	private MessageRegister incomingMessageRegister;
+	private MasterMessageLedger incomingMessageRegister;
 
 	/**
 	 * <p>
@@ -93,7 +93,7 @@ public abstract class Connector
 	 *   
 	 * </p>
 	 */
-	private MessageRegister outgoingMessageRegister;
+	private MasterMessageLedger outgoingMessageRegister;
 
 	/**
 	 * <p> 
@@ -110,7 +110,7 @@ public abstract class Connector
 	 * 	</ol>
 	 * </p>
 	 */
-	private MessageRegister connectionQueuedUpMessageRegister;
+	private MasterMessageLedger connectionQueuedUpMessageRegister;
 
 	/**
 	 * <p> 
@@ -126,7 +126,7 @@ public abstract class Connector
 	 * 	</ol>
 	 * </p>
 	 */
-	private MessageRegister connectorQueuedUpMessageRegister;
+	private MasterMessageLedger connectorQueuedUpMessageRegister;
 
 	/**
 	 * Map of active connections in the pool
@@ -205,10 +205,10 @@ public abstract class Connector
 	private void initialize()
 	{
 		connectionLoadBalancer = new PriorityBlockingQueue<Connection>();
-		incomingMessageRegister = new MessageRegister();
-		outgoingMessageRegister = new MessageRegister();
-		connectionQueuedUpMessageRegister = new MessageRegister();
-		connectorQueuedUpMessageRegister = new MessageRegister();
+		incomingMessageRegister = new MasterMessageLedger();
+		outgoingMessageRegister = new MasterMessageLedger();
+		connectionQueuedUpMessageRegister = new MasterMessageLedger();
+		connectorQueuedUpMessageRegister = new MasterMessageLedger();
 		relayQueue = new ConcurrentLinkedQueue<Message>();
 		activeConnections = new ConcurrentHashMap<Integer, Connection>();
 	}
@@ -273,6 +273,22 @@ public abstract class Connector
 			// 2. Peek connectionLoadBalancer to get the connection with least number of active requests (connection.activeRequests)
 			return connectionLoadBalancer.peek();
 		}
+	}
+
+	public MasterMessageLedger getIncomingMessageRegister() {
+		return incomingMessageRegister;
+	}
+
+	public MasterMessageLedger getOutgoingMessageRegister() {
+		return outgoingMessageRegister;
+	}
+
+	public MasterMessageLedger getConnectionQueuedUpMessageRegister() {
+		return connectionQueuedUpMessageRegister;
+	}
+
+	public MasterMessageLedger getConnectorQueuedUpMessageRegister() {
+		return connectorQueuedUpMessageRegister;
 	}
 
 	/**

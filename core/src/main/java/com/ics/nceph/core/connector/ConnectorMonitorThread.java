@@ -14,6 +14,7 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
+import com.ics.nceph.core.document.Document;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -58,22 +59,30 @@ public abstract class ConnectorMonitorThread extends Thread
 		return connector;
 	}
 	
-	public boolean transmissionWindowElapsed(File file) 
+	public boolean emitTransmissionWindowElapsed(File file) 
 	{
 		// if file is older than x minutes and whose state is not finished then resend the message to the another node to make its state to finished
-				try {
-					if(Math.abs(System.currentTimeMillis() - Files.readAttributes(file.toPath(), BasicFileAttributes.class).creationTime().to(TimeUnit.MILLISECONDS)) > Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("transmission.window"))  * 1000) 
-						return true;
-					return false;
-				}
-				 catch (IOException e) {
-					 NcephLogger.MONITOR_LOGGER.warn(new MonitorLog.Builder()
-								.monitorPort(connector.getPort())
-								.action("File read attribute failed")
-								.description("Cannot read attributes of file "+file.getName()+" due to IOException")
-								.logError(),e);
-					return false;
-				}
+		try 
+		{
+			if(Math.abs(System.currentTimeMillis() - Files.readAttributes(file.toPath(), BasicFileAttributes.class).creationTime().to(TimeUnit.MILLISECONDS)) > Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("transmission.window"))  * 1000) 
+				return true;
+			return false;
+		}
+		catch (IOException e) {
+			NcephLogger.MONITOR_LOGGER.warn(new MonitorLog.Builder()
+					.monitorPort(connector.getPort())
+					.action("File read attribute failed")
+					.description("Cannot read attributes of file "+file.getName()+" due to IOException")
+					.logError(),e);
+			return false;
+		}
+	}
+	
+	public boolean relayTransmissionWindowElapsed(Document document) 
+	{
+		if (System.currentTimeMillis() - document.createdOn > Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("transmission.window"))  * 1000)
+			return true;
+		return false;
 	}
 	
 	public void enqueueMessage(Connection connection, Message message) 

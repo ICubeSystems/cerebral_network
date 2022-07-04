@@ -1,8 +1,9 @@
-package com.ics.synapticNode1Thread;
+package com.ics.menu.eventThreads;
 
 import java.math.BigDecimal;
+
+import com.ics.menu.GiftItem;
 import com.ics.synapse.Emitter;
-import com.ics.synapticnode1.GiftItem;
 
 /**
  * 
@@ -10,11 +11,15 @@ import com.ics.synapticnode1.GiftItem;
  * @since 07-Mar-2022
  */
 
-public class GiftItemThread extends Thread
+public class GiftItemThread extends EventThread
 {
+	public GiftItemThread(Integer totalEvents){
+		super(totalEvents);
+	}
+	
 	public void run()
 	{
-		for (int i = 1; i <= 1000; i++)
+		for (int i = 1; i <= getNumberOfEvents(); i++)
 		{
 			try
 			{

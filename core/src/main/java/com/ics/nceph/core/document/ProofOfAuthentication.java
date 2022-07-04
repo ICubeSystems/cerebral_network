@@ -57,10 +57,6 @@ public class ProofOfAuthentication extends Document
 {
 	public static String DOC_PREFIX = "a";
 			
-	private String messageId;
-
-	private long createdOn;
-
 	private IORecord startupWriteRecord;
 
 	private IORecord startupReadRecord;
@@ -107,6 +103,7 @@ public class ProofOfAuthentication extends Document
 
 	public ProofOfAuthentication(String messageId, long createdOn) 
 	{
+		DOC_PREFIX = "a";
 		this.messageId = messageId;
 		this.createdOn = createdOn;
 		this.poaState = PoaState.INITIAL;
@@ -117,11 +114,6 @@ public class ProofOfAuthentication extends Document
 	public String getMessageId() 
 	{
 		return messageId;
-	}
-
-	public long getCreatedOn() 
-	{
-		return createdOn;
 	}
 
 	public NetworkRecord getAuthenticationNetworkRecord() 
@@ -138,12 +130,6 @@ public class ProofOfAuthentication extends Document
 	{
 		this.messageId = messageId;
 		outOfSync("messageId");
-	}
-
-	public void setCreatedOn(long createdOn) 
-	{
-		this.createdOn = createdOn;
-		outOfSync("createdOn");
 	}
 
 	public NetworkRecord getStartupNetworkRecord() {
@@ -339,6 +325,11 @@ public class ProofOfAuthentication extends Document
 	public String localMessageStoreLocation() {
 		return String.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.auth_location"));
 	}
+	
+	@Override
+	public String getName() {
+		return "POA";
+	}
 
 	public String toString()
 	{
@@ -352,7 +343,7 @@ public class ProofOfAuthentication extends Document
 		}
 		return null;
 	}
-
+	
 	public static class Builder
 	{
 		private String messageId;

@@ -1,7 +1,5 @@
 package com.ics.nceph.core.message;
 
-import java.util.BitSet;
-
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.util.ByteUtil;
@@ -14,9 +12,9 @@ import com.ics.util.ByteUtil;
  */
 public class AcknowledgeMessage extends Message 
 {
-	AcknowledgeMessage(byte type, byte flags, byte[] data, byte[] messageId, byte[] sourceId)
+	AcknowledgeMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId)
 	{
-		super(flags, type, data, messageId, sourceId);
+		super(eventType, type, data, messageId, sourceId);
 	}
 	
 	/**
@@ -25,7 +23,7 @@ public class AcknowledgeMessage extends Message
 	 */
 	public static class Builder
 	{
-		private BitSet flags = new BitSet(8);
+		private byte eventType;
 		
 		private byte type;
 		
@@ -63,10 +61,10 @@ public class AcknowledgeMessage extends Message
 			return this;
 		}
 		
-		public AcknowledgeMessage build() 
+		public AcknowledgeMessage build()
 		{
-			flags.set(MessageFlag.TRACE_FLAG.getPosition()); // BAD CODE - remove later
-			return new AcknowledgeMessage(type, flags.toByteArray()[0], data, messageId, sourceId);
+			eventType = Integer.valueOf(0).byteValue(); 
+			return new AcknowledgeMessage(type, eventType, data, messageId, sourceId);
 		}
 	}
 }

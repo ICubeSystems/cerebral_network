@@ -1,14 +1,8 @@
-package com.ics.synapticnode2;
+package com.ics.menu;
 
-import java.io.IOException;
-import java.io.Serializable;
 import java.math.BigDecimal;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.nceph.core.event.EventData;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
-import com.ics.synapse.ncephEvent.NcephEvent;
+
+import com.ics.synapse.ncephEvent.Event;
 
 /**
  * 
@@ -16,10 +10,10 @@ import com.ics.synapse.ncephEvent.NcephEvent;
  * @since 04-Mar-2022
  */
 
-public class GiftDelivered implements NcephEvent, Serializable
+public class GiftDelivered extends Event
 {
 	private static final long serialVersionUID = -3996054630188026396L;
-
+	
 	private String giftCode;
 
 	private String recipientName;
@@ -34,6 +28,7 @@ public class GiftDelivered implements NcephEvent, Serializable
 
 	public GiftDelivered(String giftCode, String recipientName,String senderName, BigDecimal amount, BigDecimal balance,String deliveredOn)
 	{
+		setType(4);
 		this.giftCode = giftCode;
 		this.recipientName = recipientName;
 		this.senderName = senderName;
@@ -65,19 +60,6 @@ public class GiftDelivered implements NcephEvent, Serializable
 
 	public String getDeliveredOn() {
 		return deliveredOn;
-	}
-
-
-	public String toJSON() throws JsonProcessingException 
-	{
-		ObjectMapper mapper = new ObjectMapper();
-		return mapper.writeValueAsString(this);
-	}
-
-	@Override
-	public EventData toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
-	{
-		return new EventData.Builder().eventId(4000).objectJSON(toJSON()).build();
 	}
 
 	public static class Builder {

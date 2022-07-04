@@ -14,9 +14,9 @@
 			<keepAliveTime>60</keepAliveTime>
 		</writerPool>
 		<subscriptions>
-			<eventType>1000</eventType>
-			<eventType>4000</eventType>
-			<eventType>5000</eventType>
+			<eventType>1</eventType>
+			<eventType>4</eventType>
+			<eventType>5</eventType>
 		</subscriptions>
 	</synapticNode>
 	<synapticNode>
@@ -33,9 +33,9 @@
 			<keepAliveTime>60</keepAliveTime>
 		</writerPool>
 		<subscriptions>
-			<eventType>1000</eventType>
-			<eventType>2000</eventType>
-			<eventType>3000</eventType>
+			<eventType>1</eventType>
+			<eventType>2</eventType>
+			<eventType>3</eventType>
 		</subscriptions>
 	</synapticNode>
 </synapticNodes>

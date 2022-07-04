@@ -1,20 +1,13 @@
-package com.ics.synapticnode2;
+package com.ics.menu;
 
-import java.io.IOException;
-import java.io.Serializable;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.nceph.core.event.EventData;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
-import com.ics.synapse.ncephEvent.NcephEvent;
+import com.ics.synapse.ncephEvent.Event;
 /**
  * 
  * @author Chandan Verma
  * @since 04-Mar-2022
  */
 
-public class GiftStatus implements Serializable,NcephEvent
+public class GiftStatus extends Event
 {
 	private static final long serialVersionUID = 1L;
 	
@@ -29,6 +22,7 @@ public class GiftStatus implements Serializable,NcephEvent
 	private String sendOnMobile;
 
 	public GiftStatus(String giftCode,String recipientName,String senderName,String sendOnEmail,String sendOnMobile) {
+		setType(5);
 		this.giftCode = giftCode;
 		this.recipientName = recipientName;
 		this.senderName = senderName;
@@ -61,18 +55,6 @@ public class GiftStatus implements Serializable,NcephEvent
 		return sendOnMobile;
 	}
 
-	public String toJSON() throws JsonProcessingException
-	{
-		ObjectMapper mapper = new ObjectMapper();
-		return mapper.writeValueAsString(this);
-	}
-	
-	@Override
-	public EventData toEvent() throws JsonProcessingException, IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
-	{
-		return new EventData.Builder().eventId(5000).objectJSON(toJSON()).build();
-	}
-	
 	public static class Builder
 	{
 		private String giftCode;

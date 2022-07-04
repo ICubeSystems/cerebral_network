@@ -102,7 +102,7 @@ public class RelayedEventReceptor extends EventReceptor
 		}
 		else
 		{
-			System.out.println("duplicate found "+getMessage().getMessageId());
+			System.out.println("duplicate found "+getMessage().decoder().getId());
 			// duplicate message handling - TBD
 		}
 	}

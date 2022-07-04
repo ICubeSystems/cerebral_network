@@ -50,3 +50,8 @@ message_folders_deletion2.sh
 
 .metadata/
 
+*.gz
+*.gz
+*.gz
+*.gz
+*.gz

@@ -57,7 +57,6 @@ public class SynapticMonitor extends ConnectorMonitorThread
 	{
 		SynapticConnector connector = (SynapticConnector) getConnector();
 		// 1. Loop through all the active connections within the connector
-		System.out.println("[Monitor thread] Active connections: " +  connector.getActiveConnections().size());
 		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
 				.monitorPort(connector.getPort())
 				.action("Active Connection")
@@ -116,16 +115,16 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		// 2. Create new connection if activeConnections has lesser number of connections than config.minConnections
 		if (connector.getActiveConnections().size() < connector.config.minConnections) 
 		{
-			System.out.println("Number of active connections: " + connector.getActiveConnections().size() + " - Creating new connection...");
 			NcephLogger.MONITOR_LOGGER.warn(new MonitorLog.Builder()
 					.monitorPort(connector.getPort())
 					.action("Creating new connection")
 					.data(new LogData().entry("active connections", String.valueOf(connector.getActiveConnections().size())).toString())
 					.description("Create new connection if active connections are less than min connection")
 					.logInfo());
+			int newConnectionsCount =  connector.config.minConnections - connector.getActiveConnections().size();
 			try 
 			{
-				for(int i=0; i < connector.config.minConnections - connector.getActiveConnections().size();i++)
+				for(int i=0; i < newConnectionsCount;i++)
 					connector.connect();
 			} catch (IOException | ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) {
 				e.printStackTrace();
@@ -189,7 +188,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 						break;
 
 					// check pod file is older than x minutes. 
-					if (transmissionWindowElapsed(podFile)) 
+					if (emitTransmissionWindowElapsed(podFile)) 
 					{
 						// load pod file
 						pod = (ProofOfDelivery)DocumentStore.load(podFile);

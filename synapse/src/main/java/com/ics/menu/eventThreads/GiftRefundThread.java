@@ -1,10 +1,11 @@
-package com.ics.synapticNode1Thread;
+package com.ics.menu.eventThreads;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+
+import com.ics.menu.GiftRefund;
 import com.ics.synapse.Emitter;
-import com.ics.synapticnode1.GiftRefund;
 
 /**
  * 
@@ -12,11 +13,15 @@ import com.ics.synapticnode1.GiftRefund;
  * @since 07-Mar-2022
  */
 
-public class GiftRefundThread extends Thread
+public class GiftRefundThread extends EventThread
 {
+	public GiftRefundThread(Integer totalEvents){
+		super(totalEvents);
+	}
+	
 	public void run()
 	{
-			for (int i = 1; i <= 1000; i++)
+			for (int i = 1; i <= getNumberOfEvents(); i++)
 			{
 				try {
 					GiftRefund giftRefund = new GiftRefund.Builder()

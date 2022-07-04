@@ -124,7 +124,7 @@ public class PublishedEventReceptor extends EventReceptor
 				// Change the type of the message to RELAY_EVENT
 				getMessage().setType(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType());
 				// 4. Get the subscriber connectors for this event
-				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventId());
+				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventType());
 				pod.setSubscriberCount(subscribers.size());
 
 				// 5. Loop over subscriber connectors
@@ -180,6 +180,7 @@ public class PublishedEventReceptor extends EventReceptor
 			}
 			else
 			{
+				System.out.println("duplicate message found" + getMessage().decoder().getId());
 				// duplicate message handling - TBD
 				// If ACK_RECEIVED message is not received then send the NCEPH_EVENT_ACK
 				// If ACK_RECEIVED message is received then send DELETE_POD
