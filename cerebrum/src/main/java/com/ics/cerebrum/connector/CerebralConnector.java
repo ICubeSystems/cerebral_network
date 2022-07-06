@@ -60,7 +60,7 @@ public class CerebralConnector extends Connector
 		// Open a ServerSocketChannel for communication
 		serverChannel = ServerSocketChannel.open();
 		// Get the ServerSocket from the ServerSocketChannel & bind it to a port to listen
-		serverChannel.socket().bind(new InetSocketAddress("127.0.0.1", getPort()));
+		serverChannel.socket().bind(new InetSocketAddress(getPort()));
 		// Set the ServerSocketChannel to nonblocking mode
 		serverChannel.configureBlocking(false);
 		// This set the ReceiveBufSize for all the SocketChannels which will be accepted in this serverChannel
