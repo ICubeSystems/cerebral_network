@@ -80,7 +80,6 @@ public class DocumentStore
 					System.out.println("\n");
 			}
 		}
-		System.out.println(cache);
 	
 	}
 
