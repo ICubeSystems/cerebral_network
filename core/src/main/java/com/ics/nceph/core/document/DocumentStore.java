@@ -59,7 +59,7 @@ public class DocumentStore
 
 	private static void fillCache(File messageDirectory, Class<? extends Document> document) throws IOException {
 		//If there are PODs in the local storage, then load them to cache
-		if(messageDirectory.length()>0) 
+		if(messageDirectory.listFiles() != null) 
 		{
 			float totalPods = messageDirectory.listFiles().length;
 			float loopCounter = 0;
