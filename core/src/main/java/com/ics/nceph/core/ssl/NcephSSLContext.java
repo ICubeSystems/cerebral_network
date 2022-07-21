@@ -40,8 +40,8 @@ public class NcephSSLContext
 		{
 			sslContext = SSLContext.getInstance("TLSv1.2");
 			sslContext.init(
-				createKeyManagers(getFileInputStream(Configuration.APPLICATION_PROPERTIES.getConfig("keyStore.fileName")), "storepass", "keypass"), //TODO name should come from config file - keyStoreName, path - use getClassLoader()
-				createTrustManagers(getFileInputStream("trustedCerts.jks"), "storepass"), //TODO name should come from config file - trustStoreName, path - use getClassLoader()
+				createKeyManagers(getFileInputStream(Configuration.APPLICATION_PROPERTIES.getConfig("keyStore.fileName")), "password", "password"), //TODO name should come from config file - keyStoreName, path - use getClassLoader()
+				createTrustManagers(getFileInputStream(Configuration.APPLICATION_PROPERTIES.getConfig("trustStore.fileName")), "password"), //TODO name should come from config file - trustStoreName, path - use getClassLoader()
 				new SecureRandom());
 		} catch (NullPointerException e) {
 			throw new SSLContextInitializationException("No key store file found with name: ", e);
@@ -51,6 +51,7 @@ public class NcephSSLContext
 			throw new SSLContextInitializationException("SSLContext getInstance failed", e);
 		}
 		return sslContext;
+		
 	}
 	
 	/**
@@ -115,7 +116,7 @@ public class NcephSSLContext
 			}
 			trustFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 			trustFactory.init(trustStore);
-		} catch (KeyStoreException e) {
+        } catch (KeyStoreException e) {
 			throw new SSLContextInitializationException("Trust get instance failed", e);
 		}  catch (NoSuchAlgorithmException e) {
 			throw new SSLContextInitializationException("Trust manager, algorithm not found:", e);
@@ -131,5 +132,7 @@ public class NcephSSLContext
     private static InputStream getFileInputStream(String fileName) 
     {
     	return NcephSSLContext.class.getClassLoader().getResourceAsStream(fileName);
-    }
+    }    
+    
 }
+

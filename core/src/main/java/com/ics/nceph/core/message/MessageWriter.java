@@ -60,7 +60,13 @@ public class MessageWriter
         // Every wrap call will remove 16KB from the original message and send
         encryptedData.clear();
         // Encrypt plain text of (plainText) to (encryptedData).
-        SSLEngineResult result = ((SSLConnection)connection).getEngine().wrap(plainText, encryptedData);
+		SSLEngineResult result = null;
+		try {
+			result = ((SSLConnection)connection).getEngine().wrap(plainText, encryptedData);
+		} catch (SSLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
         switch (result.getStatus()) 
         {
         	// Status OK: when the wrap operation is completed successfully
@@ -68,7 +74,11 @@ public class MessageWriter
 	            encryptedData.flip();
 	            while (encryptedData.hasRemaining()) {
 	            	// Write encrypted data to socket. 
-						connection.getSocket().write(encryptedData);
+	            	//System.out.println("pre write encryptedData remaining"+encryptedData.remaining());
+	            	//int bytesWrite = connection.getSocket().write(encryptedData);
+					//System.out.println("Bytes Write: "+ bytesWrite);
+					//System.out.println("post write encryptedData remaining"+encryptedData.remaining());
+	            	connection.getSocket().write(encryptedData);
 	            }
 	            break;
 	        // Status BUFFER_OVERFLOW: when the encryptedData is smaller than the plainText.

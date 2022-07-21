@@ -128,6 +128,8 @@ public class SSLConnection extends Connection
 		engine = getConnector().getSslContext().createSSLEngine();
 		// Set client mode of the SSL engine
 		engine.setUseClientMode(isClient);
+		if(!isClient)
+		engine.setNeedClientAuth(true);
 		// Allocate size of buffers for wrapping and unwrapping process. 
 		initializeSSEngineBuffers();
 		// Initial SSL handshake

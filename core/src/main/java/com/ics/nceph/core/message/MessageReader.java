@@ -6,6 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLException;
 
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
@@ -32,6 +33,8 @@ public class MessageReader
 	
 	ByteBuffer encryptedDataToRead;
 	
+	boolean incompleteRead;
+	
 	Connection connection;
 	// Initialize the messageCounter to 0. Increment by 1 at every message reception and reset to 0 once 256 messages are received
 	private AtomicInteger messageCounter;
@@ -44,7 +47,6 @@ public class MessageReader
 			encryptedDataToRead = ByteBuffer.allocate(((SSLConnection)connection).getEncryptedDataBufferSize());
 		// Allocate plainText byteBuffer to read from socket
 		plainText = ByteBuffer.allocate(connection.getPlainTextBufferSize());
-		
 		messageBuilder = new MessageBuilder();
 		
 		// Initialize the messageCounter to 0. Increment by 1 at every message reception and reset to 0 once 256 messages are received
@@ -135,6 +137,7 @@ public class MessageReader
 									.toString())
 							.logInfo());
 					// Create a reader thread per message
+					//System.out.println("opening read worker for meessageId: "+message.decoder().getId());
 					connection.getConnector().createPostReadWorker(message, connection);
 					// Log
 					NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
@@ -236,10 +239,25 @@ public class MessageReader
      */
     protected void readEncrypted() throws IOException 
     {
-        encryptedDataToRead.clear();
+    	//if socket read incomplete message packet in previous read. 
+    	if (incompleteRead)
+    	{
+    		// compact encryptedDataToRead,
+    		encryptedDataToRead.compact();
+    		incompleteRead = false;
+    	}
+    	else
+    		// clear encryptedDataToRead to read a fresh data.
+    		encryptedDataToRead.clear();
+    	
+    	// If the temp buffer has unread data then copy that to encryptedDataToRead and then proceed for socket read
+        
         // read encrypted socket data to {encryptedDataToRead} byte buffer
         int bytesRead = 0;
+        //System.out.println("pre read encryptedDataToRead remaining"+encryptedDataToRead.remaining());
 		bytesRead = connection.getSocket().read(encryptedDataToRead);
+		//System.out.println("Bytes Read "+bytesRead);
+		//System.out.println("post read encryptedDataToRead remaining"+encryptedDataToRead.remaining());
 		
         if (bytesRead > 0) {
             encryptedDataToRead.flip();
@@ -247,7 +265,15 @@ public class MessageReader
             {
             	plainText.clear();
             	// decrypt data from {encryptedDataToRead} to {plainText} byte buffer
-                SSLEngineResult result = ((SSLConnection)connection).getEngine().unwrap(encryptedDataToRead, plainText);
+				SSLEngineResult result = null;
+				try {
+					//System.out.println("encryptedDataToRead remaining before unwrap "+encryptedDataToRead.remaining());
+					result = ((SSLConnection)connection).getEngine().unwrap(encryptedDataToRead, plainText);
+					//System.out.println("encryptedDataToRead remaining after unwrap "+encryptedDataToRead.remaining());
+				} catch (SSLException e) 
+				{
+					e.printStackTrace();
+				}
                 // Check the result of unwrap operation
                 switch (result.getStatus()) 
                 {
@@ -266,8 +292,10 @@ public class MessageReader
 	                 // Status BUFFER_UNDERFLOW: when the data received (encryptedDataToRead) is smaller than the plainText buffer. 
 	                 // The SSLEngine was not able to unwrap the incoming data because there were not enough source bytes available to make a complete packet.
 	                case BUFFER_UNDERFLOW:
-	                    encryptedDataToRead = ((SSLConnection)connection).handleBufferUnderflow(encryptedDataToRead);
-	                    break;
+	                	//System.out.println("IN BUFFER_UNDERFLOW");
+	                	incompleteRead = true;
+	                    //encryptedDataToRead = ((SSLConnection)connection).handleBufferUnderflow(encryptedDataToRead);
+	                    return;
 	                // Status CLOSED: The unwrap operation just closed this side of the SSLEngine (connection closed), or the operation could not be completed because it was already closed.
 	                case CLOSED:
 	                	((SSLConnection)connection).closeConnection();

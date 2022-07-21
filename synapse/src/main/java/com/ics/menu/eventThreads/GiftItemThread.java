@@ -24,8 +24,48 @@ public class GiftItemThread extends EventThread
 			try
 			{
 				GiftItem gi = new GiftItem.Builder()
-						.recipientName("Receiver " + i)
-						.senderName("Sender " + i)
+						.recipientName("Receiver " + "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing ")
+						.senderName("Sender " + "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing "
+								+ "Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing Big data for testing ")
 						.giftCode("570087975676400" + i)
 						.amount(new BigDecimal(100.0))
 						.balance(new BigDecimal(100.0))
