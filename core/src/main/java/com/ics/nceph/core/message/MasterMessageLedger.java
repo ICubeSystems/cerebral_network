@@ -17,9 +17,12 @@ public class MasterMessageLedger
 	 */
 	private ConcurrentHashMap<Integer, MessageLedger> masterLedger;
 	
+	private ConcurrentHashMap<Integer, Long> authMessageIdCounter;
+	
 	public MasterMessageLedger()
 	{
 		this.masterLedger = new ConcurrentHashMap<Integer, MessageLedger>();
+		this.authMessageIdCounter = new ConcurrentHashMap<Integer, Long>();
 	}
 	
 	/**
@@ -45,6 +48,12 @@ public class MasterMessageLedger
 			synchronized (messageLedger) {
 				messageLedger.add(message);
 			}
+		}
+		else if (message.decoder().getType() == 0x00)
+		{
+			if (authMessageIdCounter.get(message.decoder().getSourceId()) == null // If there is no entry for the node then create an entry
+					|| authMessageIdCounter.get(message.decoder().getSourceId()) < message.decoder().getMessageId()) // if the entry for the node has a smaller message id then update it with new message id
+				authMessageIdCounter.put(message.decoder().getSourceId(), message.decoder().getMessageId());
 		}
 	}
 	
