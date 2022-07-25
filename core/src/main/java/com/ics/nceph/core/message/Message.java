@@ -194,7 +194,7 @@ public class Message
 		this.data = data;
 		
 		// Generate the message id from the message counter. This will be unique for the node.
-		this.messageId = (messageId!=null) ? messageId : ByteUtil.convertToByteArray(IdGenerator.getId((decoder().getType() == 0x0B || decoder().getType() == 0x03)?100:200), this.messageId.length);
+		this.messageId = (messageId!=null) ? messageId : ByteUtil.convertToByteArray(IdGenerator.getId((decoder().getType() == 0x0B || decoder().getType() == 0x03) ? 100 : 200), this.messageId.length);
 		
 		// Set the Id of the source node where this message is originating from. 
 		this.sourceId = (sourceId!=null) ? sourceId : ByteUtil.convertToByteArray(NODE_ID, this.sourceId.length);

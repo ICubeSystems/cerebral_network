@@ -81,11 +81,12 @@ public class SSLConnection extends Connection
 	 * @param relayTimeout
 	 * @param receiveBufferSize
 	 * @param sendBufferSize
+     * @throws ConnectionException 
 	 * @throws IOException
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-    SSLConnection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws IOException, ConnectionInitializationException
+    SSLConnection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws ConnectionInitializationException, ConnectionException
 	{
 		super(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
 	}
@@ -104,7 +105,7 @@ public class SSLConnection extends Connection
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-    SSLConnection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws IOException, ConnectionInitializationException, ConnectionException
+    SSLConnection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws ConnectionInitializationException, ConnectionException
 	{
 		super(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
 	}

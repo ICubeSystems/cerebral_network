@@ -1,7 +1,6 @@
 package com.ics.synapse.connector;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.channels.SelectionKey;
 import java.util.Map.Entry;
 
@@ -121,12 +120,13 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					.data(new LogData().entry("active connections", String.valueOf(connector.getActiveConnections().size())).toString())
 					.description("Create new connection if active connections are less than min connection")
 					.logInfo());
-			int newConnectionsCount =  connector.config.minConnections - connector.getActiveConnections().size();
+			int connectionDeficit =  connector.config.minConnections - connector.getActiveConnections().size();
 			try 
 			{
-				for(int i=0; i < newConnectionsCount;i++)
+				for(int i=0; i < connectionDeficit;i++)
 					connector.connect();
-			} catch (IOException | ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) {
+			} catch (ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) {
+				//Log
 				e.printStackTrace();
 			}
 		}

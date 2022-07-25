@@ -30,7 +30,6 @@ public class RelayedEventReceptor extends EventReceptor
 	public RelayedEventReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
-		
 	}
 
 	@Override
@@ -42,7 +41,8 @@ public class RelayedEventReceptor extends EventReceptor
 		if (por == null) // If the ProofOfRelay for the received message is not in the local storage then create a new ProofOfRelay object for this message
 		{
 			// Build ProofOfRelay object for this message
-			try {
+			try 
+			{
 				por = new ProofOfRelay.Builder()
 						.event(getEvent())
 						.messageId(getMessage().decoder().getId())
@@ -63,7 +63,9 @@ public class RelayedEventReceptor extends EventReceptor
 
 				DocumentStore.save(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 
-
+				// Invoke appropriate ApplicationReceptor
+				
+				
 				// 2. Send the ACK message (RELAYED_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
 				NetworkRecord networkRecord = new NetworkRecord.Builder().start(new Date().getTime()).build();
 				por.setAckNetworkRecord(networkRecord);
@@ -102,7 +104,7 @@ public class RelayedEventReceptor extends EventReceptor
 		}
 		else
 		{
-			System.out.println("duplicate found "+getMessage().decoder().getId());
+			System.out.println("duplicate found " + getMessage().decoder().getId());
 			// duplicate message handling - TBD
 		}
 	}

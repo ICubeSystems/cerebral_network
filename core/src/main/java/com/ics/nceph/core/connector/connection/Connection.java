@@ -25,6 +25,7 @@ import com.ics.nceph.core.message.MessageReader;
 import com.ics.nceph.core.message.MessageWriter;
 import com.ics.nceph.core.message.RelayFailedMessageHandlingThread;
 import com.ics.nceph.core.message.exception.RelayTimeoutException;
+import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -93,14 +94,21 @@ public class Connection implements Comparable<Connection>
 	 * @param receiveBufferSize
 	 * @param sendBufferSize
 	 * @throws IOException
+	 * @throws ConnectionException 
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws IOException, ConnectionInitializationException
+	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws ConnectionInitializationException, ConnectionException
 	{
-		// Get the SocketChannel 
-		this.socket = ((ServerSocketChannel)connector.obtainSocketChannel()).accept();
 		this.relayTimeout = relayTimeout;
+		// 1. Get the SocketChannel and accept the incoming connection
+		try 
+		{
+			this.socket = ((ServerSocketChannel)connector.obtainSocketChannel()).accept();
+		}
+		catch (IOException e) {	throw new ConnectionException("Connection with id:"+ id +" constructor failed: "+e.getMessage(), e);}
+		
+		// 2. Initialize the connection created above
 		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, false);
 	}
 	
@@ -157,9 +165,8 @@ public class Connection implements Comparable<Connection>
 			this.socket.configureBlocking(false);
 			// Set the client mode to true, indicating that the connection is on the client side (synaptic node).
 			this.isClient = isClient;
-			
+			// Initialize the connection
 			initializeConnection();
-			
 		} catch (Exception e) 
 		{
 			try 
@@ -172,9 +179,9 @@ public class Connection implements Comparable<Connection>
 		}
 	}
 	
-	protected void initializeConnection() throws IOException,SSLHandshakeException 
+	protected void initializeConnection() throws IOException, SSLHandshakeException 
 	{
-		// TODO: Connection state is AUTH_PENDING when constructed - can only be used for event read and relay after the state changes to READY
+		// Connection state is AUTH_PENDING when constructed - can only be used for event read and relay after the state changes to READY
 		state = ConnectionState.AUTH_PENDING;
 		// If the handshake is successful then register a selector to socket channel with interestOps
 		key = getSocket().register(reactor.getSelector(), SelectionKey.OP_READ, this);
@@ -187,7 +194,6 @@ public class Connection implements Comparable<Connection>
 		relayQueue = new ConcurrentLinkedQueue<Message>();
 		// set last used time of the connection
 		setLastUsed(System.currentTimeMillis());
-		
 	}
 
 	
@@ -495,7 +501,7 @@ public class Connection implements Comparable<Connection>
 		// DUPLICACY CHECK: Check if the message has already been sent.  
 		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
 				&& (context.duplicacyCheckEnabled() && getConnector().isAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
-				|| getConnector().isAlreadyQueuedUpOnConnection(message) || getConnector().isAlreadyQueuedUpOnConnector(message)))
+				|| getConnector().isAlreadyQueuedUpOnConnection(message) || getConnector().isAlreadyQueuedUpOnConnector(message))) // Check if the message is not already in the relay queue of the connector or any of its connections
 			return;
 		// store message to connectionQueuedUpMessageRegister 
 		getConnector().storeConnectionQueuedUpMessage(message);
@@ -510,6 +516,7 @@ public class Connection implements Comparable<Connection>
 						.entry("port", String.valueOf(connector.getPort()))
 						.entry("connectionId", String.valueOf(getId()))
 						.entry("CallerClass", Thread.currentThread().getStackTrace()[2].getFileName())
+						.entry("messageType", MessageType.getNameByType(message.decoder().getType()))
 						.toString())
 				.logInfo());
 	}
@@ -638,7 +645,7 @@ public class Connection implements Comparable<Connection>
 		}
 		
 		
-		public Connection build() throws IOException, ConnectionInitializationException, ConnectionException
+		public Connection build() throws ConnectionInitializationException, ConnectionException
 		{
 			if(NcephConstants.TLS_MODE) {
 				if (cerebralConnectorAddress != null)

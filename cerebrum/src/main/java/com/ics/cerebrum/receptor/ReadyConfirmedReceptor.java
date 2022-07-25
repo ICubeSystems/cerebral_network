@@ -8,6 +8,7 @@ import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.ConnectionState;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PoaState;
 import com.ics.nceph.core.document.ProofOfAuthentication;
@@ -58,20 +59,33 @@ public class ReadyConfirmedReceptor extends Receptor
 			poa.setCredentialsWriteRecord(readyConfirmData.getCredentialsWriteRecord());
 			// 2.2 Set READY read record
 			poa.setReadyReadRecord(readyConfirmData.getReadyReadRecord());
-			// TODO: (to be removed by Anshul after my checkin)
 			// 2.3 Set READY network record
 			poa.setReadyNetworkRecord(readyConfirmData.getReadyNetworkRecord());
-			// TODO 2.4 Set delete POA time
+			// 2.4 Set delete POA time
 			poa.setDeletePoaTime(new Date().getTime());
 			// 2.5 Set Connection State 
 			poa.setPoaState(PoaState.READYCONFIRMED);
-			// TODO: (to be removed by Anshul after my checkin)
 			// 2.6 Set READYCONFIRMED NetworkRecord
 			poa.setReadyConfirmedNetworkRecord(buildNetworkRecord());
 			// 2.7 Set READYCONFIRMED readRecord
 			poa.setReadyConfirmedReadRecord(getMessage().getReadRecord());
 			// 2.8 Update the POA in the local DocumentStore
 			DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
+			
+			// 3 Set incoming connection state READY
+			getIncomingConnection().setState(ConnectionState.READY);
+			// 3.1 Add the connection object to load balancer for read/ write allocations
+			getIncomingConnection().addToLoadBalancer();
+			getIncomingConnection().getConnector().getActiveConnections().put(getIncomingConnection().getId(), getIncomingConnection());
+
+			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+					.connectionId(String.valueOf(getIncomingConnection().getId()))
+					.action("Ready connection")
+					.data(new LogData()
+							.entry("state", String.valueOf(getIncomingConnection().getState().getValue()))
+							.entry("Port", String.valueOf(getIncomingConnection().getConnector().getPort()))
+							.toString())
+					.logInfo());
 		} catch (DocumentSaveFailedException e) 
 		{
 			try 

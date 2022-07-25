@@ -79,21 +79,6 @@ public class CredentialsReceptor extends Receptor
 			// Check Credentials
 			if(credentialsData.getCredentials().equals("NCEPH"))
 			{
-				// 3 Set incoming connection state READY
-				getIncomingConnection().setState(ConnectionState.READY);
-				// 3.1 Add the connection object to load balancer for read/ write allocations
-				getIncomingConnection().getConnector().getConnectionLoadBalancer().add(getIncomingConnection());
-				getIncomingConnection().getConnector().getActiveConnections().put(getIncomingConnection().getId(), getIncomingConnection());
-
-				NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
-						.connectionId(String.valueOf(getIncomingConnection().getId()))
-						.action("Ready connection")
-						.data(new LogData()
-								.entry("state", String.valueOf(getIncomingConnection().getState().getValue()))
-								.entry("Port", String.valueOf(getIncomingConnection().getConnector().getPort()))
-								.toString())
-						.logInfo());
-
 				// 4. Ready Message
 				// 4.1 Create the READY message
 				AuthenticationMessage readyMessage = new AuthenticationMessage

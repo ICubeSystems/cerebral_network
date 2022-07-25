@@ -158,6 +158,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 											// Set the RELAY_EVENT attempts
 											por.incrementRelayAttempts();
 											por.setPorState(PorState.RELAYED);
+											DocumentStore.update(pod, pod.getMessageId());
 											break;
 										case 300:// ACKNOWLEDGED state of POR
 										case 400:// ACK_RECIEVED state of POR
@@ -177,13 +178,13 @@ public class CerebralMonitor extends ConnectorMonitorThread
 											// Set the RELAY_EVENT attempts
 											por.incrementThreeWayAckAttempts();
 											por.setPorState(PorState.ACK_RECIEVED);
+											DocumentStore.update(pod, pod.getMessageId());
 											break;
 										case 500:// FINISHED state of POR
 											break;
 										default:
 											break;
 										}
-										DocumentStore.update(pod, pod.getMessageId());
 									}
 									else // If POR does not exists then create a new POR and relay to the missing subscriber
 									{

@@ -69,7 +69,7 @@ public class SynapticConnector extends Connector
 			// 2. Handle IOException and proceed further
 			try {
 				connect();
-			} catch (IOException | ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) 
+			} catch (ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) 
 			{
 				// 3. Log
 				NcephLogger.CONNECTION_LOGGER.fatal(new ConnectionLog.Builder()
@@ -89,20 +89,22 @@ public class SynapticConnector extends Connector
 	 * @return void
 	 * @throws AuthenticationFailedException 
 	 */
-	public void connect() throws IOException, ConnectionInitializationException, ConnectionException, AuthenticationFailedException
+	public void connect() throws ConnectionInitializationException, ConnectionException, AuthenticationFailedException
 	{
+		// Validation Check: max number of allowed connections are reached
 		if (getActiveConnections().size() >= config.maxConnections)
 			throw new ConnectionException(new Exception("Maximum number of connections reached - " + config.maxConnections));
-		//TODO if connection build failed update connector's TotalConnectionsServed
-		// 1. Increment the totalConnectionsServed by 1
-		setTotalConnectionsServed(getTotalConnectionsServed() + 1);
 		
-		// 2. Create a new connection builder object
+		// 1. Create a new connection builder object
 		Connection connection = new Connection.Builder()
 				.id(getTotalConnectionsServed())
 				.connector(this)
 				.cerebralConnectorAddress(new InetSocketAddress(cerebrumHostPath, getPort())) // Connection is for SYNAPTIC connector, hence the address and port number of the CEREBRAL connector
 				.build();
+		
+		// 2. Increment the totalConnectionsServed by 1
+		setTotalConnectionsServed(getTotalConnectionsServed() + 1);
+
 		// Log
 		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
 				.connectionId(String.valueOf(connection.getId()))
@@ -114,9 +116,11 @@ public class SynapticConnector extends Connector
 				.logInfo());
 
 		// 3. Call initiateAuthentication method to initiate authenticate connection state
-		try {
+		try 
+		{
 			initiateAuthentication(connection);
-		} catch (DocumentSaveFailedException | MessageBuildFailedException e) {
+		} catch (AuthenticationFailedException e) 
+		{
 			// log
 			NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
 					.connectionId(String.valueOf(connection.getId()))
@@ -126,10 +130,12 @@ public class SynapticConnector extends Connector
 							.toString())
 					.logInfo());
 			// Connection teardown
-			connection.teardown();
-			throw new AuthenticationFailedException("Connection authentioction failed exception", e);
+			try {
+				connection.teardown();
+			} catch (IOException e1) {throw new AuthenticationFailedException("Connection authentication failed, attempted teardown also failed", e);}
+			
+			throw new AuthenticationFailedException("Connection authentication failed", e);
 		}
-
 	}
 	
 	/**
@@ -140,30 +146,35 @@ public class SynapticConnector extends Connector
 	 * @throws DocumentSaveFailedException 
 	 * @throws IdGenerationFailedException 
 	 */
-	public void initiateAuthentication(Connection connection) throws MessageBuildFailedException, DocumentSaveFailedException, IdGenerationFailedException
+	public void initiateAuthentication(Connection connection) throws AuthenticationFailedException
 	{
-		// 1. Create the STARTUP event 
-		StartupData startupData = new StartupData.Builder().build();
-		
-		// 2. Create the STARTUP message 
-		Message startupMessage = new StartupMessage.Builder().data(startupData).build();
-		
-		// 3. Create a ProofOfAuthentication object and save it to the local DocumentStore.
-		ProofOfAuthentication poa = new ProofOfAuthentication.Builder()
-				.messageId(startupMessage.decoder().getId()) // 3.1 Set message Id
-				.createdOn(startupData.getCreatedOn()) // 3.2 Set createdOn
-				.build();
-		// 3.3 Set STARTUP network record 
-		poa.setStartupNetworkRecord(new NetworkRecord.Builder()
-				.start(new Date().getTime())
-				.build());
-		// 3.4 Save the POA in the local DocumentStore
-		DocumentStore.save(poa, ProofOfAuthentication.DOC_PREFIX + startupMessage.decoder().getId());
-		
-		// 4. Enqueue the message on the connection to be sent to the Cerebrum
-		connection.enqueueMessage(startupMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
-		// 4.1 Set the interest of the connection to write
-		connection.setInterest(SelectionKey.OP_WRITE);
+		try 
+		{
+			// 1. Create the STARTUP event 
+			StartupData startupData = new StartupData.Builder().build();
+			
+			// 2. Create the STARTUP message 
+			Message startupMessage = new StartupMessage.Builder().data(startupData).build();
+			
+			// 3. Create a ProofOfAuthentication object and save it to the local DocumentStore
+			ProofOfAuthentication poa = new ProofOfAuthentication.Builder()
+					.messageId(startupMessage.decoder().getId()) // 3.1 Set message Id
+					.createdOn(startupData.getCreatedOn()) // 3.2 Set createdOn
+					.build();
+			// 3.1 Set STARTUP network record 
+			poa.setStartupNetworkRecord(new NetworkRecord.Builder()
+					.start(new Date().getTime())
+					.build());
+			// 3.2 Save the POA in the local DocumentStore
+			DocumentStore.save(poa, ProofOfAuthentication.DOC_PREFIX + startupMessage.decoder().getId());
+			
+			// 4. Enqueue the message on the connection to be sent to the Cerebrum
+			connection.enqueueMessage(startupMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
+			// 4.1 Set the interest of the connection to write
+			connection.setInterest(SelectionKey.OP_WRITE);
+		} catch (IdGenerationFailedException | MessageBuildFailedException | DocumentSaveFailedException e) {
+			throw new AuthenticationFailedException("Authentication failed", e);
+		}
 	}
 
 	@Override
