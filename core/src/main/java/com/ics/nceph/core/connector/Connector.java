@@ -404,7 +404,7 @@ public abstract class Connector
 		// LOG
 		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 				.messageId(message.decoder().getId())
-				.action("Enqueued")
+				.action("Enqueued to connector")
 				.description("No connections found for writing/ Teardown intitiated")
 				.data(
 						new LogData()

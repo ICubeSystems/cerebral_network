@@ -23,11 +23,6 @@ public class NcephConstants
 	public static int MONITOR_INTERVAL = 60;
 	
 	/**
-	 * Number of messages to be transferred across the connection and connector relay queues 
-	 */
-	public static int MESSAGE_TRANSFER_BATCH_SIZE = 10;
-	
-	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
 	public static int QUEUED_FROM_CONNECTOR = 100;

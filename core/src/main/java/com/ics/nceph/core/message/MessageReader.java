@@ -151,6 +151,7 @@ public class MessageReader
 							.logInfo());
 					// Put the message in the connectors incomingMessageStore
 					connection.getConnector().storeIncomingMessage(message);
+					connection.updateMetric(message);
 					// Reset the messageBuilder to start reading a new message
 					messageBuilder.reset();
 				}

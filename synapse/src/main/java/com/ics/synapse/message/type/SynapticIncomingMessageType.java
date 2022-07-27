@@ -12,6 +12,12 @@ import com.ics.synapse.receptor.RelayedEventReceptor;
 import com.ics.synapse.receptor.ThreeWayRelayEventAcknowledgementReceptor;
 import com.ics.util.ByteUtil;
 
+/**
+ * 
+ * @author Anurag Arya
+ * @version 1.0
+ * @since 06-Jan-2022
+ */
 public class SynapticIncomingMessageType extends IncomingMessageType
 {
 
@@ -21,7 +27,7 @@ public class SynapticIncomingMessageType extends IncomingMessageType
 	}
 	
 	/**
-	 * This message type is used to recieve event in the network
+	 * This message type is used to receive event in the network
 	 */
 	public static SynapticIncomingMessageType RELAY_EVENT = new SynapticIncomingMessageType(0x0B, RelayedEventReceptor.class, "RELAY_EVENT");
 	
@@ -29,16 +35,19 @@ public class SynapticIncomingMessageType extends IncomingMessageType
 	 * This message type is used to Authenticate the network
 	 */
 	public static SynapticIncomingMessageType AUTHENTICATE = new SynapticIncomingMessageType(0x06, AuthenticationReceptor.class, "AUTHENTICATE");
+	
 	/**
 	 * This message type is used to Ready the network
 	 */
 	public static SynapticIncomingMessageType READY = new SynapticIncomingMessageType(0x07, ReadyReceptor.class, "READY");
+	
 	/**
 	 * This message type is used to Error (AUTH_FAILED) the network
 	 */
 	public static SynapticIncomingMessageType ERROR = new SynapticIncomingMessageType(0x08, AuthErrorReceptor.class, "ERROR");
+	
 	/**
-	 * This message type is used to recieve acknowledgement of publish event
+	 * This message type is used to receive acknowledgement of publish event
 	 */
 	public static SynapticIncomingMessageType NCEPH_EVENT_ACK = new SynapticIncomingMessageType(0x09, EventAcknowledgementReceptor.class, "NCEPH_EVENT_ACK");
 	
@@ -48,9 +57,10 @@ public class SynapticIncomingMessageType extends IncomingMessageType
 	public static SynapticIncomingMessageType RELAY_ACK_RECEIVED = new SynapticIncomingMessageType(0x0C, ThreeWayRelayEventAcknowledgementReceptor.class, "RELAY_ACK_RECEIVED");
 	
 	/**
-	 * This message type is used to recieve acknowledgement of publish event
+	 * This message type is used to receive acknowledgement of publish event
 	 */
 	public static SynapticIncomingMessageType DELETE_POD = new SynapticIncomingMessageType(0x0A, DeletePodReceptor.class, "DELETE_POD");
+	
 	/**
 	 * 
 	 */

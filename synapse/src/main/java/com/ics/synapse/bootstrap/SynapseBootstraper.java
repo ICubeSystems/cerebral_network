@@ -261,9 +261,9 @@ public class SynapseBootstraper
     				System.out.printf("| %13d | %18s | %16d | %21d | %32s | %15s | %10s | \n",
     						connection.getId(),
     						connection.getState().getState(),
-    						connection.getActiveRequests().intValue(),
-    						connection.getTotalRequestsServed().intValue(),
-    						connection.getTotalSuccessfulRequestsServed().intValue(),
+    						connection.getMetric().getActiveRequests().intValue(),
+    						connection.getMetric().getTotalRequestsServed().intValue(),
+    						connection.getMetric().getTotalSuccessfulRequestsServed().intValue(),
     						connection.getRelayQueue().size(),
     						connection.getIdleTime()
         					);

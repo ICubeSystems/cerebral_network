@@ -11,7 +11,6 @@ import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.MonitorLog;
 import com.ics.logger.NcephLogger;
-import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
@@ -66,50 +65,33 @@ public class CerebralMonitor extends ConnectorMonitorThread
 		// 1. Check if there are any messages in the connector's relay queue. Transfer them to connection's relay queue for transmission.
 		if (connector.getRelayQueue().size() > 0 && connector.getActiveConnections().size()>0)
 		{
+			NcephLogger.MONITOR_LOGGER.info(new ConnectionLog.Builder()
+					.action("Transfer relay queue")
+					.data(new LogData()
+							.entry("Relay size", String.valueOf(connector.getRelayQueue().size()))
+							.toString())
+					.logInfo());
 			Connection connection = null;
 			while(!connector.getRelayQueue().isEmpty()) 
 			{
 				connection = connector.getConnection();
-				NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
-						.connectionId(String.valueOf(connection.getId()))
-						.action("Enqueueing")
-						.data(new LogData()
-								.entry("Relay size", String.valueOf(connector.getRelayQueue().size()))
-								.entry("ConnectionId", String.valueOf(connection.getId()))
-								.toString())
-						.description("messages from the outgoing buffer (relayQueue) to connection's relayQueue")
-						.logInfo());
-				for (int i = 0; i < NcephConstants.MESSAGE_TRANSFER_BATCH_SIZE && !connector.getRelayQueue().isEmpty(); i++) {
-					Message message = connector.getRelayQueue().poll();
-					connection.enqueueMessage(message, QueuingContext.QUEUED_FROM_MONITOR);
-					// remove message from connectorQueuedUpMessageRegister 
-					getConnector().removeConnectorQueuedUpMessage(message);
-
-				}
+				Message message = connector.getRelayQueue().poll();
+				connection.enqueueMessage(message, QueuingContext.QUEUED_FROM_MONITOR);
+				// remove message from connectorQueuedUpMessageRegister 
+				getConnector().removeConnectorQueuedUpMessage(message);
 				connection.setInterest(SelectionKey.OP_WRITE);
 			}
 		}
 
 		// 2. Check for PODs which are not deleted for more than a specified time
 		File messageDirectory = new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location"));
-		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
-				.monitorPort(connector.getPort())
-				.action("Cerebral monitor")
-				.description("Check uncompleted pods")
-				.logInfo());
 
 		ProcessPOD:
 		{
 			// 2.1 get all files from the POD directory
 			// 2.2 if there are no pods then exit ProcessPOD block
-			if (messageDirectory.listFiles() == null) {
-				NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
-						.monitorPort(connector.getPort())
-						.action("Cerebral monitor")
-						.description("message dirctory empty")
-						.logInfo());
+			if (messageDirectory.listFiles() == null) 
 				break ProcessPOD;
-			}
 
 			// 2.3 Loop over PODs to process
 			for (File podFile : messageDirectory.listFiles()) 
@@ -239,11 +221,11 @@ public class CerebralMonitor extends ConnectorMonitorThread
 								.logError(), e1);
 					}
 				} 
-				catch (DocumentSaveFailedException e) {}
+				catch (DocumentSaveFailedException e) {} // Logging for this exception is already handled in DocumentStore.update() method
 				catch (EventNotSubscribedException e) {
-					NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
+					NcephLogger.MONITOR_LOGGER.fatal(new MonitorLog.Builder()
 							.monitorPort(connector.getPort())
-							.action("Event Not Subscribed Exception")
+							.action("Event Not Subscribed")
 							.logInfo());
 				}
 			}
@@ -254,5 +236,4 @@ public class CerebralMonitor extends ConnectorMonitorThread
 				.action("Cerebral monitor end")
 				.logInfo());
 	}
-
 }

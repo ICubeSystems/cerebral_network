@@ -8,7 +8,6 @@ import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.MonitorLog;
 import com.ics.logger.NcephLogger;
-import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
 import com.ics.nceph.core.connector.connection.Connection;
@@ -79,7 +78,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 						.description("Connection ["+connection.getId() + "] IdleTime (" + connection.getIdleTime() + " ms) exceeded - Teardown Initiated")
 						.logInfo());
 				// Check if there are active requests in the connection. If yes then defer the teardown else proceed to teardown
-				if(connection.getActiveRequests().get() <= 0)
+				if(connection.getMetric().getActiveRequests().get() <= 0)
 				{
 					try 
 					{
@@ -134,21 +133,11 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		// 3. Loop through the connectors relay queue and transfer to the connections queue
 		try 
 		{
-			if (connector.getRelayQueue().size() > 0)
+			while(!connector.getRelayQueue().isEmpty()) 
 			{
-				int transferCount = 0;
 				Connection connection = connector.getConnection();
-				while(!connector.getRelayQueue().isEmpty()) 
-				{
-					connection.enqueueMessage(connection.getConnector().getRelayQueue().poll(), QueuingContext.QUEUED_FROM_MONITOR);
-					transferCount++;
-					if(transferCount > NcephConstants.MESSAGE_TRANSFER_BATCH_SIZE || connector.getRelayQueue().isEmpty()) 
-					{
-						transferCount = 0;
-						connection.setInterest(SelectionKey.OP_WRITE);
-						connection = connector.getConnection();
-					}
-				}
+				connection.enqueueMessage(connection.getConnector().getRelayQueue().poll(), QueuingContext.QUEUED_FROM_MONITOR);
+				connection.setInterest(SelectionKey.OP_WRITE);
 			}
 		} catch (Exception e) {}
 

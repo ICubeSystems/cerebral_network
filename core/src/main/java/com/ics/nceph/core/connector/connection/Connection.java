@@ -46,12 +46,6 @@ public class Connection implements Comparable<Connection>
 	
 	private SocketChannel socket;
 	
-	private AtomicInteger activeRequests;
-	
-	private AtomicInteger totalRequestsServed;
-	
-	private AtomicInteger totalSuccessfulRequestsServed;
-	
 	private Reactor reactor;
 	
 	private Connector connector;
@@ -59,6 +53,8 @@ public class Connection implements Comparable<Connection>
 	private SelectionKey key;
 	
 	private int relayTimeout;
+	
+	Metric metric;
 	
 	/**
 	 * Queue of messages to be relayed to the subscriber nodes.
@@ -152,9 +148,7 @@ public class Connection implements Comparable<Connection>
 			this.connector = connector;
 			
 			// Initialize the counters to 0
-			this.activeRequests = new AtomicInteger(0);
-			this.totalRequestsServed = new AtomicInteger(0);
-			this.totalSuccessfulRequestsServed = new AtomicInteger(0);
+			this.metric = new Metric();
 			
 			// Get the reactor from the connector which has least number of active keys 
 			this.reactor = ReactorCluster.getReactor();
@@ -323,11 +317,11 @@ public class Connection implements Comparable<Connection>
 				removeFromLoadBalancer();
 
 				// Decrement the activeRequests counter
-				getActiveRequests().decrementAndGet();
+				getMetric().activeRequests.decrementAndGet();
 
 				// If read/ write was without any error/ exception then increment the totalSuccessfulRequestsServed counter
 				if (operationStatus)
-					getTotalSuccessfulRequestsServed().incrementAndGet();
+					getMetric().totalSuccessfulRequestsServed.incrementAndGet();
 
 				// Add the connection to the LB after counters are re-adjusted and if the write operation is not disabled on the connection due to relayTimeout
 				if (isReady() && !temporaryWriteDisabled)
@@ -353,8 +347,8 @@ public class Connection implements Comparable<Connection>
 				removeFromLoadBalancer();
 
 				// Increment the counters
-				getActiveRequests().incrementAndGet();
-				getTotalRequestsServed().incrementAndGet();
+				getMetric().activeRequests.incrementAndGet();
+				getMetric().totalRequestsServed.incrementAndGet();
 
 				// Add the connection to the LB after counters are re-adjusted 
 				addToLoadBalancer();
@@ -380,13 +374,14 @@ public class Connection implements Comparable<Connection>
 				while(!relayQueue.isEmpty())
 				{
 					// 2.1 Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
+					
 					engage();
 					// 2.2 Relay the message
 					writer.write(relayQueue.peek());
 					// 2.3 Update the last used of the connection
 					setLastUsed(System.currentTimeMillis());
 					// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
-					disengage(operationStatus, writer.isReady()?false:true);
+					disengage(operationStatus, writer.isReady() ? false : true);
 				}
 			}
 			// In case there is an IO exception while writing to the socket
@@ -444,13 +439,16 @@ public class Connection implements Comparable<Connection>
 	}
 	
 	@Override
-	public int compareTo(Connection connection) {
-		if(getActiveRequests().get() > connection.getActiveRequests().get() // if active request is greater then return 1
-				|| (getActiveRequests().get() == connection.getActiveRequests().get() && getTotalRequestsServed().get() > connection.getTotalRequestsServed().get())) // if active request is same and totalRequestsServed is greater then return 1 
+	public int compareTo(Connection connection) 
+	{
+		if(getMetric().activeRequests.get() > connection.getMetric().activeRequests.get() // if active request is greater then return 1
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() > connection.relayQueue.size()) // if active request is same and relayQueue size is greater then return 1
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() == connection.relayQueue.size() && getMetric().totalRequestsServed.get() > connection.getMetric().totalRequestsServed.get())) // if active request is same and totalRequestsServed is greater then return 1 
 		{
 			return 1;
-		} else if (getActiveRequests().get() < connection.getActiveRequests().get() 
-				|| (getActiveRequests().get() == connection.getActiveRequests().get() && getTotalRequestsServed().get() < connection.getTotalRequestsServed().get())) {
+		} else if (getMetric().activeRequests.get() < connection.getMetric().activeRequests.get() 
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() < connection.relayQueue.size())
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() == connection.relayQueue.size() && getMetric().totalRequestsServed.get() < connection.getMetric().totalRequestsServed.get())) {
 			return -1;
 		} else {
 			return 0;
@@ -458,11 +456,12 @@ public class Connection implements Comparable<Connection>
 	}
 
 	@Override
-	public String toString() {
+	public String toString() 
+	{
 		return "Connection {id=" + id + 
-				", activeRequests=" + activeRequests +
-				", RequestsServed=" + totalRequestsServed +
-				", SuccessfulRequestsServed=" + totalSuccessfulRequestsServed +
+				", activeRequests=" + getMetric().activeRequests +
+				", RequestsServed=" + getMetric().totalRequestsServed +
+				", SuccessfulRequestsServed=" + getMetric().totalSuccessfulRequestsServed +
 				", state=" + state +
 				", relayQueueSize=" + relayQueue.size() +
 				", WriterReady=" + writer.isReady() +
@@ -471,23 +470,24 @@ public class Connection implements Comparable<Connection>
 	}
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(Object o) 
+    {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Connection connection = (Connection) o;
-        return Integer.compare(connection.activeRequests.get(), activeRequests.get()) == 0 &&
+        return Integer.compare(connection.getMetric().activeRequests.get(), getMetric().activeRequests.get()) == 0 &&
         		Integer.compare(connection.id, id) == 0 &&
-        		Integer.compare(connection.totalRequestsServed.get(), totalRequestsServed.get()) == 0;
+        		Integer.compare(connection.getMetric().totalRequestsServed.get(), getMetric().totalRequestsServed.get()) == 0;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, activeRequests, totalRequestsServed);
+        return Objects.hash(id, getMetric().activeRequests, getMetric().totalRequestsServed);
     }
     
 	/**
 	 * Adds the message in the relay queue of this connection to be written over the socket channel. <br>
-	 * This method checks for duplicity of the message. 
+	 * This method checks for duplicacy of the message. 
 	 * Only <b>exception</b> is when the message is being enqueued from the <code>{@link ConnectorMonitorThread}</code> thread. 
 	 * Assumption is that the monitor thread resends the message only after checking the state of POD/POR on expiry of transmission window.
 	 * 
@@ -499,7 +499,7 @@ public class Connection implements Comparable<Connection>
 	public void enqueueMessage(Message message, QueuingContext context)
 	{
 		// DUPLICACY CHECK: Check if the message has already been sent.  
-		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) // Message type should be PUBLISH_EVENT or RELAY_EVENT, only then check for duplicacy
 				&& (context.duplicacyCheckEnabled() && getConnector().isAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
 				|| getConnector().isAlreadyQueuedUpOnConnection(message) || getConnector().isAlreadyQueuedUpOnConnector(message))) // Check if the message is not already in the relay queue of the connector or any of its connections
 			return;
@@ -510,7 +510,7 @@ public class Connection implements Comparable<Connection>
 		//LOG
 		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 				.messageId(message.decoder().getId())
-				.action("Enqueued")
+				.action(context.logAction)
 				.data(
 						new LogData()
 						.entry("port", String.valueOf(connector.getPort()))
@@ -543,18 +543,6 @@ public class Connection implements Comparable<Connection>
 		return socket;
 	}
 	
-    public AtomicInteger getActiveRequests() {
-		return activeRequests;
-	}
-
-	public AtomicInteger getTotalRequestsServed() {
-		return totalRequestsServed;
-	}
-	
-	public AtomicInteger getTotalSuccessfulRequestsServed() {
-		return totalSuccessfulRequestsServed;
-	}
-
 	public Reactor getReactor() {
 		return reactor;
 	}
@@ -576,9 +564,31 @@ public class Connection implements Comparable<Connection>
 		return state;
 	}
 	
-	public void setState(ConnectionState state) 
-	{
+	public void setState(ConnectionState state) {
 		this.state = state;
+	}
+	
+	public Metric getMetric() {
+		return metric;
+	}
+	
+	public int updateMetric(Message message)
+	{
+		String callerContext = Thread.currentThread().getStackTrace()[2].getFileName();
+		
+		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) // RELAY_EVENT  || PUBLISH_EVENT
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingEventMessageCounter.incrementAndGet() : getMetric().outgoingEventMessageCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		if (message.decoder().getType() == 0x09 || message.decoder().getType() == 0x04) // RELAYED_EVENT_ACK || NCEPH_EVENT_ACK
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessageAckCounter.incrementAndGet() : getMetric().outgoingMessageAckCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		if (message.decoder().getType() == 0x0C || message.decoder().getType() == 0x05) // RELAY_ACK_RECEIVED || ACK_RECEIVED
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessage3WayAckCounter.incrementAndGet() : getMetric().outgoingMessage3WayAckCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		if (message.decoder().getType() == 0x0A || message.decoder().getType() == 0x0D) // DELETE_POD || POR_DELETED
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessageDoneCounter.incrementAndGet() : getMetric().outgoingMessageDoneCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		return -1;
 	}
 
 	/**
@@ -658,5 +668,100 @@ public class Connection implements Comparable<Connection>
 				return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
 			}
 		}
+	}
+	
+	/**
+	 * 
+	 * @author Anurag Arya
+	 * @version 1.0
+	 * @since 26-Jul-2022
+	 */
+	public static class Metric
+	{
+		/**
+		 * Total number of messages 
+		 */
+		AtomicInteger activeRequests;
+		
+		AtomicInteger totalRequestsServed;
+		
+		AtomicInteger totalSuccessfulRequestsServed;
+		
+		AtomicInteger incomingEventMessageCounter;
+		
+		AtomicInteger outgoingEventMessageCounter;
+		
+		AtomicInteger incomingMessageAckCounter;
+		
+		AtomicInteger outgoingMessageAckCounter;
+		
+		AtomicInteger incomingMessage3WayAckCounter;
+		
+		AtomicInteger outgoingMessage3WayAckCounter;
+		
+		AtomicInteger incomingMessageDoneCounter;
+		
+		AtomicInteger outgoingMessageDoneCounter;
+		
+		Metric()
+		{
+			this.activeRequests = new AtomicInteger(0);
+			this.totalRequestsServed = new AtomicInteger(0);
+			this.totalSuccessfulRequestsServed = new AtomicInteger(0);
+			this.incomingEventMessageCounter = new AtomicInteger(0);
+			this.outgoingEventMessageCounter = new AtomicInteger(0);
+			this.incomingMessageAckCounter = new AtomicInteger(0);
+			this.outgoingMessageAckCounter = new AtomicInteger(0);
+			this.incomingMessage3WayAckCounter = new AtomicInteger(0);
+			this.outgoingMessage3WayAckCounter = new AtomicInteger(0);
+			this.incomingMessageDoneCounter = new AtomicInteger(0);
+			this.outgoingMessageDoneCounter = new AtomicInteger(0);
+		}
+
+		public AtomicInteger getActiveRequests() {
+			return activeRequests;
+		}
+
+		public AtomicInteger getTotalRequestsServed() {
+			return totalRequestsServed;
+		}
+
+		public AtomicInteger getTotalSuccessfulRequestsServed() {
+			return totalSuccessfulRequestsServed;
+		}
+
+		public AtomicInteger getIncomingEventMessageCounter() {
+			return incomingEventMessageCounter;
+		}
+
+		public AtomicInteger getOutgoingEventMessageCounter() {
+			return outgoingEventMessageCounter;
+		}
+
+		public AtomicInteger getIncomingMessageAckCounter() {
+			return incomingMessageAckCounter;
+		}
+
+		public AtomicInteger getOutgoingMessageAckCounter() {
+			return outgoingMessageAckCounter;
+		}
+
+		public AtomicInteger getIncomingMessage3WayAckCounter() {
+			return incomingMessage3WayAckCounter;
+		}
+
+		public AtomicInteger getOutgoingMessage3WayAckCounter() {
+			return outgoingMessage3WayAckCounter;
+		}
+
+		public AtomicInteger getIncomingMessageDoneCounter() {
+			return incomingMessageDoneCounter;
+		}
+
+		public AtomicInteger getOutgoingMessageDoneCounter() {
+			return outgoingMessageDoneCounter;
+		}
+		
+		
 	}
 }
