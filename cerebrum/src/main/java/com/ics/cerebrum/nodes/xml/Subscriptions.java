@@ -12,13 +12,15 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement(name = "subscriptions")
 public class Subscriptions 
 {
-	private List<Integer> eventType;
+	private List<Event> event;
 
-	public List<Integer> getEventType() {
-		return eventType;
+	public List<Event> getEvent() {
+		return event;
 	}
 
-	public void setEventType(List<Integer> eventType) {
-		this.eventType = eventType;
+	public void setEvent(List<Event> event) {
+		this.event = event;
 	}
+
+	
 }

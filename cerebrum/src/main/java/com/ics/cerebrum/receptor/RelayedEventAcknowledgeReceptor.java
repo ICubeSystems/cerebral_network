@@ -65,7 +65,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			// 1.2 Load the POD again
 			por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
 		}
-		
+
 		try
 		{
 			// 2. Update POR - create a NetworkRecord for RELAYED_EVENT_ACK
@@ -83,9 +83,19 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			por.setAckReadRecord(getMessage().getReadRecord());
 			// 2.7 Set Por State to ACKNOWLEDGED
 			por.setPorState(PorState.ACKNOWLEDGED);
-			// 2.7 Update the POD in the local storage
+			// 2.8 Set event application receptor name
+			por.setAppReceptorName(getAcknowledgement().getAppReceptorName());
+			// 2.9 Set application receptor execution time
+			por.setAppReceptorExecutionTime(getAcknowledgement().getAppReceptorExecutionTime());
+			// 2.10 Set application receptor error message
+			por.setAppReceptorExecutionErrorMsg(getAcknowledgement().getAppReceptorExecutionErrorMsg());
+			// 2.11 Set application receptor error message
+			por.setAppReceptorFailed(getAcknowledgement().isAppReceptorFailed());
+			// 2.12 increment AppReceptorExecutionAttempts
+			por.incrementAppReceptorExecutionAttempts();
+			// 2.13 Update the POD in the local storage
 			DocumentStore.update(pod, getMessage().decoder().getId());
-			
+
 			// MOCK CODE: to test the reliable delivery of the messages
 			if(Environment.isDev() && por.getMessageId().equals("1-30")) 
 			{
@@ -93,8 +103,8 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 				return;
 			}
 			// END MOCK CODE
-			
 			// 3.0 Create the message data for RELAY_ACK_RECEIVED message to be sent to synapse
+
 			ThreeWayAcknowledgementData threeWayAck = new ThreeWayAcknowledgementData.Builder()
 					.writeRecord(por.getWriteRecord())
 					.ackNetworkRecord(buildNetworkRecord()).build();

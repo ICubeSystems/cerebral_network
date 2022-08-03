@@ -9,6 +9,7 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.type.MessageType;
+import com.ics.nceph.core.receptor.exception.ReceptorInstantiationException;
 import com.ics.nceph.core.worker.Reader;
 
 /**

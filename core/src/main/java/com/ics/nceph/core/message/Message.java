@@ -8,7 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.id.IdGenerator;
 import com.ics.id.exception.IdGenerationFailedException;
-import com.ics.nceph.core.Configuration;
+import com.ics.nceph.config.ConfigStore;
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.util.ByteUtil;
 
@@ -53,36 +53,42 @@ import com.ics.util.ByteUtil;
  *  <li><b>Message Type</b> - 1 byte. Following are the supported message incomingMessageType:<br>
  *  	<b>Synaptic message incomingMessageType</b> - messages generated via synaptic nodes (consumed by cerebral node):
  *  	<ul>
- *  		<li><b>0x00: STARTUP</b> - Initialize the connection. 
+ *  		<li><b>0: STARTUP</b> - Initialize the connection. 
  *  			The server will respond by AUTHENTICATE message (in which case credentials will need to be provided using CREDENTIALS). 
  *  			This must be the first message of the connection. Once the connection has been initialized, a client should not send any more STARTUP message</li>
- *  		<li><b>0x01: CREDENTIALS</b> - Authenticate the connection.  
+ *  		<li><b>1: CREDENTIALS</b> - Authenticate the connection.  
  *  			Synaptic node provide the credentials for the purpose of authentication. This message comes as a response to an AUTHENTICATE message from the server. 
  *  			The response to a CREDENTIALS is a READY message (or an ERROR message)</li>
- *  		<li><b>0x02: SUBSCRIBE</b> - Subscribe for a particular event id.  
+ *  		<li><b>2: SUBSCRIBE</b> - Subscribe for a particular event id.  
  *  			Register this connection to receive a type of events. The body of the message is a [string list] representing the event ids to subscribe to. 
  *  			The response to a REGISTER message will be a READY message.</li>
- *  		<li><b>0x03: PUBLISH_EVENT</b> - Synaptic node (micro service/ application) publishes an event</li>
- *  		<li><b>0x04: RELAYED_EVENT_ACK</b> - Synaptic node acknowledges the receipt of the relayed event</li>
- *  		<li><b>0x05: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the NCEPH_EVENT_ACK message</li>
- *  		<li><b>0x0D: POR_DELETED</b> - Synaptic node sends a notification that relayv event acknowledged successfully and POR is deleted from snaptic side.</li>
- *  		<li><b>0x07: READY_CONFIRM</b> - Synaptic node send READY_CONFIRM message to Cerebrum then cerebrum relay message to Synaptic node
+ *  		<li><b>3: PUBLISH_EVENT</b> - Synaptic node (micro service/ application) publishes an event</li>
+ *  		<li><b>4: RELAYED_EVENT_ACK</b> - Synaptic node acknowledges the receipt of the relayed event</li>
+ *  		<li><b>5: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the NCEPH_EVENT_ACK message</li>
+ *  		<li><b>13: POR_DELETED</b> - Synaptic node sends a notification that relayv event acknowledged successfully and POR is deleted from snaptic side.</li>
+ *  		<li><b>14: READY_CONFIRM</b> - Synaptic node send READY_CONFIRM message to Cerebrum then cerebrum relay message to Synaptic node.</li>
+ *  		<li><b>15: BOOTSTRAP</b> - Synaptic node send BOOTSTRAP message to Cerebrum , which contains MAC address of Synapse</li>
 
  *  	</ul>
  *  	<b>Cerebral message incomingMessageType</b> - messages generated via cerebral node (consumed by synaptic nodes):
  *  	<ul>
- *  		<li><b>0x06: AUTHENTICATE</b> - Indicates that the Cerebrum require authentication.
+ *  		<li><b>6: AUTHENTICATE</b> - Indicates that the Cerebrum require authentication.
  *  			This will be sent following a STARTUP message and must be answered by a CREDENTIALS message from the client.</li>
- *  		<li><b>0x07: READY</b> - Indicates that the server is ready to receive & process events via this connection.  
+ *  		<li><b>7: READY</b> - Indicates that the server is ready to receive & process events via this connection.  
  *  			This message will be sent by the server either after a successful CREDENTIALS message or a successful SUBSCRIBE message. 
  *  			The body of a READY message is empty</li>
- *  		<li><b>0x08: AUTH_ERROR</b> - Indicates an error processing a request.  
+ *  		<li><b>8: AUTH_ERROR</b> - Indicates an error processing a request.  
  *  			The body of the message will be an error code ([int]) followed by a [string] error message. 
  *  			Then, depending on the exception, more content may follow.</li>
- *  		<li><b>0x09: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
- *  		<li><b>0x0A: DELETE_POD</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
- *  		<li><b>0x0B: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
- *  		<li><b>0x0C: RELAY_ACK_RECEIVED</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
+ *  		<li><b>9: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
+ *  		<li><b>10: DELETE_POD</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
+ *  		<li><b>11: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
+ *  		<li><b>12: RELAY_ACK_RECEIVED</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
+ *  		<li><b>16: CONFIG</b> - Cerebrum node send CONFIG message to Synapse with followintg data:
+ *  				<ul>
+ *  					<li>NodeId of MAC address from name_records.json file</li>
+ *  					<li>List of ApplicationReceptors for the event types subscribed by the node</li>
+ *  				</ul>
  *  	</ul>
  *  </li>
  *  <li><b>Node Id</b> - 2 byte. Unique identifier of the node where the message is originating from. 
@@ -103,8 +109,6 @@ public class Message
 {
 	
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.
-	private static final int NODE_ID = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("node.id"));
-	
 	private IORecord readRecord;
 	
 	private IORecord writeRecord;
@@ -176,7 +180,7 @@ public class Message
 	 * @param sourceId
 	 * @throws IdGenerationFailedException 
 	 */
-	Message(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId)
+	protected Message(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId)
 	{
 		try 
 		{
@@ -194,10 +198,10 @@ public class Message
 		this.data = data;
 		
 		// Generate the message id from the message counter. This will be unique for the node.
-		this.messageId = (messageId!=null) ? messageId : ByteUtil.convertToByteArray(IdGenerator.getId((decoder().getType() == 0x0B || decoder().getType() == 0x03) ? 100 : 200), this.messageId.length);
+		this.messageId = (messageId != null) ? messageId : ByteUtil.convertToByteArray(IdGenerator.getId((decoder().getType() == 0x0B || decoder().getType() == 0x03) ? 100 : 200), this.messageId.length);
 		
 		// Set the Id of the source node where this message is originating from. 
-		this.sourceId = (sourceId!=null) ? sourceId : ByteUtil.convertToByteArray(NODE_ID, this.sourceId.length);
+		this.sourceId = (sourceId != null) ? sourceId : ByteUtil.convertToByteArray(ConfigStore.getNodeId(), this.sourceId.length);
 		
 		// Set the dataLength
 		dataLength = ByteUtil.convertToByteArray(data.length, dataLength.length);

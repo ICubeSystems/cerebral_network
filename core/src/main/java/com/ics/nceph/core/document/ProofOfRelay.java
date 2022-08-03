@@ -11,16 +11,16 @@ import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.NetworkRecord;
 
 /**
- * Data structure to hold the complete information regarding the complex process of message relay.
+ * Data structure to hold the complete information regarding the complex process of message relay.<br>
  * 
- * Scenario 1: The perfect world.
- * 	Step 1: Cerebrum node creates a POD (relayedOn) for the event to relay and saves it in its local file storage & then relay the event (PUBLISH_EVENT). 
- * 			relayedOn is set in the event object (for Synaptic node)
- * 	Step 2: Synaptic node receives it and creates a POD (relayedOn, ackSentOn) in its local storage. And sends back the acknowledgement (NCEPH_EVENT_ACK).
- * 	Step 3: Cerebrum on receiving the acknowledgement message relay acknowledgement received message (ACK_RECEIVED) to synaptic node with networkRecords & acknowledgementRecords
- * 	Step 4:	Synaptic node receives the acknowledgement received message (ACK_RECEIVED) and update the POD (networkRecords & acknowledgementRecords). 
- * 			Then it sends DELETE_POD message back to sender.
- * 	Step 5: Cerebrum deletes the POD from its local storage
+ * <b>Scenario 1:</b> The perfect world.<br>
+ * 	<b>Step 1:</b> Cerebrum node creates a POD (relayedOn) for the event to relay and saves it in its local file storage & then relay the event (PUBLISH_EVENT). 
+ * 			relayedOn is set in the event object (for Synaptic node)<br>
+ * 	<b>Step 2:</b> Synaptic node receives it and creates a POD (relayedOn, ackSentOn) in its local storage. And sends back the acknowledgement (NCEPH_EVENT_ACK).<br>
+ * 	<b>Step 3:</b> Cerebrum on receiving the acknowledgement message relay acknowledgement received message (ACK_RECEIVED) to synaptic node with networkRecords & acknowledgementRecords<br>
+ * 	<b>Step 4:</b>	Synaptic node receives the acknowledgement received message (ACK_RECEIVED) and update the POD (networkRecords & acknowledgementRecords). <br>
+ * 			Then it sends DELETE_POD message back to sender.<br>
+ * 	<b>Step 5:</b> Cerebrum deletes the POD from its local storage<br>
  * 
  * 							Cerebral Node																	Synaptic Node
  * 
@@ -87,6 +87,16 @@ public class ProofOfRelay extends Document
 	private int threeWayAckAttempts = 0;
 	
 	private int deletePorAttempts = 0;
+	
+	private String appReceptorName;
+	
+	private long appReceptorExecutionTime;
+	
+	private String appReceptorExecutionErrorMsg;
+	
+	private int appReceptorExecutionAttempts = 0;
+	
+	private boolean appReceptorFailed;
 	
 	ProofOfRelay(){
 		super.changeLog = new ArrayList<String>();
@@ -280,6 +290,48 @@ public class ProofOfRelay extends Document
 	public void setPorState(PorState porState) {
 		this.porState = porState;
 		outOfSync("PorState");
+	}
+	
+	public String getAppReceptorName() {
+		return appReceptorName;
+	}
+
+	public void setAppReceptorName(String appReceptorName) {
+		this.appReceptorName = appReceptorName;
+	}
+
+	public long getAppReceptorExecutionTime() {
+		return appReceptorExecutionTime;
+	}
+
+	public void setAppReceptorExecutionTime(long appReceptorExecutionTime) {
+		this.appReceptorExecutionTime = appReceptorExecutionTime;
+	}
+
+	public String getAppReceptorExecutionErrorMsg() {
+		return appReceptorExecutionErrorMsg;
+	}
+
+	public void setAppReceptorExecutionErrorMsg(String appReceptorExecutionErrorMsg) {
+		this.appReceptorExecutionErrorMsg = appReceptorExecutionErrorMsg;
+	}
+
+	public int getAppReceptorExecutionAttempts() {
+		return appReceptorExecutionAttempts;
+	}
+
+	public void incrementAppReceptorExecutionAttempts() {
+		this.appReceptorExecutionAttempts++;
+	}
+	
+	public boolean isAppReceptorFailed()
+	{
+		return appReceptorFailed;
+	}
+
+	public void setAppReceptorFailed(boolean appReceptorFailed)
+	{
+		this.appReceptorFailed = appReceptorFailed;
 	}
 
 	public String toString()

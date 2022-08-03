@@ -9,6 +9,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 
+import com.ics.cerebrum.nodes.xml.Event;
 import com.ics.cerebrum.nodes.xml.Subscriptions;
 import com.ics.cerebrum.nodes.xml.SynapticNode;
 import com.ics.cerebrum.nodes.xml.SynapticNodes;
@@ -42,11 +43,14 @@ public class ConnectorClusterInitializer
 	 * Map of EventId -> ArrayList of connectors subscribed for the event
 	 */
 	HashMap<Integer, ArrayList<Connector>> subscriptions;
+	
+	HashMap<Integer, HashMap<Integer, String>> eventReceptors;
 
 	public ConnectorClusterInitializer(ReactorCluster reactorCluster) 
 	{
 		this.reactorCluster = reactorCluster;
 		this.subscriptions = new HashMap<Integer, ArrayList<Connector>>();
+		this.eventReceptors = new HashMap<Integer, HashMap<Integer, String>>();
 	}
 
 	public ConnectorCluster initializeConnectionCluster() throws IOException, JAXBException, SSLContextInitializationException
@@ -95,12 +99,16 @@ public class ConnectorClusterInitializer
 			if(synapticNode.getSubscriptions()!=null) 
 			{
 				eventSubscriptions = synapticNode.getSubscriptions();
-				for (int i = 0; i < eventSubscriptions.getEventType().size(); i++) 
-					subscribeForEvent(eventSubscriptions.getEventType().get(i), synapticNode.getPort());
+				for (int i = 0; i < eventSubscriptions.getEvent().size(); i++) 
+				{
+					subscribeForEvent(eventSubscriptions.getEvent().get(i).getEventType(), synapticNode.getPort());
+					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.getEvent().get(i));
+				}
 			}
 		}
 
 		ConnectorCluster.subscriptions = subscriptions;
+		ConnectorCluster.eventReceptors = eventReceptors;
 		return connectorCluster;
 	}
 
@@ -111,6 +119,15 @@ public class ConnectorClusterInitializer
 			connectors = new ArrayList<Connector>();
 		connectors.add(ConnectorCluster.getConnector(port));
 		subscriptions.put(eventId, connectors);
+	}
+	
+	private void applicationReceptorForPort(Integer port, Event event) 
+	{
+		HashMap<Integer, String> eventMap = eventReceptors.get(port);
+		if(eventMap == null)
+			eventMap = new HashMap<Integer,String>();
+		eventMap.put(event.getEventType(), event.getEventReceptor());
+		eventReceptors.put(port, eventMap);
 	}
 }
 

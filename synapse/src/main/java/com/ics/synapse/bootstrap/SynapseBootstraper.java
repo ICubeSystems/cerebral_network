@@ -147,7 +147,7 @@ public class SynapseBootstraper
 	    		System.out.print("Loading...");
 	    		for (File podFile : messageDirectory.listFiles()) 
 	    		{
-	    			ProofOfDelivery pod = DocumentStore.load(podFile);
+	    			ProofOfDelivery pod = (ProofOfDelivery)DocumentStore.load(podFile, ProofOfDelivery.class);
 	    			// Print the validity status of the POD
 //	    			String status = pod.validate();
 	    			

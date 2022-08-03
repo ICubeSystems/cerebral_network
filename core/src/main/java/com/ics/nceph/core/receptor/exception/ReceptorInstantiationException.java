@@ -1,4 +1,4 @@
-package com.ics.nceph.core.receptor;
+package com.ics.nceph.core.receptor.exception;
 
 public class ReceptorInstantiationException extends Exception
 {

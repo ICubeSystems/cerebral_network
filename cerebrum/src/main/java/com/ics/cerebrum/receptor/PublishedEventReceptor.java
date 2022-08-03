@@ -34,7 +34,6 @@ import com.ics.nceph.core.receptor.EventReceptor;
  */
 public class PublishedEventReceptor extends EventReceptor 
 {
-	
 	public PublishedEventReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
@@ -49,76 +48,41 @@ public class PublishedEventReceptor extends EventReceptor
 				.action("Event Recieved")
 				.data(new LogData()
 						.entry("eventId", String.valueOf(getEvent().getEventId()))
-						.entry("createdOd", String.valueOf(getEvent().getCreatedOn()))
+						.entry("eventType", String.valueOf(getEvent().getEventType()))
+						.entry("createdOn", String.valueOf(getEvent().getCreatedOn()))
 						.toString())
 				.logInfo());
-		try 
-		{
 			// 1. Save the message received in the local datastore
 			// 1.1 Check if message has already been received
-			ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
+		ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
+		try 
+		{
 			if (pod == null) 
 			{
 				// TODO: Query the dynamoDB to see if the message was fully delivered previously [TBD]
-				try 
-				{
-					// Create ProofOfDelivery object for this message
-					pod = new ProofOfDelivery.Builder()
-							.event(getEvent())
-							.messageId(getMessage().decoder().getId())
-							.createdOn(getEvent().getCreatedOn())
-							.portNumber(getIncomingConnection().getConnector().getPort())
-							.build();
-					// 2. Update POD
-					// 2.1 Set PUBLISH_EVENT read record
-					pod.setReadRecord(getMessage().getReadRecord());
-					// 2.2 Set PUBLISH_EVENT network record
-					pod.setEventNetworkRecord(buildNetworkRecord());
-					// 2.4 Set the PUBLISH_EVENT attempts
-					pod.incrementPublishAttempts();
-					// 2.4 Set the acknowledgement attempts
-					pod.incrementAcknowledgementAttempts();
-					// 2.6 Set POD State to PUBLISHED
-					pod.setPodState(PodState.PUBLISHED);
-					// Save the POD in local storage
-					DocumentStore.save(pod, getMessage().decoder().getId());
-					
-					// 3. Send the ACK message (NCEPH_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
-					// 3.1 Create NCEPH_EVENT_ACK message 		
-					Message message = new AcknowledgeMessage.Builder()
-							.data(
-									new AcknowledgementData.Builder()
-									.readRecord(getMessage().getReadRecord())
-									.eventNetworkRecord(pod.getEventNetworkRecord())
-									.build())
-							.messageId(getMessage().getMessageId())
-							.type(CerebralOutgoingMessageType.NCEPH_EVENT_ACK.getMessageType())
-							.sourceId(getMessage().getSourceId())
-							.build();
-					// 3.2 Enqueue NCEPH_EVENT_ACK for sending
-					getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
-					getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
-				} 
-				catch (DocumentSaveFailedException e){
-					return;
-				} 
-				catch (MessageBuildFailedException e) 
-				{
-					// Log
-					NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
-							.messageId(getMessage().decoder().getId())
-							.action("NCEPH_EVENT_ACK build failed")
-							.logError(),e);
-					// decrement acknowledgement attempts in the pod		
-					pod.decrementAcknowledgementAttempts();
-					// Save the POD
-					try 
-					{
-						DocumentStore.update(pod, getMessage().decoder().getId());
-					} 
-					catch (DocumentSaveFailedException e1){}
-					return;
-				}
+				// Create ProofOfDelivery object for this message
+				pod = new ProofOfDelivery.Builder()
+						.event(getEvent())
+						.messageId(getMessage().decoder().getId())
+						.createdOn(getEvent().getCreatedOn())
+						.portNumber(getIncomingConnection().getConnector().getPort())
+						.build();
+				// 2. Update POD
+				// 2.1 Set PUBLISH_EVENT read record
+				pod.setReadRecord(getMessage().getReadRecord());
+				// 2.2 Set PUBLISH_EVENT network record
+				pod.setEventNetworkRecord(buildNetworkRecord());
+				// 2.4 Set the PUBLISH_EVENT attempts
+				pod.incrementPublishAttempts();
+				// 2.4 Set the acknowledgement attempts
+				pod.incrementAcknowledgementAttempts();
+				// 2.6 Set POD State to PUBLISHED
+				pod.setPodState(PodState.PUBLISHED);
+				// Save the POD in local storage
+				DocumentStore.save(pod, getMessage().decoder().getId());
+
+				// 3. Send the ACK message (NCEPH_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
+				sendAcknowledgement(pod);
 				
 				// Begin RELAY
 				// Change the type of the message to RELAY_EVENT
@@ -180,12 +144,33 @@ public class PublishedEventReceptor extends EventReceptor
 			}
 			else
 			{
-				System.out.println("duplicate message found" + getMessage().decoder().getId());
 				// duplicate message handling - TBD
 				// If ACK_RECEIVED message is not received then send the NCEPH_EVENT_ACK
-				// If ACK_RECEIVED message is received then send DELETE_POD
+				// If ACK_RECEIVED message is received then send DELETE_POD [DO NOT NEED TO CATER TO THIS - this receptor will never be called if the ACK_RECEIVED message is received]
+				if (pod.getPodState().getState() < PodState.ACK_RECIEVED.getState())
+					sendAcknowledgement(pod);
+				else
+					System.out.println("duplicate message found" + getMessage().decoder().getId());
 			}
 		} 
+		catch (DocumentSaveFailedException e){} 
+		catch (MessageBuildFailedException e) 
+		{
+			// Log
+			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("NCEPH_EVENT_ACK build failed")
+					.logError(),e);
+			// decrement acknowledgement attempts in the pod		
+			pod.decrementAcknowledgementAttempts();
+			// Save the POD
+			try 
+			{
+				DocumentStore.update(pod, getMessage().decoder().getId());
+			} 
+			catch (DocumentSaveFailedException e1){}
+			return;
+		}
 		catch (EventNotSubscribedException e) //ConnectorCluster.getSubscribedConnectors 
 		{
 			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
@@ -202,4 +187,21 @@ public class PublishedEventReceptor extends EventReceptor
 		}
 	}
 
+	private void sendAcknowledgement(ProofOfDelivery pod) throws MessageBuildFailedException
+	{
+		// 3.1 Create NCEPH_EVENT_ACK message 		
+		Message message = new AcknowledgeMessage.Builder()
+				.data(
+						new AcknowledgementData.Builder()
+						.readRecord(getMessage().getReadRecord())
+						.eventNetworkRecord(pod.getEventNetworkRecord())
+						.build())
+				.messageId(getMessage().getMessageId())
+				.type(CerebralOutgoingMessageType.NCEPH_EVENT_ACK.getMessageType())
+				.sourceId(getMessage().getSourceId())
+				.build();
+		// 3.2 Enqueue NCEPH_EVENT_ACK for sending
+		getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
+		getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
+	}
 }

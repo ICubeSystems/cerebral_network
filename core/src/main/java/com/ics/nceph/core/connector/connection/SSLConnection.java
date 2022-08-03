@@ -177,7 +177,7 @@ public class SSLConnection extends Connection
      *
      * @param socketChannel - the socket channel that connects the two nodes
      * @throws IOException - if an error occurs during read/write on the socket channel
-	 * @throws IdGenerationFailedException 
+	 * @throws SSLHandshakeException 
      */
     public void doHandshake() throws IOException, SSLHandshakeException 
     {

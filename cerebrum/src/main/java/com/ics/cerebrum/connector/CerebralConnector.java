@@ -98,15 +98,16 @@ public class CerebralConnector extends Connector
 	 */
 	public void acceptConnection() throws IOException, ConnectionInitializationException
 	{
-		// 1. Increment the totalConnectionsServed by 1
-		setTotalConnectionsServed(getTotalConnectionsServed()+1);
-		// 2. Create a new connection builder object
 		try 
 		{
+			// 1. Create a new connection builder object
 			Connection connection = new Connection.Builder()
 					.id(getTotalConnectionsServed())
 					.connector(this)
 					.build();
+			
+			// 2. Increment the totalConnectionsServed by 1
+			setTotalConnectionsServed(getTotalConnectionsServed()+1);
 			
 			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
 					.connectionId(String.valueOf(connection.getId()))

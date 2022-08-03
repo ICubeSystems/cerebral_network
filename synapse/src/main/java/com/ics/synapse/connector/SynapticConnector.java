@@ -2,6 +2,8 @@ package com.ics.synapse.connector;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
@@ -26,6 +28,7 @@ import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.StartupMessage;
+import com.ics.nceph.core.message.data.BootstrapData;
 import com.ics.nceph.core.message.data.StartupData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -33,8 +36,11 @@ import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
+import com.ics.synapse.message.BootstrapMessage;
+import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 import com.ics.synapse.worker.SynapticReader;
 import com.ics.synapse.worker.SynapticWriter;
+import com.ics.util.OSInfo;
 
 /**
  * Connector implementation for the Micro-service/ application node.
@@ -54,29 +60,62 @@ public class SynapticConnector extends Connector
 		super(port, name, readerPool, writerPool, sslContext);
 		this.cerebrumHostPath = hostPath;
 	}
-
+	
 	@Override
 	public AbstractSelectableChannel obtainSocketChannel() throws IOException 
 	{
 		return SocketChannel.open();
 	}
-
+	
+	/**
+	 * This method starts the synaptic connector. Following steps are taken to start the connector:<br>
+	 * <ol>
+	 * 	<li>Create a control connection with cerebrum </li>
+	 * 	<li>Initiate the bootstrapping of the synapse by sending bootstrapping message ({@link SynapticOutgoingMessageType#BOOTSTRAP BOOTSTRAP}) to cerebrum</li>
+	 * </ol>
+	 */
 	private void start() 
+	{
+		try 
+		{
+			// 1. Build a connection with cerebrum
+			Connection controlConnection = new Connection.Builder()
+					.id(0) // Connection id for control connection will always be 0
+					.connector(this)
+					.cerebralConnectorAddress(new InetSocketAddress(cerebrumHostPath, getPort())) // Connection is for SYNAPTIC connector, hence the address and port number of the CEREBRAL connector
+					.build();
+			// Application connections will start from 1
+			setTotalConnectionsServed(getTotalConnectionsServed() + 1);
+			// Log
+			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+					.connectionId(String.valueOf(controlConnection.getId()))
+					.action("Control Connection Created")
+					.data(new LogData()
+							.entry("Port", String.valueOf(controlConnection.getConnector().getPort()))
+							.toString())
+					.logInfo());
+			
+			// 2. Initiate the bootstrapping of the synapse by sending bootstrapping message to cerebrum
+			bootstrapSynapse(controlConnection);
+		} catch (IOException | ConnectionInitializationException | ConnectionException e) {//@TODO: ControlConnectionFailedException
+			// Log
+			NcephLogger.CONNECTION_LOGGER.fatal(new ConnectionLog.Builder()
+					.action("Control connection failed")
+					.logError(),e);
+		}
+	}
+	
+	/**
+	 * @throws AuthenticationFailedException 
+	 * @throws ConnectionException 
+	 * @throws ConnectionInitializationException 
+	 * 
+	 */
+	public void initiateConnections() throws ConnectionInitializationException, ConnectionException, AuthenticationFailedException 
 	{
 		// 1. Create live connections/ sockets as per the set minConnections
 		for (int i = 0; i < config.minConnections; i++)
-		{
-			// 2. Handle IOException and proceed further
-			try {
-				connect();
-			} catch (ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) 
-			{
-				// 3. Log
-				NcephLogger.CONNECTION_LOGGER.fatal(new ConnectionLog.Builder()
-						.action("Connection failed")
-						.logError(),e);
-			}
-		}
+			connect();
 	}
 
 	/**
@@ -136,6 +175,30 @@ public class SynapticConnector extends Connector
 			
 			throw new AuthenticationFailedException("Connection authentication failed", e);
 		}
+	}
+	
+	/**
+	 * 
+	 * @param controlConnection
+	 * @throws UnknownHostException
+	 * @throws SocketException
+	 * @throws MessageBuildFailedException
+	 */
+	public void bootstrapSynapse(Connection controlConnection) throws UnknownHostException, SocketException, MessageBuildFailedException 
+	{
+		// Get MAC address
+		String macAddress = OSInfo.getMacAddress();
+		// Build BOOTSTRAP message
+		Message bootstrapMessage = new BootstrapMessage.Builder()
+										.data(new BootstrapData.Builder()
+												.macAddress(macAddress)
+												.build())
+										.mid(getPort() + "-0") // bootstrap message will have a fixed message id per synaptic connector
+										.build();
+		// Enqueue the message on the connection to be sent to the Cerebrum
+		controlConnection.enqueueMessage(bootstrapMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
+		//Set the interest of the connection to write
+		controlConnection.setInterest(SelectionKey.OP_WRITE);
 	}
 	
 	/**

@@ -104,7 +104,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 					if(emitTransmissionWindowElapsed(podFile))
 					{
 						// load pod file
-						pod = DocumentStore.load(podFile);
+						pod = (ProofOfDelivery)DocumentStore.load(podFile, ProofOfDelivery.class);
 						if(pod != null && pod.getPortNumber() == connector.getPort()) // Check if the pod was created by the port for which this monitor thread is running
 						{
 							// Get the subscriber connectors for this event
@@ -161,6 +161,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 											por.incrementThreeWayAckAttempts();
 											por.setPorState(PorState.ACK_RECIEVED);
 											DocumentStore.update(pod, pod.getMessageId());
+											
 											break;
 										case 500:// FINISHED state of POR
 											break;

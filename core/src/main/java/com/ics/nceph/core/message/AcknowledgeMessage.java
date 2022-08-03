@@ -12,7 +12,7 @@ import com.ics.util.ByteUtil;
  */
 public class AcknowledgeMessage extends Message 
 {
-	AcknowledgeMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId)
+	public AcknowledgeMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId)
 	{
 		super(eventType, type, data, messageId, sourceId);
 	}

@@ -47,6 +47,7 @@ public class PorDeletedReceptor extends PodReceptor
 		// 3. Set ThreeWayRelayAckNetworkRecord and save to local storage.
 		por.setThreeWayAckNetworkRecord(getPod().getThreeWayAckNetworkRecord());
 		por.incrementDeletePorAttempts();
+		por.setAppReceptorFailed(false);
 		por.setPorState(PorState.FINISHED);
 		try {
 			DocumentStore.update(pod, getMessage().decoder().getId());

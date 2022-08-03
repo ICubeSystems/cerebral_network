@@ -15,6 +15,8 @@ import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.data.AcknowledgementDoneData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.receptor.ThreeWayAcknowledgementReceptor;
+import com.ics.synapse.applicationReceptor.ApplicationReceptor;
+import com.ics.synapse.applicationReceptor.exception.ApplicationReceptorFailedException;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
 /**
@@ -23,9 +25,9 @@ import com.ics.synapse.message.type.SynapticOutgoingMessageType;
  * @version 1.0
  * @since 10-Apr-2022
  */
-public class ThreeWayRelayEventAcknowledgementReceptor extends ThreeWayAcknowledgementReceptor 
+public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowledgementReceptor 
 {
-	public ThreeWayRelayEventAcknowledgementReceptor(Message message, Connection incomingConnection) 
+	public RelayEventThreeWayAcknowledgementReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 	}
@@ -33,7 +35,6 @@ public class ThreeWayRelayEventAcknowledgementReceptor extends ThreeWayAcknowled
 	@Override
 	public void process() 
 	{
-		
 		// 1. Save the write record and three way acknowledgement record in the local datastore
 		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 		if (por == null)
@@ -46,8 +47,8 @@ public class ThreeWayRelayEventAcknowledgementReceptor extends ThreeWayAcknowled
 					.logInfo());
 			return;
 		}
-		try {
-
+		try 
+		{
 			// 2. Create a NetworkRecord for 3-way relay ack and update the POR
 			// 2.1 set RELAY_EVENT WriteRecord which is sent in RELAY_ACK_RECEIVED message body
 			por.setWriteRecord(getThreeWayAcknowledgement().getWriteRecord());
@@ -64,32 +65,42 @@ public class ThreeWayRelayEventAcknowledgementReceptor extends ThreeWayAcknowled
 			// 2.7 Set POR State to ACK_RECIEVED
 			por.setPorState(PorState.ACK_RECIEVED);
 			// 2.5 Update the POD in the local storage
-
 			DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 			
-			// 3.0 Create the message data for POR_DELETED message to be sent to cerebrum
-			AcknowledgementDoneData deletePor = new AcknowledgementDoneData.Builder()
-					.threeWayAckNetworkRecord(buildNetworkRecord())
-					.build();
-			// 3.1 Create the POR_DELETED message 
-			Message message = new AcknowledgeMessage.Builder()
-					.data(deletePor)
-					.messageId(getMessage().getMessageId())
-					.type(SynapticOutgoingMessageType.POR_DELETED.getMessageType())
-					.sourceId(getMessage().getSourceId())
-					.build();
-			// 3.2 Enqueue POD_DELETED on the incoming connection
-			getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
-			getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
-			// Delete the POR
-			por.setPorState(PorState.FINISHED);
-			if (!DocumentStore.delete(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId(),por))
+			// Application receptor execution failed to execute from RelayedEventReceptor, following 2 cases arise:
+			// CASE 1: this class is called via 3way ack message from cerebrum 
+			// CASE 2: this class is called due to cerebral monitor resending the 3way ack message
+			if(por.isAppReceptorFailed()) 
+				initiateApplicationReceptor(por); //execute the application receptor again
+
+			// If the application receptor has been executed successfully then send the POR_DELETED message back to cerebrum.
+			if(!por.isAppReceptorFailed()) 
 			{
-				NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
-						.messageId(getMessage().decoder().getId())
-						.action("POR deletion failed")
-						.logError());
-				return;
+				// 3.0 Create the message data for POR_DELETED message to be sent to cerebrum
+				AcknowledgementDoneData deletePor = new AcknowledgementDoneData.Builder()
+						.threeWayAckNetworkRecord(buildNetworkRecord())
+						.build();
+				// 3.1 Create the POR_DELETED message 
+				Message message = new AcknowledgeMessage.Builder()
+						.data(deletePor)
+						.messageId(getMessage().getMessageId())
+						.type(SynapticOutgoingMessageType.POR_DELETED.getMessageType())
+						.sourceId(getMessage().getSourceId())
+						.build();
+				// 3.2 Enqueue POD_DELETED on the incoming connection
+				getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
+				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
+				// Delete the POR
+				por.setPorState(PorState.FINISHED);
+				if (!DocumentStore.delete(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId(),por))
+				{
+					NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+							.messageId(getMessage().decoder().getId())
+							.action("POR deletion failed")
+							.logError());
+					return;
+				}
+				DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 			}
 		} 
 		catch (DocumentSaveFailedException e) {}
@@ -108,5 +119,28 @@ public class ThreeWayRelayEventAcknowledgementReceptor extends ThreeWayAcknowled
 			} catch (DocumentSaveFailedException e){}
 			return;
 		}
+	}
+	
+	private void initiateApplicationReceptor(ProofOfRelay por) throws DocumentSaveFailedException 
+	{
+		// Invoke appropriate ApplicationReceptor
+		try 
+		{
+			por.incrementAppReceptorExecutionAttempts();
+			ApplicationReceptor applicationReceptor = new ApplicationReceptor.Builder()
+					.eventData(por.getEvent())
+					.build();
+			// Execute the application receptor class and record the execution time
+			long startTime = System.currentTimeMillis();
+			applicationReceptor.execute();
+			por.setAppReceptorFailed(false);
+			por.setAppReceptorExecutionTime((System.currentTimeMillis() - startTime));
+		} catch (ApplicationReceptorFailedException e) 
+		{
+			por.setAppReceptorExecutionErrorMsg(e.getMessage());
+			por.setAppReceptorFailed(true);
+			// LOG
+		}
+		DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 	}
 }

@@ -22,10 +22,10 @@ import com.ics.nceph.core.message.Message;
  * @since 30-03-2022
  *
  */
-public class ThreeWayEventAcknowledgementAffector extends Affector 
+public class PublishedEventThreeWayAcknowledgementAffector extends Affector 
 {
 
-	public ThreeWayEventAcknowledgementAffector(Message message, Connection incomingConnection) 
+	public PublishedEventThreeWayAcknowledgementAffector(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 	}

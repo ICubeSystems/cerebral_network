@@ -23,9 +23,9 @@ import com.ics.nceph.core.receptor.ThreeWayAcknowledgementReceptor;
  * @version 1.0
  * @since 30-Mar-2022
  */
-public class ThreeWayEventAcknowledgementReceptor extends ThreeWayAcknowledgementReceptor 
+public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowledgementReceptor 
 {
-	public ThreeWayEventAcknowledgementReceptor(Message message, Connection incomingConnection) 
+	public PublishedEventThreeWayAcknowledgementReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 	}

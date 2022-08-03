@@ -21,7 +21,7 @@ public class StartupMessage extends Message
 	{
 		private byte eventType;
 
-		private byte type = 0x00;
+		private byte type = 0;
 
 		private byte[] data;
 

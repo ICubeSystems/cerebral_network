@@ -3,6 +3,10 @@ package com.ics.util;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 
 /**
  * This is the information class containing information regarding the operating system on the machine the JVM is currently running on
@@ -30,6 +34,27 @@ public class OSInfo {
 	{
 		numberOfCPUCores = getNumberOfCPUCores();
 		System.out.println("++++++++++++");
+	}
+	
+	/**
+	 * 
+	 * @return MAC address of HOST
+	 * @throws UnknownHostException
+	 * @throws SocketException
+	 */
+	public static String getMacAddress() throws UnknownHostException, SocketException 
+	{
+		InetAddress address = InetAddress.getLocalHost();
+		NetworkInterface ni = NetworkInterface.getByInetAddress(address);
+		byte[] macAddress = ni.getHardwareAddress();
+		if (macAddress != null) {
+	        String[] hexadecimalFormat = new String[macAddress.length];
+	        for (int i = 0; i < macAddress.length; i++) {
+	            hexadecimalFormat[i] = String.format("%02X", macAddress[i]);
+	        }
+	        return String.join("-", hexadecimalFormat);
+	    }
+		return null;
 	}
 	
 	/**

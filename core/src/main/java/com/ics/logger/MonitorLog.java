@@ -2,6 +2,12 @@ package com.ics.logger;
 
 import java.util.Random;
 
+/**
+ * 
+ * @author Anshul
+ * @version 1.0
+ * @since 06-Apr-2022
+ */
 public class MonitorLog
 {
 	public static class Builder

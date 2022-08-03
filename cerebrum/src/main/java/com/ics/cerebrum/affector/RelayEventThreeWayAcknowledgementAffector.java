@@ -23,10 +23,10 @@ import com.ics.nceph.core.message.Message;
  * @version 1.0
  * @since 10-Apr-2022
  */
-public class ThreeWayRelayEventAcknowledgementAffector extends Affector 
+public class RelayEventThreeWayAcknowledgementAffector extends Affector 
 {
 
-	public ThreeWayRelayEventAcknowledgementAffector(Message message, Connection incomingConnection) 
+	public RelayEventThreeWayAcknowledgementAffector(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 	}

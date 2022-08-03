@@ -27,20 +27,46 @@ public class AcknowledgementData extends MessageData implements Serializable
 	 * Network latency time for this ACK. Start is set on the sending side, ackNetworkRecord is completed once it is received on the receiving side.
 	 */
 	NetworkRecord ackNetworkRecord;
+	
 	/**
 	 * Network latency time for this event
 	 */
 	NetworkRecord eventNetworkRecord;
+	
+	/**
+	 * Name of the application receptor according to event type
+	 */
+	String appReceptorName;
+	
+	/**
+	 * In case of application receptor execution failed, it contains error message of ApplicationReceptorFailedException 
+	 */
+	String appReceptorExecutionErrorMsg;
+	
+	/**
+	 * Execution time of executing application receptor
+	 */
+	long appReceptorExecutionTime;
+	
+	/**
+	 * status or application receptor execution
+	 */
+	boolean appReceptorFailed;
+	
 	/**
 	 * Default constructor used by ObjectMapper to serialize/ deserialize this object
 	 */
 	public AcknowledgementData() {}
 	
-	private AcknowledgementData(IORecord readRecord, NetworkRecord ackNetworkRecord, NetworkRecord eventNetworkRecord)
+	private AcknowledgementData(IORecord readRecord, NetworkRecord ackNetworkRecord, NetworkRecord eventNetworkRecord, String appReceptorName, String appReceptorExecutionErrorMsg, long appReceptorExecutionTime, boolean appReceptorFailed)
 	{
 		this.readRecord = readRecord;
 		this.ackNetworkRecord = ackNetworkRecord;
 		this.eventNetworkRecord = eventNetworkRecord;
+		this.appReceptorName = appReceptorName;
+		this.appReceptorExecutionErrorMsg = appReceptorExecutionErrorMsg;
+		this.appReceptorExecutionTime = appReceptorExecutionTime;
+		this.appReceptorFailed = appReceptorFailed;
 	}
 	
 	public IORecord getReadRecord() {
@@ -55,6 +81,22 @@ public class AcknowledgementData extends MessageData implements Serializable
 		return eventNetworkRecord;
 	}
 
+	public String getAppReceptorName() {
+		return appReceptorName;
+	}
+
+	public String getAppReceptorExecutionErrorMsg() {
+		return appReceptorExecutionErrorMsg;
+	}
+
+	public long getAppReceptorExecutionTime() {
+		return appReceptorExecutionTime;
+	}
+	
+	public boolean isAppReceptorFailed()
+	{
+		return appReceptorFailed;
+	}
 
 	public static class Builder
 	{
@@ -63,6 +105,14 @@ public class AcknowledgementData extends MessageData implements Serializable
 		private NetworkRecord ackNetworkRecord;
 		
 		private NetworkRecord eventNetworkRecord;
+		
+		private String appReceptorName;
+		
+		private String appReceptorExecutionErrorMsg;
+		
+		private long appReceptorExecutionTime;
+		
+		boolean appReceptorFailed;
 		
 		public Builder readRecord(IORecord readRecord)
 		{
@@ -82,9 +132,33 @@ public class AcknowledgementData extends MessageData implements Serializable
 			return this;
 		}
 		
+		public Builder AppReceptorName(String appReceptorName)
+		{
+			this.appReceptorName = appReceptorName;
+			return this;
+		}
+		
+		public Builder AppReceptorExecutionErrorMsg(String appReceptorExecutionErrorMsg)
+		{
+			this.appReceptorExecutionErrorMsg = appReceptorExecutionErrorMsg;
+			return this;
+		}
+		
+		public Builder AppReceptorExecutionTime(long appReceptorExecutionTime)
+		{
+			this.appReceptorExecutionTime = appReceptorExecutionTime;
+			return this;
+		}
+		
+		public Builder appReceptorFailed(boolean appReceptorFailed)
+		{
+			this.appReceptorFailed = appReceptorFailed;
+			return this;
+		}
+		
 		public AcknowledgementData build() 
 		{
-			return new AcknowledgementData(readRecord, ackNetworkRecord, eventNetworkRecord);
+			return new AcknowledgementData(readRecord, ackNetworkRecord, eventNetworkRecord, appReceptorName, appReceptorExecutionErrorMsg, appReceptorExecutionTime, appReceptorFailed);
 		}
 	}
 }

@@ -13,7 +13,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ImportResource;
-
 import com.ics.cerebrum.bootstrap.Bootstraper;
 import com.ics.cerebrum.connector.CerebralConnector;
 import com.ics.console.Console;
@@ -47,7 +46,7 @@ public class Encephalon implements CommandLineRunner
 		// 1. Initialize the bootstraper
 		bootstraper.boot();
 		
-		// 2. Render the menu to monitor the running of Encephelon
+		// 2. Render the menu to monitor the running of Encephalon
 		Scanner input = new Scanner(System.in);
 	    int choice;
 	    menuLoop: while(true)
@@ -80,7 +79,7 @@ public class Encephalon implements CommandLineRunner
 	    		System.out.print("Loading...");
 	    		for (File podFile : messageDirectory.listFiles()) 
 	    		{
-	    			ProofOfDelivery pod = DocumentStore.load(podFile);
+	    			ProofOfDelivery pod = (ProofOfDelivery)DocumentStore.load(podFile, ProofOfDelivery.class);
 	    			// Print the validity status of the POD
 //	    			String status = pod.validate();
 	    			

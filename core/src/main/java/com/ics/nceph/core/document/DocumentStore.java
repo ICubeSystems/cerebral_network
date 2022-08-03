@@ -192,11 +192,11 @@ public class DocumentStore
 	 * @param document
 	 * @return
 	 */
-	public static ProofOfDelivery load(File document)
+	public static Document load(File document, Class<? extends Document> className)
 	{
 		try 
 		{
-			return mapper.readValue(document, ProofOfDelivery.class);
+			return mapper.readValue(document, className);
 		} catch (IOException e) {
 			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
 					.messageId(document.getName())

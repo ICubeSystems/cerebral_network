@@ -34,7 +34,7 @@ public class EventMessage extends Message
 	{
 		private byte eventType;
 		
-		private byte type = 0x03;
+		private byte type = 3;
 		
 		private byte[] data;
 		

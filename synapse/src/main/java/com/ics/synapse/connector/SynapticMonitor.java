@@ -142,7 +142,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		} catch (Exception e) {}
 
 		// 4. Check for PODs which are not deleted for more than a specified time
-		File messageDirectory = new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location"));
+		File podDirectory = new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location"));
 		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
 				.monitorPort(connector.getPort())
 				.action("Synaptic monitor")
@@ -153,7 +153,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		{
 			//4.1 get all files from the POD directory
 			// 4.2 if there are no pods then exit ProcessPOD block
-			if (messageDirectory.listFiles() == null) 
+			if (podDirectory.listFiles() == null) 
 			{
 				NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
 						.monitorPort(connector.getPort())
@@ -163,7 +163,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 				break ProcessPOD;
 			}
 
-			for (File podFile : messageDirectory.listFiles()) 
+			for (File podFile : podDirectory.listFiles()) 
 			{
 				ProofOfDelivery pod = null;
 				int podState = 0;
@@ -180,7 +180,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					if (emitTransmissionWindowElapsed(podFile)) 
 					{
 						// load pod file
-						pod = (ProofOfDelivery)DocumentStore.load(podFile);
+						pod = (ProofOfDelivery)DocumentStore.load(podFile, ProofOfDelivery.class);
 						// get pod state of current pod
 						podState = pod.getPodState().getState();
 
@@ -271,10 +271,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					.description("Check uncompleted pods complete")
 					.logInfo());
 		}
-		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
-				.monitorPort(connector.getPort())
-				.action("Synaptic monitor end")
-				.logInfo());
-		// 4. Loop through the connectors relay queue and transfer to the connections queue
+		
+		
 	}
 }

@@ -5,7 +5,7 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.receptor.Receptor;
-import com.ics.nceph.core.receptor.ReceptorInstantiationException;
+import com.ics.nceph.core.receptor.exception.ReceptorInstantiationException;
 import com.ics.nceph.core.worker.Reader;
 
 /**
