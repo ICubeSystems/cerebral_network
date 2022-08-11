@@ -54,7 +54,6 @@ public class DocumentStore
 		// 2. Read the message directory on the local storage
 		fillCache(new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")),ProofOfDelivery.class);
 		fillCache(new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")),ProofOfRelay.class);
-
 	}
 
 	private static void fillCache(File messageDirectory, Class<? extends Document> document) throws IOException {
@@ -119,7 +118,7 @@ public class DocumentStore
 			}
 
 			if(document.changeLog.size()>0) 
-			{
+			{    
 				ArrayList<String> changelog = document.changeLog;
 				synchronized (changelog) 
 				{
@@ -206,7 +205,9 @@ public class DocumentStore
 		}
 		return null;
 	}
-
+	public static void removeFromCache(String docName, Document document) {
+		cache.remove(docName, document);
+	}
 	/**
 	 * 
 	 * @param docName

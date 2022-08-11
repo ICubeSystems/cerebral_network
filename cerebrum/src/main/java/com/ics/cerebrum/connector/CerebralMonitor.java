@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.Map;
 
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.logger.ConnectionLog;
@@ -19,6 +20,7 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
+import com.ics.nceph.core.document.Document;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PorState;
 import com.ics.nceph.core.document.ProofOfDelivery;
@@ -94,17 +96,16 @@ public class CerebralMonitor extends ConnectorMonitorThread
 				break ProcessPOD;
 
 			// 2.3 Loop over PODs to process
-			for (File podFile : messageDirectory.listFiles()) 
+			for (Map.Entry<String, Document> entry : DocumentStore.getCache().entrySet())
 			{
-				ProofOfDelivery pod = null;
+				String messageId = entry.getKey();
+				ProofOfDelivery pod = (ProofOfDelivery)entry.getValue();
 				ProofOfRelay por = null;
 				try 
 				{
 					// if file is older than X minutes and whose state is not finished then resend the message to the another node to make its state to finished
-					if(emitTransmissionWindowElapsed(podFile))
+					if(transmissionWindowElapsed(pod))
 					{
-						// load pod file
-						pod = (ProofOfDelivery)DocumentStore.load(podFile, ProofOfDelivery.class);
 						if(pod != null && pod.getPortNumber() == connector.getPort()) // Check if the pod was created by the port for which this monitor thread is running
 						{
 							// Get the subscriber connectors for this event
@@ -122,7 +123,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 									if (por != null)
 									{
 										// if relay transmissionWindow is not elapsed then do nothing and return
-										if (!relayTransmissionWindowElapsed(por))
+										if (!transmissionWindowElapsed(por))
 											return;
 
 										switch (por.getPorState().getState()) 
@@ -140,7 +141,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 											// Set the RELAY_EVENT attempts
 											por.incrementRelayAttempts();
 											por.setPorState(PorState.RELAYED);
-											DocumentStore.update(pod, pod.getMessageId());
+											DocumentStore.update(pod, messageId);
 											break;
 										case 300:// ACKNOWLEDGED state of POR
 										case 400:// ACK_RECIEVED state of POR
@@ -160,7 +161,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 											// Set the RELAY_EVENT attempts
 											por.incrementThreeWayAckAttempts();
 											por.setPorState(PorState.ACK_RECIEVED);
-											DocumentStore.update(pod, pod.getMessageId());
+											DocumentStore.update(pod, messageId);
 											
 											break;
 										case 500:// FINISHED state of POR
@@ -174,7 +175,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 										// Create a new POR and relay the message to this subscriber
 										por = new ProofOfRelay.Builder()
 												.relayedOn(new Date().getTime())
-												.messageId(podFile.getName())
+												.messageId(messageId)
 												.build();
 										pod.addPor(subscriberConnector.getPort(), por);
 
@@ -182,7 +183,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 										por.incrementRelayAttempts();
 
 										// Save the POD
-										DocumentStore.update(pod, pod.getMessageId());
+										DocumentStore.update(pod, messageId);
 
 										// Convert the event to the message object
 										Message eventMessage = new EventMessage.Builder()
@@ -202,7 +203,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 				{
 					// Log
 					NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
-							.messageId(podFile.getName())
+							.messageId(messageId)
 							.action(por.getPorState().getState() == 100 || por.getPorState().getState() == 200 ? "NCEPH_EVENT build failed":"ACK_RECEIVED build failed")
 							.description("message build failed in monitor")
 							.logError(),e);

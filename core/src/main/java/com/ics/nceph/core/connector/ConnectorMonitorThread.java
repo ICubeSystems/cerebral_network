@@ -78,7 +78,7 @@ public abstract class ConnectorMonitorThread extends Thread
 		}
 	}
 	
-	public boolean relayTransmissionWindowElapsed(Document document) 
+	public boolean transmissionWindowElapsed(Document document) 
 	{
 		if (System.currentTimeMillis() - document.createdOn > Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("transmission.window"))  * 1000)
 			return true;

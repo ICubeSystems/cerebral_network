@@ -188,6 +188,8 @@ public class SynapticConnector extends Connector
 	{
 		// Get MAC address
 		String macAddress = OSInfo.getMacAddress();
+		if(macAddress == null)
+			throw new UnknownHostException("MAC address is null");
 		// Build BOOTSTRAP message
 		Message bootstrapMessage = new BootstrapMessage.Builder()
 										.data(new BootstrapData.Builder()
