@@ -36,12 +36,12 @@ public class SynapticMappingStore
 	public static void initiate() 
 	{
 		synapticMappingCache = new SynapticMACMapping();
-		File file = new File(synapticMappingCache.synapticMappingLocation()+synapticMappingCache.synapticMappingFileName());
+		File file = new File(Paths.get(synapticMappingCache.synapticMappingLocation()+synapticMappingCache.synapticMappingFileName()).toString());
 		if(file.exists()) 
 		{
 			try 
 			{
-				synapticMappingCache = mapper.readValue(Paths.get(synapticMappingCache.synapticMappingLocation()+synapticMappingCache.synapticMappingFileName()).toFile(),SynapticMACMapping.class);
+				synapticMappingCache = mapper.readValue(file,SynapticMACMapping.class);
 				return;
 			} catch (IOException e) 
 			{
@@ -67,7 +67,7 @@ public class SynapticMappingStore
 		if(synapticMappingCache.getMacMapping().get(macId) == null) 
 		{
 			// Create new nodeId and add to the map
-			synapticMappingCache.getMacMapping().put(macId, synapticMappingCache.getLastUsedId().incrementAndGet());
+			synapticMappingCache.getMacMapping().put(macId, synapticMappingCache.getLastUsedNodeId().incrementAndGet());
 			// Save the changes to the file
 			save();
 		}

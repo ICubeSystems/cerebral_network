@@ -2,8 +2,10 @@ package com.ics.synapse.connector;
 
 import java.io.File;
 import java.nio.channels.SelectionKey;
+import java.util.Map;
 import java.util.Map.Entry;
 
+import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.MonitorLog;
@@ -17,6 +19,7 @@ import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
+import com.ics.nceph.core.document.Document;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PodState;
 import com.ics.nceph.core.document.ProofOfDelivery;
@@ -131,16 +134,25 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		}
 
 		// 3. Loop through the connectors relay queue and transfer to the connections queue
-		try 
+		if (connector.getRelayQueue().size() > 0 && connector.getActiveConnections().size()>0)
 		{
-			while(!connector.getRelayQueue().isEmpty()) 
+			NcephLogger.MONITOR_LOGGER.info(new ConnectionLog.Builder()
+					.action("Transfer relay queue")
+					.data(new LogData()
+							.entry("Relay size", String.valueOf(connector.getRelayQueue().size()))
+							.toString())
+					.logInfo());
+			try 
 			{
-				Connection connection = connector.getConnection();
-				connection.enqueueMessage(connection.getConnector().getRelayQueue().poll(), QueuingContext.QUEUED_FROM_MONITOR);
-				connection.setInterest(SelectionKey.OP_WRITE);
-			}
-		} catch (Exception e) {}
-
+				while(!connector.getRelayQueue().isEmpty()) 
+				{
+					Connection connection = connector.getConnection();
+					connection.enqueueMessage(connection.getConnector().getRelayQueue().poll(), QueuingContext.QUEUED_FROM_MONITOR);
+					connection.setInterest(SelectionKey.OP_WRITE);
+				}
+			} catch (Exception e) {}
+		}
+		
 		// 4. Check for PODs which are not deleted for more than a specified time
 		File podDirectory = new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location"));
 		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
@@ -161,11 +173,13 @@ public class SynapticMonitor extends ConnectorMonitorThread
 						.description("message dirctory empty")
 						.logInfo());
 				break ProcessPOD;
-			}
-
-			for (File podFile : podDirectory.listFiles()) 
+			}	
+			for (Map.Entry<String, Document> entry : DocumentStore.getCache().entrySet())
 			{
-				ProofOfDelivery pod = null;
+				String messageId = entry.getKey();
+				if(entry.getValue().getClass().toString().equals(ProofOfDelivery.class.toString())) 
+				{
+					ProofOfDelivery pod = (ProofOfDelivery)entry.getValue();
 				int podState = 0;
 				try 
 				{
@@ -177,10 +191,8 @@ public class SynapticMonitor extends ConnectorMonitorThread
 						break;
 
 					// check pod file is older than x minutes. 
-					if (emitTransmissionWindowElapsed(podFile)) 
+					if (transmissionWindowElapsed(pod)) 
 					{
-						// load pod file
-						pod = (ProofOfDelivery)DocumentStore.load(podFile, ProofOfDelivery.class);
 						// get pod state of current pod
 						podState = pod.getPodState().getState();
 
@@ -199,7 +211,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 							pod.incrementPublishAttempts();
 							// Set POD State to PUBLISHED
 							pod.setPodState(PodState.PUBLISHED);
-							DocumentStore.update(pod, podFile.getName());
+							DocumentStore.update(pod, messageId);
 							break;
 						case 300:// ACKNOWLEDGED state of POD
 						case 400:// ACK_RECIEVED state of POD
@@ -217,7 +229,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 							pod.incrementThreeWayAckAttempts();
 							// Set POD State to ACK_RECIEVED
 							pod.setPodState(PodState.ACK_RECIEVED);
-							DocumentStore.update(pod, podFile.getName());
+							DocumentStore.update(pod, messageId);
 							break;
 						case 500:// FINISHED state of POD
 							// Delete the POD from local storage
@@ -238,7 +250,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 				{
 					// Log
 					NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
-							.messageId(podFile.getName())
+							.messageId(messageId)
 							.action(podState == 100 || podState == 200?"NCEPH_EVENT build failed":"ACK_RECEIVED build failed")
 							.description("message build failed in monitor")
 							.logError(),e);
@@ -246,7 +258,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					//IOException Save the POD
 					try 
 					{
-						DocumentStore.update(pod, pod.getMessageId());
+						DocumentStore.update(pod, messageId);
 					} 
 					catch (DocumentSaveFailedException e1) 
 					{
@@ -262,9 +274,17 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					NcephLogger.MONITOR_LOGGER.warn(new MonitorLog.Builder()
 							.monitorPort(connector.getPort())
 							.action("File read attribute failed")
-							.description("Cannot read attributes of file "+podFile.getName()+" due to IOException")
+							.description("Cannot read attributes of file "+messageId+" due to IOException")
 							.logError(),e);
 				} 
+				}
+			}
+			NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
+					.monitorPort(connector.getPort())
+					.action("Synaptic monitor")
+					.description("Check uncompleted pods complete")
+					.logInfo());
+				
 			}
 			NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
 					.monitorPort(connector.getPort())
@@ -273,4 +293,3 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					.logInfo());
 		}
 	}
-}

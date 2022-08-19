@@ -144,10 +144,6 @@ public class RelayedEventReceptor extends EventReceptor
 	
 	private void sendAcknowledgement(ProofOfRelay por) throws MessageBuildFailedException 
 	{
-		// Mock code
-		if(por.getMessageId().equals("1-3") ) {
-			return;
-		}
 		// 4.1 Create NCEPH_EVENT_ACK message 
 		Message message = new AcknowledgeMessage.Builder()
 				.data(new AcknowledgementData.Builder()

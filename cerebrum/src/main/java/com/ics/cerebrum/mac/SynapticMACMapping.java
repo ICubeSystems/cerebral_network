@@ -23,7 +23,7 @@ public class SynapticMACMapping
 		macMapping = new ConcurrentHashMap<String, Integer>();
 	}
 
-	public AtomicInteger getLastUsedId() {
+	public AtomicInteger getLastUsedNodeId() {
 		return lastUsedNodeId;
 	}
 
