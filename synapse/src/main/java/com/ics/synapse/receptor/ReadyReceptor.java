@@ -74,7 +74,7 @@ public class ReadyReceptor extends Receptor
 			DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId());
 			
 			// 3.  Set incoming connection state READY
-			getIncomingConnection().setState(ConnectionState.READY);
+			getIncomingConnection().setState(ConnectionState.PRE_READY);
 			// 3.1 Add the connection object to load balancer for read/ write allocations
 			getIncomingConnection().addToLoadBalancer();
 			getIncomingConnection().getConnector().getActiveConnections().put(getIncomingConnection().getId(), getIncomingConnection());

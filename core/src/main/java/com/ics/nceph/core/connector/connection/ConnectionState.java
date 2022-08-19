@@ -31,6 +31,8 @@ public class ConnectionState
 	 */
 	public static final ConnectionState AUTH_PENDING = new ConnectionState(100,"AUTH_PENDING");
 	
+	public static final ConnectionState PRE_READY = new ConnectionState(199,"PRE_READY");
+	
 	public static final ConnectionState READY = new ConnectionState(200,"READY");
 	
 	public static final ConnectionState AUTH_FAILED = new ConnectionState(300,"AUTH_FAILED");

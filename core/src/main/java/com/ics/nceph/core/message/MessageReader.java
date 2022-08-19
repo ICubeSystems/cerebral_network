@@ -19,7 +19,8 @@ import com.ics.nceph.core.message.type.MessageType;
 import com.ics.util.ByteUtil;
 
 /**
- * This class is responsible for reading the incoming bytes and constructing the messages. This class is a singleton implementation per {@link Connection} instance.
+ * This class is responsible for reading the incoming bytes and constructing the messages. 
+ * This class is a singleton implementation per {@link Connection} instance.
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -149,8 +150,7 @@ public class MessageReader
 									.toString()
 									)
 							.logInfo());
-					// Put the message in the connectors incomingMessageStore
-					connection.getConnector().storeIncomingMessage(message);
+					// Update the connection metrics
 					connection.updateMetric(message);
 					// Reset the messageBuilder to start reading a new message
 					messageBuilder.reset();

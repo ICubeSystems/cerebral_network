@@ -22,7 +22,7 @@ import com.ics.synapse.applicationReceptor.exception.ApplicationReceptorFailedEx
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
 /**
- * Receptor class to receive event data relayed by cerebrum, which have following attributes:
+ * Receptor class to receive event relayed by cerebrum, which have following attributes:
  * 	<ol>
  * 		<li>eventId</li>
  * 		<li>eventType</li>
@@ -72,6 +72,9 @@ public class RelayedEventReceptor extends EventReceptor
 				por.setPorState(PorState.RELAYED);
 				// 2.6 Save the POR in local storage
 				DocumentStore.save(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+				
+				// Put the message in the connectors incomingMessageStore
+				getIncomingConnection().getConnector().storeIncomingMessage(getMessage());
 				
 				//3. Initiate application receptor 
 				//In case of error in execute(), we do not break the flow. Instead the POR is updated and the execution data is send to cerebrum in the acknowledgement message.

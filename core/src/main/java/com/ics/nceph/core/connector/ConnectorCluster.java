@@ -36,7 +36,7 @@ public class ConnectorCluster
 	/**
 	 * Map of event id and application receptor of connector ports
 	 */
-	public static HashMap<Integer, HashMap<Integer, String>> eventReceptors;
+	public static HashMap<Integer, HashMap<Integer, String>> applicationReceptors;
 	
 	/**
 	 * Default constructor initializing the maps declared above

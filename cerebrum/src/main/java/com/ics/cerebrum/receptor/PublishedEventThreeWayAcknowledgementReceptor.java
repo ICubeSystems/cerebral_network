@@ -2,6 +2,7 @@ package com.ics.cerebrum.receptor;
 
 import java.nio.channels.SelectionKey;
 
+import com.ics.cerebrum.message.type.CerebralIncomingMessageType;
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
@@ -12,13 +13,33 @@ import com.ics.nceph.core.document.PodState;
 import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
+import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.data.AcknowledgementDoneData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.receptor.ThreeWayAcknowledgementReceptor;
 
 /**
+ * This {@link ThreeWayAcknowledgementReceptor} is invoked when the cerebrum receives a {@link CerebralIncomingMessageType#ACK_RECEIVED ACK_RECEIVED} message. <br>
  * 
+ * The incoming ACK_RECEIVED messages is processed as follows:
+ * <ol>
+ * 	<li>Load {@link ProofOfDelivery POD} from the local document store on the cerebrum</li>
+ * 	<li>Update the POD with following information and save it to the local document store:
+ * 		<ol>
+ * 			<li>{@link IORecord threeWayAckReadRecord} of the {@link CerebralIncomingMessageType#ACK_RECEIVED ACK_RECEIVED} message on the cerebrum</li>
+ * 			<li>{@link IORecord writeRecord} of the {@link CerebralIncomingMessageType#PUBLISH_EVENT PUBLISH_EVENT} message on the synapse</li>
+ * 			<li>{@link NetworkRecord threeWayAckNetworkRecord} of the {@link CerebralIncomingMessageType#ACK_RECEIVED ACK_RECEIVED} message. Calculate, save and send it to synapse via {@link CerebralOutgoingMessageType#DELETE_POD DELETE_POD} message</li>
+ * 			<li>{@link NetworkRecord ackNetworkRecord} of the {@link CerebralOutgoingMessageType#NCEPH_EVENT_ACK NCEPH_EVENT_ACK} message on the synapse. This was calculated on synapse & is sent back for logging to cerebrum</li>
+ *			<li>Increment the threeWayAck & delePod attempts</li>
+ *			<li>Set the POD state to {@link PodState.ACK_RECIEVED ACK_RECIEVED} </li>
+ *		</ol>
+ * 	</li>
+ * 	<li>Enqueue the {@link CerebralOutgoingMessageType#DELETE_POD DELETE_POD} message to be sent back to the synapse, notifying that the acknowledgement has been received and instructing to delete the POD from their local document store</li>
+ * </ol>
+ * <br>
+
  * @author Anshul
  * @version 1.0
  * @since 30-Mar-2022
@@ -52,7 +73,7 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 		try 
 		{
 			// 2. update the POD
-			// 2.1 set ThreeWayAckReadRecord
+			// 2.1 set ThreeWayAckReadRecord 
 			pod.setThreeWayAckReadRecord(getMessage().getReadRecord());
 			// 2.2 set PUBLISH_EVENT WriteRecord which is sent in ACK_RECEIVED message body
 			pod.setWriteRecord(getThreeWayAcknowledgement().getWriteRecord());
@@ -106,7 +127,6 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 						.description("DeletePod counter decrement failed after MessageBuildFailedException")
 						.logError());
 			}
-			return;
 		}
 	}
 }

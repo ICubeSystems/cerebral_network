@@ -86,7 +86,8 @@ public class MasterMessageLedger
 		return messageLedger.contains(message);
 	}
 	
-	public int size() {
+	public int size() 
+	{
 		int masterLedgerSize = 0;
 		for (ConcurrentHashMap.Entry<Integer, MessageLedger> entry : masterLedger.entrySet()) {
 			MessageLedger ledger = entry.getValue();

@@ -23,7 +23,6 @@ import com.ics.nceph.core.receptor.Receptor;
  * @version 1.0
  * @since 18-May-2022
  */
-
 public class ReadyConfirmedReceptor extends Receptor
 {
 	private ReadyConfirmedData readyConfirmData;
@@ -112,6 +111,5 @@ public class ReadyConfirmedReceptor extends Receptor
 			DocumentStore.delete(ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId(), poa);
 			return ;
 		}
-
 	}
 }

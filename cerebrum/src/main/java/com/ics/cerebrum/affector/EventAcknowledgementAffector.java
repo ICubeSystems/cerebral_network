@@ -20,7 +20,7 @@ import com.ics.nceph.core.message.Message;
  * </ol> 
  * @author Anshul
  * @version 1.0
- * * @since 30-Mar-2022
+ * @since 30-Mar-2022
  */
 public class EventAcknowledgementAffector extends Affector 
 {

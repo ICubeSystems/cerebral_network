@@ -10,13 +10,31 @@ import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.PodState;
 import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.receptor.PodReceptor;
+import com.ics.synapse.message.type.SynapticIncomingMessageType;
+import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
 /**
+ * This {@link PodReceptor} is invoked when the synapse receives a {@link SynapticIncomingMessageType#DELETE_POD DELETE_POD} message. <br>
+ * 
+ * The incoming DELETE_POD messages is processed as follows:
+ * <ol>
+ * 	<li>Load {@link ProofOfDelivery POD} from the local document store on the synapse</li>
+ * 	<li>Update the POD with following information and save it to the local document store (update is only required in case the delete operation fails):
+ * 		<ol>
+ * 			<li>{@link NetworkRecord threeWayAckNetworkRecord} of the {@link SynapticOutgoingMessageType#ACK_RECEIVED ACK_RECEIVED} message. This was calculated on cerebrum & is sent back for logging to synapse</li>
+ *			<li>Increment the delePod attempts</li>
+ *			<li>Set the POD state to {@link PodState.FINISHED FINISHED} </li>
+ *		</ol>
+ * 	</li>
+ * 	<li>Delete the POD from the local document store</li>
+ * </ol>
+ * <br>
  * 
  * @author Anshul
  * @version 1.0
- * * @since 30-Mar-2022
+ * @since 30-Mar-2022
  */
 public class DeletePodReceptor extends PodReceptor 
 {

@@ -51,7 +51,7 @@ public class BootstrapReceptor extends Receptor
 			message = new ConfigMessage.Builder()
 					.data(new ConfigData.Builder()
 							.nodeId(nodeId)
-							.eventReceptors(ConnectorCluster.eventReceptors.get(getIncomingConnection().getConnector().getPort()))
+							.eventReceptors(ConnectorCluster.applicationReceptors.get(getIncomingConnection().getConnector().getPort()))
 							.build())
 					.mid(getMessage().decoder().getId())
 					.build();

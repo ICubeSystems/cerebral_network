@@ -161,7 +161,6 @@ public class CerebralMonitor extends ConnectorMonitorThread
 											por.incrementThreeWayAckAttempts();
 											por.setPorState(PorState.ACK_RECIEVED);
 											DocumentStore.update(pod, pod.getMessageId());
-											
 											break;
 										case 500:// FINISHED state of POR
 											break;
@@ -226,7 +225,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 				catch (EventNotSubscribedException e) {
 					NcephLogger.MONITOR_LOGGER.fatal(new MonitorLog.Builder()
 							.monitorPort(connector.getPort())
-							.action("Event Not Subscribed")
+							.action("Subscription Not Subscribed")
 							.logInfo());
 				}
 			}

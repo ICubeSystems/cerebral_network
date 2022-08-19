@@ -132,13 +132,13 @@ public class CerebralConnector extends Connector
 	@Override
 	public void createPostReadWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().execute(new CerebralReader(incomingConnection, message));
+		getReaderPool().register(new CerebralReader(incomingConnection, message));
 	}
 	
 	@Override
 	public void createPostWriteWorker(Message message, Connection incomingConnection) 
 	{
-		getWriterPool().execute(new CerebralWriter(incomingConnection, message));
+		getReaderPool().register(new CerebralWriter(incomingConnection, message));
 	}
 	
 	/**

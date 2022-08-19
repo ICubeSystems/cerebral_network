@@ -81,7 +81,8 @@ public class MessageLedger
 	 */
 	public boolean contains(Message message) 
 	{
-		try {
+		try 
+		{
 			EventData eventData = (EventData) message.decoder().getData(EventData.class);
 			Set<Long> messageIds = ledger.get(eventData.getEventType());
 			if (messageIds == null)

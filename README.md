@@ -34,3 +34,11 @@ mvn spring-boot:run -pl synaptic-node-1 -Dspring-boot.run.jvmArguments="-Djavax.
 
 mvn spring-boot:run -pl synaptic-node-2 -Dspring-boot.run.jvmArguments="-Djavax.net.debug=all -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8002"
 
+
+<b>Execute commands (dynamic debugging options):</b>
+
+mvn spring-boot:run -pl cerebrum -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
+
+mvn spring-boot:run -pl synaptic-node-1 -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8001"
+
+mvn spring-boot:run -pl synaptic-node-2 -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8002"

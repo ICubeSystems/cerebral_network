@@ -29,21 +29,21 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
 /**
- * This is a thread class which is responsible for continuous monitoring of the messages coming in from the application for relay. 
- * This class provides 100% RELIABILITY to the cerebral network, i.e - <b>guaranteed relay of all the messages to all the subscribers</b><br>
- * Monitor thread is created at the time of bootstrapping. <br>
- * 
- * Following tasks are performed by the monitor to achieve reliability:
+ * A {@link ConnectorMonitorThread Monitor} thread residing on the synaptic node, responsible for continuous monitoring the state of the messages to be published by the synapse. 
+ * SynapticMonitor thread is created at the time of bootstrapping. It enforces RELIABILITY to the nceph network, i.e - <b>guaranteed delivery of all the published messages to cerebrum</b>.  
+ * <br>
+ * Following monitoring tasks are performed by the SynapticMonitor:
  * <ol>
- * 	<li>Create new connection if activeConnections has lesser number of connections than config.minConnections</li>
+ * 	<li>Create new connections if the connector has less than the configured <i>(config.minConnections)</i> number of activeConnections</li>
  * 	<li>If there are any messages in the connector's relay queue then transfer them to connection's relay queue for transmission</li>
- * 	<li>Check for PODs which are not deleted for more than a specified time and process them as per their POR states:</li>
+ * 	<li>Check for PODs which have exceeded the {@link Configuration#APPLICATION_PROPERTIES transmission.window} configuration and process them as per their state:</li>
  * 		<ul>
- * 			<li>INITIAL | RELAYED: re-send RELAY_EVENT message</li>
- * 			<li>ACKNOWLEDGED | ACK_RECIEVED: re-send RELAY_ACK_RECEIVED message</li>
- * 			<li>FINISHED: Move the POD to global persistent storage (DynamoDB)</li>
+ * 			<li>INITIAL | PUBLISHED: re-send PUBLISH_EVENT message</li>
+ * 			<li>ACKNOWLEDGED | ACK_RECIEVED: re-send ACK_RECIEVED message</li>
+ * 			<li>FINISHED: Delete the POD from local storage</li>
  * 		</ul>
  * </ol>
+ * 
  * @author Anurag Arya
  * @version 1.0
  * @since 18-Jan-2022
@@ -199,6 +199,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 							pod.incrementPublishAttempts();
 							// Set POD State to PUBLISHED
 							pod.setPodState(PodState.PUBLISHED);
+							DocumentStore.update(pod, podFile.getName());
 							break;
 						case 300:// ACKNOWLEDGED state of POD
 						case 400:// ACK_RECIEVED state of POD
@@ -216,6 +217,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 							pod.incrementThreeWayAckAttempts();
 							// Set POD State to ACK_RECIEVED
 							pod.setPodState(PodState.ACK_RECIEVED);
+							DocumentStore.update(pod, podFile.getName());
 							break;
 						case 500:// FINISHED state of POD
 							// Delete the POD from local storage
@@ -230,7 +232,6 @@ public class SynapticMonitor extends ConnectorMonitorThread
 						default:
 							break;
 						}
-						DocumentStore.update(pod, podFile.getName());
 					}
 				} 
 				catch (MessageBuildFailedException e) 
@@ -271,7 +272,5 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					.description("Check uncompleted pods complete")
 					.logInfo());
 		}
-		
-		
 	}
 }

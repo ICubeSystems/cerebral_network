@@ -1,10 +1,8 @@
 package com.ics.nceph.core.event;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Date;
+
 import com.ics.nceph.core.message.data.MessageData;
 
 /**
@@ -15,12 +13,8 @@ import com.ics.nceph.core.message.data.MessageData;
  */
 public class EventData extends MessageData implements Serializable
 {
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 1L;
 	
-	//TODO this should be renamed to eventType. Then introduce eventId as well
 	Integer eventId;
 	
 	Integer eventType;
@@ -53,24 +47,6 @@ public class EventData extends MessageData implements Serializable
 	
 	public long getCreatedOn() {
 		return createdOn;
-	}
-	
-	/**
-	 * 
-	 * 
-	 * @throws IOException
-	 * @return byte[]
-	 */
-	public byte[] toBytes() throws IOException
-	{
-		ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-		ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteArrayOutputStream);
-		objectOutputStream.writeObject(this);
-		objectOutputStream.flush();
-		byte[] bytes = byteArrayOutputStream.toByteArray();
-		objectOutputStream.close();
-		byteArrayOutputStream.close();
-		return bytes;
 	}
 	
 	public static class Builder

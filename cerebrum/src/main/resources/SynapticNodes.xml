@@ -14,18 +14,18 @@
 			<keepAliveTime>60</keepAliveTime>
 		</writerPool>
 		<subscriptions>
-			<event>
+			<subscription>
 				<eventType>1</eventType>
 				<eventReceptor>com.ics.receptor.GiftItemReceptor</eventReceptor>
-			</event>
-			<event>
+			</subscription>
+			<subscription>
 				<eventType>4</eventType>
 				<eventReceptor>com.ics.receptor.GiftDeliveredReceptor</eventReceptor>
-			</event>
-			<event>
+			</subscription>
+			<subscription>
 				<eventType>5</eventType>
 				<eventReceptor>com.ics.receptor.GiftStatusReceptor</eventReceptor>
-			</event>
+			</subscription>
 		</subscriptions>
 	</synapticNode>
 	<synapticNode>
@@ -42,18 +42,18 @@
 			<keepAliveTime>60</keepAliveTime>
 		</writerPool>
 		<subscriptions>
-			<event>
+			<subscription>
 				<eventType>1</eventType>
 				<eventReceptor>com.ics.receptor.GiftItemReceptor</eventReceptor>
-			</event>
-			<event>
+			</subscription>
+			<subscription>
 				<eventType>2</eventType>
 				<eventReceptor>com.ics.receptor.GiftRedeemReceptor</eventReceptor>
-			</event>
-			<event>
+			</subscription>
+			<subscription>
 				<eventType>3</eventType>
 				<eventReceptor>com.ics.receptor.GiftRefundReceptor</eventReceptor>
-			</event>
+			</subscription>
 		</subscriptions>
 	</synapticNode>
 </synapticNodes>

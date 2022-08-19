@@ -21,13 +21,14 @@ public class PodState
 	}
 	
 	/**
-	 * <b>On Synapse:</b> When pod is created its state is set to INITIAL.
+	 * <b>On Synapse:</b> When pod is created its state is set to INITIAL<br>
+	 * <b>On Cerebrum:</b> PODs on cerebrum does not have INITIAL state
 	 */
 	public static final PodState INITIAL = new PodState(100);
 	
 	/**
 	 * <b>On Synapse:</b> When the message is completely written to the socket channel, then POD is set to Published<br>
-	 * <b>On Cerebrum:</b> When the message is completely read from the socket channel, then POD is set to Published
+	 * <b>On Cerebrum:</b> When the message is completely read from the socket channel, then POD is created & set to Published
 	 */
 	public static final PodState PUBLISHED = new PodState(200);
 	
@@ -49,4 +50,10 @@ public class PodState
 	 */
 	public static final PodState FINISHED = new PodState(500);
 	
+	@Override
+	public boolean equals(Object o)
+	{
+		PodState podState = (PodState) o;
+		return podState.state == this.state ? true : false;
+	}
 }

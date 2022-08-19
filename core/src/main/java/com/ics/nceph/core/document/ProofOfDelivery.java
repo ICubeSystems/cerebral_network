@@ -8,151 +8,149 @@ import java.util.concurrent.atomic.AtomicInteger;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.nceph.core.Configuration;
+import com.ics.nceph.core.connector.ConnectorMonitorThread;
 import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.IORecord;
+import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.MessageReader;
+import com.ics.nceph.core.message.MessageWriter;
 import com.ics.nceph.core.message.NetworkRecord;
+import com.ics.nceph.core.receptor.Receptor;
 
 /**
- * Data structure to hold the complete information regarding the complex process of message delivery.
+ * <p>Data structure to hold the complete information of the complex process of publishing an event as message (PUBLISH_EVENT) to cerebrum. 
+ * [Note: Relay of the message from cerebrum to all the subscriber nodes (synapses) is handled by {@link ProofOfRelay} data structure]<br>
+ * </p>
+ * <p>
+ * <b>The perfect world</b><br>
+ * Following is the process involved in end to end delivery of a message from synapse to cerebrum:
+ * <ol>
+ * 	<li>Synaptic application via synapseSDK would emit an event (for java, use - <code>Emitter.emit(event)</code>). As a part of emit protocol:
+ * 		<ol>
+ * 			<li>POD is created and saved on the local document storage on the synapse</li>
+ * 			<li>Send a {@link Message PUBLISH_EVENT} message on the network</li>
+ * 		</ol>
+ * 	</li>
+ * 	<li>Cerebrum receives the PUBLISH_EVENT message and invokes {@link Receptor PublishedEventReceptor} within a {@link CerebralReader} worker thread. 
+ * 		As a part of PublishedEventReceptor process:
+ * 		<ol>
+ * 			<li>POD is created ({@link ProofOfDelivery#event event}, 
+ * 				{@link ProofOfDelivery#createdOn createdOn}, 
+ * 				{@link ProofOfDelivery#readRecord readRecord}, 
+ * 				{@link ProofOfDelivery#eventNetworkRecord eventNetworkRecord}, 
+ * 				{@link ProofOfDelivery#publishAttempts publishAttempts}, 
+ * 				{@link ProofOfDelivery#acknowledgementAttempts acknowledgementAttempts}, 
+ * 				{@link ProofOfDelivery#podState podState}) and saved on the local document storage on the cerebrum</li>
+ * 			<li>Acknowledgement message NCEPH_EVENT_ACK is sent back to the synapse</li>
+ * 			<li>Relay is initiated, for details please refer to {@link ProofOfRelay}</li>
+ * 		</ol>
+ * 	<li>Synaptic node receives the NCEPH_EVENT_ACK message and invokes {@link Receptor EventAcknowledgementReceptor} within a {@link SynapticReader} worker thread. 
+ * 		As a part of EventAcknowledgementReceptor process:
+ *  	<ol>
+ * 			<li>POD is loaded from the local document store on the synapse</li>
+ * 			<li>POD is updated ({@link ProofOfDelivery#readRecord readRecord}, 
+ * 				{@link ProofOfDelivery#ackReadRecord ackReadRecord}, 
+ * 				{@link ProofOfDelivery#eventNetworkRecord eventNetworkRecord},
+ * 				{@link ProofOfDelivery#ackNetworkRecord ackNetworkRecord},
+ * 				{@link ProofOfDelivery#acknowledgementAttempts acknowledgementAttempts},
+ * 				{@link ProofOfDelivery#threeWayAckAttempts threeWayAckAttempts},
+ * 				{@link ProofOfDelivery#podState podState}) and saved on the local document store</li>
+ * 			<li>3Way Acknowledgement message ACK_RECEIVED is sent back to the cerebrum (acknowledgement of the acknowledgement message)</li>
+ * 		</ol>
+ * 	</li>
+ * 	<li>Cerebrum receives the ACK_RECEIVED message and invokes {@link Receptor PublishedEventThreeWayAcknowledgementReceptor} within a {@link CerebralReader} worker thread. 
+ * 		As a part of PublishedEventThreeWayAcknowledgementReceptor process:
+ * 		<ol>
+ * 			<li>POD is loaded from the local document store on the cerebrum</li>
+ * 			<li>POD is updated ({@link ProofOfDelivery#threeWayAckReadRecord threeWayAckReadRecord}, 
+ * 				{@link ProofOfDelivery#writeRecord writeRecord}, 
+ * 				{@link ProofOfDelivery#threeWayAckNetworkRecord threeWayAckNetworkRecord},
+ * 				{@link ProofOfDelivery#ackNetworkRecord ackNetworkRecord},
+ * 				{@link ProofOfDelivery#threeWayAckAttempts threeWayAckAttempts},
+ * 				{@link ProofOfDelivery#deletePodAttempts deletePodAttempts},
+ * 				{@link ProofOfDelivery#podState podState}) and saved on the local document store</li>
+ * 			<li>DELETE_POD message is sent back to the synapse which instructs the synapse to delete the POD from their local document store</li>
+ * 		</ol>
+ * 	</li>	
+ * 	<li>Synaptic node receives the DELETE_POD message and invokes {@link Receptor DeletePodReceptor} within a {@link SynapticReader} worker thread.
+ * 		As a part of DeletePodReceptor process:
+ *  	<ol>
+ * 			<li>POD is loaded from the local document store on the synapse</li>
+ * 			<li>POD is updated ({@link ProofOfDelivery#threeWayAckNetworkRecord threeWayAckNetworkRecord}, 
+ * 				{@link ProofOfDelivery#deletePodAttempts deletePodAttempts}, 
+ * 				{@link ProofOfDelivery#podState podState}) and saved on the local document store. Update to POD is only required in case the delete operation fails</li>
+ * 			<li>POD is deleted from the local document store</li>
+ * 		</ol>
+ * 	</li>
+ * </ol>
  * 
- * Scenario 1: The perfect world.
- * 	Step 1: Synaptic node creates a this (createdOn) for the event to emit and saves it in its local file storage & then emits the event (PUBLISH_EVENT). 
- * 			CreatedOn is set in the event object (for Cerebrum)
- * 	Step 2: Cerebrum receives it and creates a this (createdOn, ackSentOn) in its local storage. And sends back the acknowledgement (NCEPH_EVENT_ACK).
- * 	Step 3: Synaptic node on receiving the acknowledgement message sends acknowledgement received message (ACK_RECEIVED) to cerebrum with networkRecords & ackNetworkRecord
- * 	Step 4:	Cerebrum receives the acknowledgement received message (ACK_RECEIVED) and update the this (networkRecords & ackNetworkRecord). 
- * 			Then it sends DELETE_this message back to sender.
- * 	Step 5: Synaptic node deletes the this from its local storage
+ * <pre>
+ * ╔════╦═══════════════════════════════════════╦═══════════════════════════════════╦════════════════════════════════════════╗
+ * ║    ║             Synaptic Node             ║                                   ║              Cerebral Node             ║
+ * ╠════╬═══════════════════════════════════════╬═══════════════════════════════════╬════════════════════════════════════════╣
+ * ║    ║                                       ║           PUBLISH_EVENT           ║                                        ║
+ * ║ 1) ║ Emit Event 1 (Gift created)           ║ --------------------------------> ║ EventData Message Received             ║
+ * ║    ║ Create POD in the local doc store     ║                                   ║                                        ║
+ * ╠════╬═══════════════════════════════════════╬═══════════════════════════════════╬════════════════════════════════════════╣
+ * ║    ║                                       ║          NCEPH_EVENT_ACK          ║                                        ║
+ * ║ 2) ║ Ack received (for Event 1)            ║ <-------------------------------- ║ Send the acknowledgement to the sender ║
+ * ║    ║ Update the POD                        ║                                   ║ Create POD in the local doc store      ║
+ * ╠════╬═══════════════════════════════════════╬═══════════════════════════════════╬════════════════════════════════════════╣
+ * ║    ║                                       ║            ACK_RECEIVED           ║                                        ║
+ * ║ 3) ║ Acknowledge the Acknowledgement       ║ --------------------------------> ║ ACK_RECEIVED Message Received          ║
+ * ║    ║ Update the POD                        ║                                   ║ Update the POD                         ║
+ * ╠════╬═══════════════════════════════════════╬═══════════════════════════════════╬════════════════════════════════════════╣
+ * ║    ║                                       ║             DELETE_POD            ║                                        ║
+ * ║ 4) ║ Delete the POD from the local storage ║ <-------------------------------- ║ Send DELETE_POD message to synapse     ║
+ * ╚════╩═══════════════════════════════════════╩═══════════════════════════════════╩════════════════════════════════════════╝
+ * </pre>
  * 
- * 							Synaptic Node																	Cerebral Node
+ * Events which have an impact the on the above process:
+ * <ol>
+ * 	<li>System crash (synapse or cerebrum) due to hardware or software failures</li>
+ * 	<li>System restart (synapse or cerebrum) due to scheduled maintenance</li>
+ * 	<li>Slow network due to network congestion</li>
+ * </ol>
  * 
- * 													  				 	  PUBLISH_EVENT
- * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		EventData Message Received
- * 						Create this (createdOn, writeRecord)		
+ * <p>To enforce the <b>reliability (guaranteed delivery of all the messages)</b> of the NCEPH network, 
+ * {@link ConnectorMonitorThread Monitor} threads are instantiated on each node of the NCEPH network. 
+ * <ul>
+ * 	<li><b>On Cerebrum:</b> there is a {@link ConnectorMonitorThread CerebralMonitor} thread per {@link Connector}</li>
+ * 	<li><b>On Synapse:</b> there is a single {@link ConnectorMonitorThread SynapticMonitor} thread</li>
+ * </ul>
  * 
- * 																		  NCEPH_EVENT_ACK
- * 	2)					Ack received (for EventData 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
- * 						Update this (ackNetworkRecord)													Create this (createdOn, readRecord, ackNetworkRecord.start)
- * 	
- * 																		   ACK_RECEIVED
- * 	3)		Acknowledge the receipt of Ack (for EventData 1)		-------------------------------->   	ACK_RECEIVED Message Received
- * 			Update this (3wayAckNetworkRecord.start)														Update this (writeRecord, ackNetworkRecord, 3wayAckNetworkRecord)
+ * As a part of synaptic bootstrapping, SynapticMonitor thread is instantiated and executed. 
+ * It checks for PODs which have exceeded the {@link Configuration#APPLICATION_PROPERTIES transmission.window} configuration and process them as per their state:
+ * <ol>
+ * 	<li><b>INITIAL | PUBLISHED:</b> 
+ * 		<p><b>Possible scenarios</b> resulting this state:
+ * 		<ul>
+ * 			<li>Synapse crash while sending PUBLISH_EVENT message</li>
+ * 			<li>Cerebrum crash before receiving PUBLISH_EVENT message</li>
+ * 			<li>Synapse crash before receiving NCEPH_EVENT_ACK message</li>
+ * 			<li>Cerebrum crash before sending NCEPH_EVENT_ACK message</li>
+ * 		</ul>
+ * 		<b>Corrective Action:</b> re-send PUBLISH_EVENT message</p></li>
+ * 		<br>
+ * 	<li><b>ACKNOWLEDGED | ACK_RECIEVED:</b> 
+ *  	<p><b>Possible scenarios</b> resulting this state:
+ * 		<ul>
+ * 			<li>Synapse crash before sending ACK_RECIEVED message</li>
+ * 			<li>Cerebrum crash before receiving ACK_RECIEVED message</li>
+ * 			<li>Synapse crash before receiving DELETE_POD message</li>
+ * 			<li>Cerebrum crash before sending DELETE_POD message</li>
+ * 		</ul>
+ * 		<b>Corrective Action:</b> re-send ACK_RECIEVED message</p></li>
+ * 		<br>
+ * 	<li><b>FINISHED:</b> 
+ * 		<p><b>Only Possible scenario</b> resulting this state:
+ * 		<ul>
+ * 			<li>Synapse receives DELETE_POD and change the state to finished but crashes before deleting the POD</li>
+ * 			<li>Synapse receives DELETE_POD and change the state to finished but could not delete the POD due to some error</li>
+ * 		</ul>
+ * 		<b>Corrective Action:</b> Delete the POD from local storage</p></li>
+ * </ol>
  * 
- * 																		   DELETE_this
- * 	4)			Delete the this from the local storage			<--------------------------------   	Send DELETE_this message back to sender
- * 																										Update this (DeleteReqTime)
- * 																										
- * 
- * ===========================================================================================================================================
- * 
- * Scenario 2: Synaptic node does not receive acknowledgement message (NCEPH_EVENT_ACK) from cerebrum. This may be due to any of the reasons like crash or network failure.
- * 	Step 1: Synaptic node creates a this (createdOn) for the event to emit and saves it in its local file storage & then emits the event (PUBLISH_EVENT). 
- * 			CreatedOn is set in the event object (for Cerebrum)
- * 	Step 2: Cerebrum receives it and creates a this (createdOn, ackSentOn) in its local storage. And sends back the acknowledgement (NCEPH_EVENT_ACK).
- * 	Step 3: Synaptic node does not receive the acknowledgement message (NCEPH_EVENT_ACK) from cerebrum. Either it crashes or there is a network failure
- * 
- * Scenario 2.1 (System crash):  Synaptic node reboots after the crash
- * 	Step 4: During the bootstraping process it checks for thiss on the local storage. If there are any thiss then they are queued again to be resent.
- * 
- *							Synaptic Node																	Cerebral Node
- * 
- * 													  				 	  PUBLISH_EVENT
- * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		Message Received
- * 						Create this (createdOn)		
- * 
- * 																		 NCEPH_EVENT_ACK
- * 	2)					System Crash (Hardware/ software)		<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
- * 																										Create this (createdOn, ackSentOn, ackAttempt = 1)
- * 
- * 																		  PUBLISH_EVENT
- * 	3)					System Reboot							--------------------------------> 		Message Received		  
- * 						Resend messages with undeleted thiss 	
- * 
- *   																   NCEPH_EVENT_ACK_AGAIN
- * 	4)					Ack received (for EventData 1) 				<-------------------------------- 		Re-Acknowledge the receipt of the PUBLISH_EVENT message to the sender		  
- * 																										Update this (ackSentOn, ackAttempt++)
- * 
- *  																	   ACK_RECEIVED
- * 	5)		Acknowledge the receipt of Ack (for EventData 1)		-------------------------------->   	ACK_RECEIVED Message Received
- * 																										Update this (networkRecords & ackNetworkRecord)
- * 
- * 																		   DELETE_this
- * 	6)			Delete the this from the local storage			<--------------------------------   	Send DELETE_this message back to sender
- * 																										
- *
- * Scenario 2.2 (Network failure):  The cerebral monitor thread periodically checks for the thiss on the local storage
- * 	Step 4: If the thiss are not deleted for a pre-defined time then they are queued again to be resent.   
- * 
- * 							Synaptic Node																	Cerebral Node
- * 
- * 													  				 	  PUBLISH_EVENT
- * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		Message Received
- * 						Create this (createdOn)		
- * try {
-			 FileChannel channel = new RandomAccessFile(file, lockingMode).getChannel();
-			 // Acquire an exclusive lock on this channel's file (blocks until lock can be retrieved)
-			 lock = channel.lock();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
- * 																		NCEPH_EVENT_ACK
- * 	2)					Network timeout (failure/ congestion)	<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
- * 						Connection closed																Create this (createdOn, ackSentOn, ackAttempt = 1)
- * 
- * 																		  PUBLISH_EVENT
- * 	3)					System Reboot							--------------------------------> 		Message Received		  
- * 						Resend messages with undeleted thiss 	
- * 
- *   																   NCEPH_EVENT_ACK_AGAIN
- * 	4)					Acknowledge the receipt of Ack 			<-------------------------------- 		Re-Acknowledge the receipt of the PUBLISH_EVENT message to the sender		  
- * 																										Update this (ackSentOn, ackAttempt++)
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- * 
- *							Synaptic Node																	Cerebral Node
- * 
- * 													  				 	   PUBLISH_EVENT
- * 	1)					EventData 1 (Gift created) 		  			--------------------------------> 		Message Received
- * 						Create this (createdOn)		
- * 
- * 																		 NCEPH_EVENT_ACK
- * 	2.1)				Ack received (for EventData 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
- * 						Delete this 																		Create this (createdOn, ackSentOn)
- * 	
- * 																	   NCEPH_EVENT_ACK_AGAIN
- * 	2.2)				Ack received (for EventData 1)	  			<--------------------------------   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
- * 						Delete this 																		Create this (createdOn, ackSentOn)
- * 																										In case when the PUBLISH_EVENT message is sent again due to 
- * 																										fail over of the synaptic node. Or connector monitoring thread finds out 
- * 																										ACK_RECEIVED message is not received for more than a specified time period.
- * 																										Or RelayTimeoutException is thrown while writing the NCEPH_EVENT_ACK message
- * 
- * 																		   ACK_RECEIVED
- * 	3.1)	Acknowledge the receipt of Ack (for EventData 1)try {
-			 FileChannel channel = new RandomAccessFile(file, lockingMode).getChannel();
-			 // Acquire an exclusive lock on this channel's file (blocks until lock can be retrieved)
-			 lock = channel.lock();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}		-------------------------------->   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
- * 																										Update this (ackReceivedOn)
- * 
- * 																	   ACK_RECEIVED_AGAIN
- * 	3.2)	Ack already received and processed (for EventData 1)	-------------------------------->   	Acknowledge the receipt of the PUBLISH_EVENT message to the sender
- * 			In case when cerebrum does not receive 
- * 			ACK_RECEIVED message due to any reasons 
- * 			like crash or network failure. And it sends 
- * 			the NCEPH_EVENT_ACK_AGAIN message as a 
- * 			part of its connector monitoring thread.
- * 																						
  * @author Anurag Arya
  * @version 1.0
  * @since 04-Feb-2022
@@ -161,43 +159,96 @@ public class ProofOfDelivery extends Document
 {
 	private int portNumber;
 	
+	/**
+	 * Actual application {@link EventData data} of the event
+	 */
 	private EventData event;
 	
+	/**
+	 * Time taken by {@link MessageWriter} on the synapse to write the PUBLISH_EVENT message on the socket channel
+	 */
 	private IORecord writeRecord;
 	
+	/**
+	 * Time taken by {@link MessageReader} on the cerebrum to read the PUBLISH_EVENT message from the socket channel
+	 */
 	private IORecord readRecord;
 	
+	/**
+	 * Time taken by {@link MessageWriter} on the cerebrum to write the NCEPH_EVENT_ACK message on the socket channel
+	 */
 	private IORecord ackWriteRecord;
 	
+	/**
+	 * Time taken by {@link MessageReader} on the synapse to read the NCEPH_EVENT_ACK message from the socket channel
+	 */
 	private IORecord ackReadRecord;
 	
+	/**
+	 * Time taken by {@link MessageWriter} on the synapse to write the ACK_RECEIVED message on the socket channel
+	 */
 	private IORecord threeWayAckWriteRecord;
 	
+	/**
+	 * Time taken by {@link MessageReader} on the cerebrum to read the ACK_RECEIVED message from the socket channel
+	 */
 	private IORecord threeWayAckReadRecord;
 	
+	/**
+	 * Network latency time for the {@link Message PUBLISH_EVENT} message from synapse to cerebrum
+	 */
 	private NetworkRecord eventNetworkRecord;
 	
+	/**
+	 * Network latency time for the {@link Message NCEPH_EVENT_ACK} message from cerebrum to synapse
+	 */
 	private NetworkRecord ackNetworkRecord;
 	
+	/**
+	 * Network latency time for the {@link Message ACK_RECEIVED} message from synapse to cerebrum
+	 */
 	private NetworkRecord threeWayAckNetworkRecord;
 	
+	/**
+	 * Number of time {@link Message NCEPH_EVENT_ACK} message was sent from cerebrum to synapse
+	 */
 	private int acknowledgementAttempts = 0;
 	
+	/**
+	 * Number of time {@link Message PUBLISH_EVENT} message was sent from synapse to cerebrum
+	 */
 	private int publishAttempts = 0;
 	
+	/**
+	 * Number of time {@link Message ACK_RECEIVED} message was sent from synapse to cerebrum
+	 */
 	private int threeWayAckAttempts = 0;
 	
+	/**
+	 * Number of time {@link Message DELETE_POD} message was sent from cerebrum to synapse
+	 */
 	private int deletePodAttempts = 0;
 	
+	/**
+	 * Number of subscribers for this message
+	 */
 	private int subscriberCount;
 	
+	/**
+	 * Current state of the POD
+	 */
 	private PodState podState;
 	
+	/**
+	 * Map of subscribers and their {@link ProofOfRelay} 
+	 */
 	private ConcurrentHashMap<Integer, ProofOfRelay> pors;
 	
+	/**
+	 * Number of subscribers the message was relayed completely
+	 */
 	private AtomicInteger relayCount;
 	
-	//acknowledgementStatus
 	
 	public ProofOfDelivery(){
 		super.changeLog = new ArrayList<String>();

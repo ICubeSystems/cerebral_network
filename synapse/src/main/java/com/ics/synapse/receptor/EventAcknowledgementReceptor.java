@@ -11,17 +11,38 @@ import com.ics.nceph.core.document.PodState;
 import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
+import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.data.ThreeWayAcknowledgementData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.receptor.AcknowledgementReceptor;
+import com.ics.synapse.message.type.SynapticIncomingMessageType;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 
 /**
+ * This {@link AcknowledgementReceptor} is invoked when the synapse receives a {@link SynapticIncomingMessageType#NCEPH_EVENT_ACK NCEPH_EVENT_ACK} message. <br>
+ * 
+ * The incoming NCEPH_EVENT_ACK messages is processed as follows:
+ * <ol>
+ * 	<li>Load {@link ProofOfDelivery POD} from the local document store on the synapse</li>
+ * 	<li>Update the POD with following information and save it to the local document store:
+ * 		<ol>
+ * 			<li>{@link IORecord ReadRecord} of the {@link SynapticOutgoingMessageType#PUBLISH_EVENT PUBLISH_EVENT} message on the cerebrum</li>
+ * 			<li>{@link IORecord ReadRecord} of the {@link SynapticIncomingMessageType#NCEPH_EVENT_ACK NCEPH_EVENT_ACK} message on the synapse</li>
+ * 			<li>{@link NetworkRecord eventNetworkRecord} of the {@link SynapticOutgoingMessageType#PUBLISH_EVENT PUBLISH_EVENT} message. This was calculated on cerebrum & is sent back for logging to synapse</li>
+ * 			<li>{@link NetworkRecord ackNetworkRecord} of the {@link SynapticIncomingMessageType#NCEPH_EVENT_ACK NCEPH_EVENT_ACK} message on the synapse. Calculate, save and send it to cerebrum via {@link SynapticOutgoingMessageType#ACK_RECEIVED ACK_RECEIVED} message</li>
+ *			<li>Increment the acknowledgement & threeWayAck attempts</li>
+ *			<li>Set the POD state to {@link PodState.ACKNOWLEDGED ACKNOWLEDGED} </li>
+ *		</ol>
+ * 	</li>
+ * 	<li>Enqueue the {@link SynapticOutgoingMessageType#ACK_RECEIVED ACK_RECEIVED} message to be sent back to the cerebrum, notifying that the event acknowledgement has been received</li>
+ * </ol>
+ * <br>
  * 
  * @author Anshul
  * @version 1.0
- * * @since 29-Mar-2022
+ * @since 29-Mar-2022
  */
 public class EventAcknowledgementReceptor extends AcknowledgementReceptor 
 {
@@ -38,8 +59,8 @@ public class EventAcknowledgementReceptor extends AcknowledgementReceptor
 
 		// Following are the cases when the POD will not be found for the message id:
 		// a. POD is deleted by mistake on the synaptic node
-		// b. POD was deleted properly following the DELETE message from cerebrum, but cerebrum has repeated the ACK for this message
-		// TODO: Handle here - For now just log such occurrence. Real handling - TBD after we gather some more data for the same
+		// b. POD was deleted properly following the DELETE message from cerebrum, but cerebrum has repeated the ACK for this message. 
+		// TODO: Handle here - For now just log such occurrence. Real handling - TBD after we gather some more data for the same. 
 		if (pod == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
@@ -62,7 +83,6 @@ public class EventAcknowledgementReceptor extends AcknowledgementReceptor
 		}
 		try 
 		{
-
 			// 2. Update POD
 			// 2.1 Set PUBLISH_EVENT read record on the cerebrum
 			pod.setReadRecord(getAcknowledgement().getReadRecord());
@@ -120,7 +140,6 @@ public class EventAcknowledgementReceptor extends AcknowledgementReceptor
 						.description("threeWayAck counter decrement failed after MessageBuildFailedException")
 						.logError());
 			}
-			return;
 		}
 	}
 }

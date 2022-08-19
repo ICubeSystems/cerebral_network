@@ -1,6 +1,5 @@
 package com.ics.synapse;
 
-import java.io.IOException;
 import java.nio.channels.SelectionKey;
 
 import com.ics.env.Environment;
@@ -8,6 +7,7 @@ import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
+import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
@@ -20,15 +20,15 @@ import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.synapse.connector.SynapticConnector;
 import com.ics.synapse.exception.EmitException;
-import com.ics.util.OSInfo;
 
 /**
+ * Final class to be used by the synaptic applications to emit an event on the nceph network.
  * 
  * @author Anurag Arya
  * @version 1.0
  * @since 22-Jan-2022
  */
-public final class Emitter extends OSInfo 
+public final class Emitter 
 {
 	private static SynapticConnector connector;
 
@@ -49,16 +49,22 @@ public final class Emitter extends OSInfo
 	}
 
 	/**
+	 * Static method to emit an event on the nceph network.
+	 * Following is the process to emit an event:
+	 * <ol>
+	 * 	<li>Convert the {@link EventData} to the {@link Message} object</li>
+	 * 	<li>Create a {@link ProofOfDelivery ProofOfDelivery} (POD) and save it to the local document store. 
+	 * 		The pod is used to track the status of the delivery of the message (on the synapse side the POD only keeps track of delivery to cerebrum) </li>
+	 * 	<li>Get a connection with least load from the connector's load balancer ({@link Connector#getConnection()}) </li>
+	 * 	<li>If no active connection is available on the connector then {@link Connector#enqueueMessage(Message) enqueue} the message on the connector's relay {@link Connector#relayQueue queue} and <code>return</code></li>
+	 * 	<li>If connection is available then {@link Connection#enqueueMessage(Message, QueuingContext) enqueue} the message on the connection's relay {@link Connection#relayQueue queue} and set the interest of the connection to write</li>
+	 * </ol>
 	 * 
-	 * @param message
-	 * 
-	 * @throws ImproperConnectorInstantiationException
+	 * @param event {@link EventData} to be emitted
 	 * @return void
-	 * @throws IOException 
 	 * @throws EmitException 
 	 * @throws IdGenerationFailedException 
 	 */
-
 	public static void emit(EventData event) throws EmitException, IdGenerationFailedException
 	{
 		// 1. Convert the event to the message object
@@ -82,7 +88,6 @@ public final class Emitter extends OSInfo
 				.logInfo());
 		
 		// 2. Create a ProofOfDelivery object and save it to the local DocumentStore. This pod object will be updated when the ack for this message is received from cerebrum.
-		//    This pod object will be moved to dynamoDB store once the message is delivered fully (is acknowledged by all the subscribers)
 		ProofOfDelivery pod = new ProofOfDelivery.Builder()
 				.event(event)
 				.messageId(message.decoder().getId())
@@ -97,10 +102,7 @@ public final class Emitter extends OSInfo
 			DocumentStore.save(pod, message.decoder().getId());
 			// MOCK CODE: to test the reliable delivery of the messages
 			if(Environment.isDev() && pod.getMessageId().equals("1-12")) 
-			{
-				System.out.println("forceStop"+message.decoder().getId());
 				return;
-			}
 			// END MOCK CODE
 		} catch (DocumentSaveFailedException e) {
 			throw new EmitException("POD creation/ save failed", e);
@@ -127,6 +129,5 @@ public final class Emitter extends OSInfo
 		} catch (ImproperConnectorInstantiationException e) {
 			throw new EmitException("Connector instantiation improper", e);
 		}
-		
 	}
 }

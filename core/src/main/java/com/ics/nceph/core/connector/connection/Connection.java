@@ -32,9 +32,8 @@ import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationE
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.nceph.core.ssl.exception.SSLHandshakeException;
 
-
 /**
- * This class encapsulates a connection between Service/ Application and a particular Encephelon {@link Connector}
+ * This class encapsulates a connection between Synapse (Service/ Application) and Cerebrum
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -374,7 +373,6 @@ public class Connection implements Comparable<Connection>
 				while(!relayQueue.isEmpty())
 				{
 					// 2.1 Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
-					
 					engage();
 					// 2.2 Relay the message
 					writer.write(relayQueue.peek());
@@ -382,6 +380,9 @@ public class Connection implements Comparable<Connection>
 					setLastUsed(System.currentTimeMillis());
 					// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
 					disengage(operationStatus, writer.isReady() ? false : true);
+					//
+					if (state == ConnectionState.PRE_READY)
+						setState(ConnectionState.READY);
 				}
 			}
 			// In case there is an IO exception while writing to the socket
@@ -500,7 +501,7 @@ public class Connection implements Comparable<Connection>
 	{
 		// DUPLICACY CHECK: Check if the message has already been sent.  
 		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) // Message type should be PUBLISH_EVENT or RELAY_EVENT, only then check for duplicacy
-				&& (context.duplicacyCheckEnabled() && getConnector().isAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
+				&& (context.duplicacyCheckEnabled() && getConnector().hasAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
 				|| getConnector().isAlreadyQueuedUpOnConnection(message) || getConnector().isAlreadyQueuedUpOnConnector(message))) // Check if the message is not already in the relay queue of the connector or any of its connections
 			return;
 		// store message to connectionQueuedUpMessageRegister 

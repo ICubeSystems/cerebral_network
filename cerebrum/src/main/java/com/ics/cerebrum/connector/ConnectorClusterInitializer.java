@@ -9,7 +9,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 
-import com.ics.cerebrum.nodes.xml.Event;
+import com.ics.cerebrum.nodes.xml.Subscription;
 import com.ics.cerebrum.nodes.xml.Subscriptions;
 import com.ics.cerebrum.nodes.xml.SynapticNode;
 import com.ics.cerebrum.nodes.xml.SynapticNodes;
@@ -44,13 +44,13 @@ public class ConnectorClusterInitializer
 	 */
 	HashMap<Integer, ArrayList<Connector>> subscriptions;
 	
-	HashMap<Integer, HashMap<Integer, String>> eventReceptors;
+	HashMap<Integer, HashMap<Integer, String>> applicationReceptors;
 
 	public ConnectorClusterInitializer(ReactorCluster reactorCluster) 
 	{
 		this.reactorCluster = reactorCluster;
 		this.subscriptions = new HashMap<Integer, ArrayList<Connector>>();
-		this.eventReceptors = new HashMap<Integer, HashMap<Integer, String>>();
+		this.applicationReceptors = new HashMap<Integer, HashMap<Integer, String>>();
 	}
 
 	public ConnectorCluster initializeConnectionCluster() throws IOException, JAXBException, SSLContextInitializationException
@@ -99,16 +99,16 @@ public class ConnectorClusterInitializer
 			if(synapticNode.getSubscriptions()!=null) 
 			{
 				eventSubscriptions = synapticNode.getSubscriptions();
-				for (int i = 0; i < eventSubscriptions.getEvent().size(); i++) 
+				for (int i = 0; i < eventSubscriptions.getSubscriptions().size(); i++) 
 				{
-					subscribeForEvent(eventSubscriptions.getEvent().get(i).getEventType(), synapticNode.getPort());
-					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.getEvent().get(i));
+					subscribeForEvent(eventSubscriptions.getSubscriptions().get(i).getEventType(), synapticNode.getPort());
+					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.getSubscriptions().get(i));
 				}
 			}
 		}
 
 		ConnectorCluster.subscriptions = subscriptions;
-		ConnectorCluster.eventReceptors = eventReceptors;
+		ConnectorCluster.applicationReceptors = applicationReceptors;
 		return connectorCluster;
 	}
 
@@ -121,16 +121,14 @@ public class ConnectorClusterInitializer
 		subscriptions.put(eventId, connectors);
 	}
 	
-	private void applicationReceptorForPort(Integer port, Event event) 
+	private void applicationReceptorForPort(Integer port, Subscription subscription) 
 	{
-		HashMap<Integer, String> eventMap = eventReceptors.get(port);
+		HashMap<Integer, String> eventMap = applicationReceptors.get(port);
 		if(eventMap == null)
+		{
 			eventMap = new HashMap<Integer,String>();
-		eventMap.put(event.getEventType(), event.getEventReceptor());
-		eventReceptors.put(port, eventMap);
+			applicationReceptors.put(port, eventMap);
+		}
+		eventMap.put(subscription.getEventType(), subscription.getApplicationReceptor());
 	}
 }
-
-
-
-

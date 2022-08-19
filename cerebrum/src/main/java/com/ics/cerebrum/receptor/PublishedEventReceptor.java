@@ -4,6 +4,7 @@ import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 import java.util.Date;
 
+import com.ics.cerebrum.message.type.CerebralIncomingMessageType;
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.env.Environment;
 import com.ics.logger.LogData;
@@ -27,6 +28,37 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.receptor.EventReceptor;
 
 /**
+ * This {@link EventReceptor} class is invoked when cerebrum receives a {@link CerebralIncomingMessageType#PUBLISH_EVENT PUBLISH_EVENT} message. <br>
+ * The incoming messages is processed as follows:
+ * <ol>
+ * 	<li>Load {@link ProofOfDelivery POD} for the incoming message from the local document store <i>(TBD - query dynamoDB instead of local document store)</i>. </li>
+ * 	<li>If POD does not exists then:
+ * 		<ol>
+ * 			<li>Check if the message was ever received by the connector. If yes then <b>do nothing and return</b>. <i>(This case may arise if the POD has been successfully deleted and for some unknown reasons, the message is resent by the synapse after that.)</i></li>
+ * 			<li>Create {@link ProofOfDelivery ProofOfDelivery} (POD) for the incoming PUBLISH_EVENT message. 
+ * 				Set the POD state to {@link PodState#PUBLISHED PUBLISHED} and save the POD to local document store. 
+ * 				The pod is used to track the status of the delivery of the message (on the cerebrum side the POD keeps track of end to end delivery to cerebrum and end to end relay to all the subscribers).</li>
+ * 			<li>Update the incoming message {@link Connector#incomingMessageRegister ledger} with this newly received message. <i>(Incoming message ledger contains message ids of all the messages received by the cerebrum)</i></li>
+ * 			<li>Enqueue the {@link CerebralOutgoingMessageType#NCEPH_EVENT_ACK NCEPH_EVENT_ACK} message to be sent back to the sender, notifying that the event has been received by cerebrum and the relay to subscriber(s) is in progress.</li>
+ * 			<li>Change the type of the message to {@link CerebralOutgoingMessageType#RELAY_EVENT RELAY_EVENT}</li>
+ * 			<li>Get the list of subscriber applications (port numbers) and initiate the relay by looping through the list:
+ * 				<ol>
+ * 					<li>Create {@link ProofOfRelay POR} for every subscriber application</li>
+ * 					<li>Get a connection with least load from the subscriber application load balancer ({@link Connector#getConnection()}) </li>
+ * 					<li>If no active connection is available on the connector then {@link Connector#enqueueMessage(Message) enqueue} the message on the connector's relay {@link Connector#relayQueue queue} and <code>continue</code> the loop. </li>
+ * 					<li>If connection is available then {@link Connection#enqueueMessage(Message, QueuingContext) enqueue} the message on the connection's relay {@link Connection#relayQueue queue} and set the interest of the connection to write</li>
+ * 				</ol>
+ * 			</li>
+ * 		</ol>	
+ * 	</li>
+ * 	<li>If POD exists then:
+ * 		<ol>
+ * 			<li>Check if {@link CerebralIncomingMessageType#ACK_RECEIVED ACK_RECEIVED} message is not received then send the {@link CerebralOutgoingMessageType#NCEPH_EVENT_ACK NCEPH_EVENT_ACK} message again</li>
+ * 			<li>Else print the duplicate message waring <i>(TBD - send an alert email to developer)</i></li>
+ * 		</ol>
+ * 	</li>
+ * </ol>
+ * <br>
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -57,9 +89,12 @@ public class PublishedEventReceptor extends EventReceptor
 		ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
 		try 
 		{
-			if (pod == null) 
+			if (pod == null)
 			{
 				// TODO: Query the dynamoDB to see if the message was fully delivered previously [TBD]
+				// Check if the message was ever received by the connector. This case may arise if the POD has been successfully deleted and for some unknown reason the message is resent by the synapse after that.
+				if (getIncomingConnection().getConnector().hasAlreadyReceived(getMessage()))
+					return;
 				// Create ProofOfDelivery object for this message
 				pod = new ProofOfDelivery.Builder()
 						.event(getEvent())
@@ -76,18 +111,21 @@ public class PublishedEventReceptor extends EventReceptor
 				pod.incrementPublishAttempts();
 				// 2.4 Set the acknowledgement attempts
 				pod.incrementAcknowledgementAttempts();
-				// 2.6 Set POD State to PUBLISHED
+				// 2.5 Set POD State to PUBLISHED
 				pod.setPodState(PodState.PUBLISHED);
 				// Save the POD in local storage
 				DocumentStore.save(pod, getMessage().decoder().getId());
 
+				// Put the message in the connectors incomingMessageStore
+				getIncomingConnection().getConnector().storeIncomingMessage(getMessage());
+				
 				// 3. Send the ACK message (NCEPH_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
 				sendAcknowledgement(pod);
 				
-				// Begin RELAY
-				// Change the type of the message to RELAY_EVENT
+				// 4. BEGIN RELAY: Change the type of the message to RELAY_EVENT
 				getMessage().setType(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType());
-				// 4. Get the subscriber connectors for this event
+				
+				// 4.1 Get the subscriber connectors for this event
 				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventType());
 				pod.setSubscriberCount(subscribers.size());
 
@@ -109,10 +147,7 @@ public class PublishedEventReceptor extends EventReceptor
 
 						// MOCK CODE: to test the reliable delivery of the messages
 						if(Environment.isDev() && por.getMessageId().equals("1-11")) 
-						{
-							System.out.println("forceStop"+getMessage().decoder().getId());
 							continue;
-						}
 						// END MOCK CODE
 
 						// 5.1 Using connector's LB get the connection with least load
@@ -131,9 +166,7 @@ public class PublishedEventReceptor extends EventReceptor
 						
 						// MOCK CODE: to test the no duplicate delivery of the messages
 						if(Environment.isDev() && por.getMessageId().equals("1-15")) 
-						{
 							connection.enqueueMessage(getMessage(), QueuingContext.QUEUED_FROM_RECEPTOR);
-						}
 						// END MOCK CODE
 						
 						// 5.4 change its selectionKey interest set to write (Thread-safe). Also make sure to do selector.wakeup().
@@ -169,7 +202,6 @@ public class PublishedEventReceptor extends EventReceptor
 				DocumentStore.update(pod, getMessage().decoder().getId());
 			} 
 			catch (DocumentSaveFailedException e1){}
-			return;
 		}
 		catch (EventNotSubscribedException e) //ConnectorCluster.getSubscribedConnectors 
 		{

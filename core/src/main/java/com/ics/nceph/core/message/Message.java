@@ -16,6 +16,7 @@ import com.ics.util.ByteUtil;
  * Base class for all the messages flowing in and out of the Encephelon server/ network.
  * 
  * Following is the message header structure (application layer protocol)
+ * <pre>
  * 
  *    0         8        16        24        32
  *    +---------+---------+---------+---------+
@@ -36,7 +37,8 @@ import com.ics.util.ByteUtil;
  *    .                                       .
  *    .                                       .
  *    +----------------------------------------
- *    
+ * </pre>
+ * 
  * 16 Bytes header with following sections:
  * <ol>
  * 	<li><b>Genesis</b> - 1 byte. Fixed value of -127.</li>
@@ -99,20 +101,17 @@ import com.ics.util.ByteUtil;
  *  <li><b>TimeStamp</b> - 8 byte. timestamp of the message when it starts writing to the connection</li>
  * </ol>
  * 
- * To filter meessage logs use : ^((?!1-75).)*\R
- * 
  * @author Anurag Arya
  * @version 1.0
  * @since 31-Dec-2021
+ * @implNote To filter meessage logs use : ^((?!1-75).)*\R
  */
 public class Message 
 {
-	
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.
 	private IORecord readRecord;
 	
 	private IORecord writeRecord;
-	
 	
 	private final byte genesis = (byte)-127;
 	

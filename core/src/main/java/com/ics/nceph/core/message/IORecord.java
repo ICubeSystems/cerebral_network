@@ -1,9 +1,11 @@
 package com.ics.nceph.core.message;
 
 /**
- * This class records the time taken in the IO operation involved like:
- * 1. Reading a message from the socket channel
- * 2. Writing a message on to a socket channel
+ * This class records the time taken in the IO operation involved like<br>
+ * <ol>
+ * 	<li>Reading a message from the socket channel</li>
+ * 	<li>Writing a message on to a socket channel</li>
+ * </ol>
  * 
  * @author Anurag Arya
  * @version 1.0

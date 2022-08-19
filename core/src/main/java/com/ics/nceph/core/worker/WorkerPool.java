@@ -1,11 +1,16 @@
 package com.ics.nceph.core.worker;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
+import com.ics.nceph.core.message.Message;
 
 /**
  * 
@@ -16,6 +21,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 {
+	Set<Long> runningMessageIds;
+	
 	private AtomicLong activeWorkers;
 	
 	private AtomicLong totalWorkersCreated;
@@ -43,13 +50,20 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		this.activeWorkers = new AtomicLong(0);
 		this.totalSuccessfulWorkers = new AtomicLong(0);
 		this.totalWorkersCreated = new AtomicLong(0);
+		this.runningMessageIds = Collections.synchronizedSet(new HashSet<Long>());
 	}
-	
 	
 
 	@Override
 	protected void beforeExecute(Thread t, Runnable worker) 
 	{
+		Message message = ((Worker)worker).getMessage();
+		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		{
+			synchronized (runningMessageIds) {
+				runningMessageIds.add(message.decoder().getMessageId());
+			}
+		}
 		// 1. Increment activeWorkers
 		activeWorkers.incrementAndGet();
 		// 2. Increment totalWorkersCreated
@@ -63,11 +77,29 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	{
 		// Call the super afterExecute
 		super.afterExecute(worker, t);
+		
+		Message message = ((Worker)worker).getMessage();
+		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		{
+			synchronized (runningMessageIds) {
+				runningMessageIds.remove(message.decoder().getMessageId());
+			}
+		}
 		// 1. Decrement activeWorkers
 		activeWorkers.decrementAndGet();
 		// 2. Increment totalSuccessfulWorkers if the throwable is null
 		if (t==null)
 			totalSuccessfulWorkers.incrementAndGet();
+	}
+	
+	public boolean register(Worker worker)
+	{
+		Message message = worker.getMessage();
+		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) 
+			&& (runningMessageIds.contains(message.decoder().getMessageId()) || worker.getConnection().getConnector().hasAlreadyReceived(message)))
+			return false;
+		execute(worker);
+		return true;
 	}
 	
 	public AtomicLong getActiveWorkers() {

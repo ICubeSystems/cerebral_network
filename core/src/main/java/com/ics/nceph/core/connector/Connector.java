@@ -350,6 +350,17 @@ public abstract class Connector
 	{
 		connectorQueuedUpMessageRegister.remove(message);
 	}
+	
+	/**
+	 * This method checks for duplicacy of messages received
+	 * 
+	 * @param Message message
+	 * @return true if the message has already been received, else false
+	 */
+	public boolean hasAlreadyReceived(Message message)
+	{
+		return incomingMessageRegister.contains(message);
+	}
 
 	/**
 	 * This method checks for duplicacy of messages relayed
@@ -357,7 +368,7 @@ public abstract class Connector
 	 * @param Message message
 	 * @return
 	 */
-	public boolean isAlreadySent(Message message)
+	public boolean hasAlreadySent(Message message)
 	{
 		return outgoingMessageRegister.contains(message);
 	}
@@ -394,7 +405,7 @@ public abstract class Connector
 	{
 		// Check if the message has ever been sent
 		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
-				&& (isAlreadySent(message) || isAlreadyQueuedUpOnConnection(message) || isAlreadyQueuedUpOnConnector(message)))
+				&& (hasAlreadySent(message) || isAlreadyQueuedUpOnConnection(message) || isAlreadyQueuedUpOnConnector(message)))
 			return;
 
 		// Store in queued up register and add to relay queue

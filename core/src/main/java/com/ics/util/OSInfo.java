@@ -14,13 +14,12 @@ import java.net.UnknownHostException;
  * @author Anurag Arya
  * @since 13 Dec, 2021
  */
-public class OSInfo {
-
+public class OSInfo 
+{
 	/**
 	 * Name of the operating system on the machine the JVM is currently running on
 	 */
 	public String name;
-	
 	
 	/**
 	 * Number of CPU cores available on the machine the JVM is currently running on

@@ -249,13 +249,13 @@ public class SynapticConnector extends Connector
 	@Override
 	public void createPostReadWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().execute(new SynapticReader(incomingConnection, message));
+		getReaderPool().register(new SynapticReader(incomingConnection, message));
 	}
 
 	@Override
 	public void createPostWriteWorker(Message message, Connection incomingConnection) 
 	{
-		getWriterPool().execute(new SynapticWriter(incomingConnection, message));
+		getReaderPool().register(new SynapticWriter(incomingConnection, message));
 	}
 
 	public Configuration getConfig() {

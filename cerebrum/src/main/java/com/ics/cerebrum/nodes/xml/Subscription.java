@@ -8,12 +8,12 @@ import javax.xml.bind.annotation.XmlRootElement;
  * @version 1.0
  * @since 28-Jul-2022
  */
-@XmlRootElement(name = "event")
-public class Event 
+@XmlRootElement(name = "subscription")
+public class Subscription 
 {
 	private Integer eventType;
 	
-	private String eventReceptor;
+	private String applicationReceptor;
 
 	public Integer getEventType() {
 		return eventType;
@@ -23,11 +23,11 @@ public class Event
 		this.eventType = eventType;
 	}
 
-	public String getEventReceptor() {
-		return eventReceptor;
+	public String getApplicationReceptor() {
+		return applicationReceptor;
 	}
 
-	public void setEventReceptor(String eventReceptor) {
-		this.eventReceptor = eventReceptor;
+	public void setApplicationReceptor(String eventReceptor) {
+		this.applicationReceptor = eventReceptor;
 	}
 }

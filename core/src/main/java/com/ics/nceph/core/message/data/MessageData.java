@@ -15,7 +15,7 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
  * @version 1.0
  * @since 29-Mar-2022
  */
-public abstract class MessageData 
+public class MessageData 
 {
 	long createdOn;
 	
@@ -42,7 +42,6 @@ public abstract class MessageData
 			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
 					.action(this.getClass().getSimpleName() + " build failed")
 					.logError(), e);
-			//throw MessageBuildFailedException
 			throw new MessageBuildFailedException(this.getClass().getSimpleName() + " build failed", e);
 		}
 	}
