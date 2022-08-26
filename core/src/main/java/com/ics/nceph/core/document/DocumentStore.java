@@ -52,7 +52,7 @@ public class DocumentStore
 			cache = new ConcurrentHashMap<String, Document>();
 
 		// 2. Read the message directory on the local storage
-		fillCache(new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")),ProofOfDelivery.class);
+		fillCache(new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")),ProofOfPublish.class);
 		fillCache(new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")),ProofOfRelay.class);
 	}
 
@@ -92,7 +92,7 @@ public class DocumentStore
 
 
 	/**
-	 * Create a new ProofOfDelivery / ProofOfAuthentication document or save the updates in the local document store
+	 * Create a new ProofOfPublish / ProofOfAuthentication document or save the updates in the local document store
 	 * 
 	 * @param pod
 	 * @param docName
@@ -176,7 +176,7 @@ public class DocumentStore
 	}
 
 	/**
-	 * Loads the ProofOfDelivery from document cache
+	 * Loads the ProofOfPublish from document cache
 	 * 
 	 * @param docName
 	 * @return Document
@@ -204,9 +204,6 @@ public class DocumentStore
 					.logError(),e);
 		}
 		return null;
-	}
-	public static void removeFromCache(String docName, Document document) {
-		cache.remove(docName, document);
 	}
 	/**
 	 * 

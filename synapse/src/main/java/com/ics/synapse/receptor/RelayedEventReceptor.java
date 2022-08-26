@@ -9,7 +9,7 @@ import com.ics.nceph.config.ConfigStore;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PorState;
+import com.ics.nceph.core.document.MessageDeliveryState;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
@@ -61,16 +61,18 @@ public class RelayedEventReceptor extends EventReceptor
 				
 				// 2. Update POR
 				// 2.1 Set RELAY_EVENT read record
-				por.setReadRecord(getMessage().getReadRecord());
+				por.setEventMessageReadRecord(getMessage().getReadRecord());
 				// 2.2 Set RELAY_EVENT network record
-				por.setEventNetworkRecord(buildNetworkRecord());
+				por.setEventMessageNetworkRecord(buildNetworkRecord());
 				// 2.4 Set the RELAY_EVENT attempts
-				por.incrementRelayAttempts();
+				por.incrementEventMessageAttempts();
 				// 2.4 Set the acknowledgement attempts
-				por.incrementAcknowledgementAttempts();
-				// 2.5 Set POR State to RELAYED
-				por.setPorState(PorState.RELAYED);
-				// 2.6 Save the POR in local storage
+				por.incrementAcknowledgementMessageAttempts();
+				// 2.5 Set the consumerNodeId
+				por.setConsumerNodeId(ConfigStore.getNodeId());
+				// 2.6 Set POR State to RELAYED
+				por.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
+				// 2.7 Save the POR in local storage
 				DocumentStore.save(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 				
 				// Put the message in the connectors incomingMessageStore
@@ -86,7 +88,7 @@ public class RelayedEventReceptor extends EventReceptor
 			else
 			{
 				// send acknowledgement back to cerebrum if the POR state is still RELAYED or ACKNOWLEDGED
-				if (por.getPorState().getState() < PorState.ACK_RECIEVED.getState())
+				if (por.getMessageDeliveryState().getState() < MessageDeliveryState.ACK_RECIEVED.getState())
 				{
 					//Initiate application receptor if its execution was failed
 					if(por.isAppReceptorFailed()) 
@@ -106,7 +108,7 @@ public class RelayedEventReceptor extends EventReceptor
 					.action("RELAYED_EVENT_ACK build failed")
 					.logError(),e1);
 			// decrement acknowledgement attempts in the POR		
-			por.decrementAcknowledgementAttempts();
+			por.decrementAcknowledgementMessageAttempts();
 			// Save the POD
 			try 
 			{
@@ -148,11 +150,12 @@ public class RelayedEventReceptor extends EventReceptor
 		Message message = new AcknowledgeMessage.Builder()
 				.data(new AcknowledgementData.Builder()
 						.readRecord(getMessage().getReadRecord())
-						.eventNetworkRecord(por.getEventNetworkRecord())
+						.eventNetworkRecord(por.getEventMessageNetworkRecord())
 						.AppReceptorExecutionErrorMsg(por.getAppReceptorExecutionErrorMsg())
 						.AppReceptorName(por.getAppReceptorName())
 						.AppReceptorExecutionTime(por.getAppReceptorExecutionTime())
 						.appReceptorFailed(por.isAppReceptorFailed())
+						.nodeId(Integer.valueOf(ConfigStore.getNodeId()))
 						.build())
 				.messageId(getMessage().getMessageId())
 				.type(SynapticOutgoingMessageType.RELAYED_EVENT_ACK.getMessageType())

@@ -1,18 +1,20 @@
 package com.ics.cerebrum.connector;
 
-import java.io.File;
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMappingException;
+import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.logger.ConnectionLog;
+import com.ics.logger.DynamodbLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.MonitorLog;
 import com.ics.logger.NcephLogger;
-import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
@@ -20,10 +22,15 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
+import com.ics.nceph.core.db.dynamoDB.entity.PublishedMessageEntity;
+import com.ics.nceph.core.db.dynamoDB.entity.ReceivedMessageEntity;
+import com.ics.nceph.core.db.dynamoDB.exception.DatabaseException;
+import com.ics.nceph.core.db.dynamoDB.repository.PublishedMessageRepository;
+import com.ics.nceph.core.db.dynamoDB.repository.ReceivedMessageRepository;
 import com.ics.nceph.core.document.Document;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PorState;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.event.exception.EventNotSubscribedException;
@@ -56,6 +63,25 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
  */
 public class CerebralMonitor extends ConnectorMonitorThread 
 {
+	private PublishedMessageRepository publishedMessageRepository;
+
+	private ReceivedMessageRepository relayedMessageRepository ;
+
+	public CerebralMonitor() {}
+
+	/**
+	 * The DB repositories are manually injected via this constructor from the connectorCulsterInitializer. 
+	 * TODO: This should be done using spring container instead.
+	 * 
+	 * @param publishedMessageRepository
+	 * @param relayedmessageRepository
+	 */
+	public CerebralMonitor(PublishedMessageRepository publishedMessageRepository, ReceivedMessageRepository relayedmessageRepository) 
+	{
+		this.publishedMessageRepository = publishedMessageRepository;
+		this.relayedMessageRepository = relayedmessageRepository;
+	}
+
 	@Override
 	public void monitor() throws ImproperMonitorInstantiationException, ImproperConnectorInstantiationException 
 	{
@@ -85,40 +111,42 @@ public class CerebralMonitor extends ConnectorMonitorThread
 			}
 		}
 
-		// 2. Check for PODs which are not deleted for more than a specified time
-		File messageDirectory = new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location"));
 
 		ProcessPOD:
 		{
 			// 2.1 get all files from the POD directory
 			// 2.2 if there are no pods then exit ProcessPOD block
-			if (messageDirectory.listFiles() == null) 
+			if (DocumentStore.getCache().isEmpty()) 
 				break ProcessPOD;
 
 			// 2.3 Loop over PODs to process
 			for (Map.Entry<String, Document> entry : DocumentStore.getCache().entrySet())
 			{
 				String messageId = entry.getKey();
-				ProofOfDelivery pod = (ProofOfDelivery)entry.getValue();
+				ProofOfPublish pod = (ProofOfPublish)entry.getValue();
 				ProofOfRelay por = null;
 				try 
 				{
 					// if file is older than X minutes and whose state is not finished then resend the message to the another node to make its state to finished
-					if(transmissionWindowElapsed(pod))
+					if(pod != null && connector.getPort().equals(pod.getProducerPortNumber()))
 					{
-						if(pod != null && pod.getPortNumber() == connector.getPort()) // Check if the pod was created by the port for which this monitor thread is running
+						if(transmissionWindowElapsed(pod)) // Check if the pod was created by the port for which this monitor thread is running
 						{
 							// Get the subscriber connectors for this event
 							ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(pod.getEvent().getEventType());
 							// Loop over the subscriber and check the PORs within the POD
+							ArrayList<Integer> offlineConnectors = new ArrayList<Integer>();
 							for (Connector subscriberConnector : subscribers) 
 							{
+								
 								// Get connection from subscriber's connector
 								Connection connection = subscriberConnector.getConnection();
-								// If there are no active connections in the connector then break.
-								if(connection != null) {
 
-									por = pod.getPors().get(subscriberConnector.getPort());
+								por = pod.getPors().get(subscriberConnector.getPort());
+
+								// If there are no active connections in the connector then break.
+								if(connection != null) 
+								{
 									// If POR exists then check state and process accordingly
 									if (por != null)
 									{
@@ -126,7 +154,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 										if (!transmissionWindowElapsed(por))
 											return;
 
-										switch (por.getPorState().getState()) 
+										switch (por.getMessageDeliveryState().getState()) 
 										{
 										case 100:// INITIAL state of POR
 										case 200:// RELAYED state of POR
@@ -139,8 +167,8 @@ public class CerebralMonitor extends ConnectorMonitorThread
 
 											enqueueMessage(connection, eventMessage);
 											// Set the RELAY_EVENT attempts
-											por.incrementRelayAttempts();
-											por.setPorState(PorState.RELAYED);
+											por.incrementEventMessageAttempts();
+											por.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
 											DocumentStore.update(pod, messageId);
 											break;
 										case 300:// ACKNOWLEDGED state of POR
@@ -150,8 +178,8 @@ public class CerebralMonitor extends ConnectorMonitorThread
 													.threeWayAckNetworkRecord(new NetworkRecord.Builder()
 															.start(new Date().getTime())
 															.build()) //ACK_RECEIVED network record with just the start
-													.writeRecord(pod.getWriteRecord()) // WriteRecord of PUBLISH_EVENT
-													.ackNetworkRecord(pod.getAckNetworkRecord()) // NCEPH_EVENT_ACK network record
+													.writeRecord(pod.getEventMessageWriteRecord()) // WriteRecord of PUBLISH_EVENT
+													.ackNetworkRecord(pod.getAckMessageNetworkRecord()) // NCEPH_EVENT_ACK network record
 													.build())
 											.mid(por.getMessageId())
 											.type(CerebralOutgoingMessageType.RELAY_ACK_RECEIVED.getMessageType())
@@ -159,11 +187,13 @@ public class CerebralMonitor extends ConnectorMonitorThread
 
 											enqueueMessage(connection, threeWayAckMessage);
 											// Set the RELAY_EVENT attempts
-											por.incrementThreeWayAckAttempts();
-											por.setPorState(PorState.ACK_RECIEVED);
+											por.incrementThreeWayAckMessageAttempts();
+											por.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
 											DocumentStore.update(pod, messageId);
 											break;
 										case 500:// FINISHED state of POR
+											// Call savePublishedMessage method to save receive message in the DynamoDB
+											savePORInDB(pod, por);
 											break;
 										default:
 											break;
@@ -179,7 +209,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 										pod.addPor(subscriberConnector.getPort(), por);
 
 										// Set the RELAY_EVENT attempts
-										por.incrementRelayAttempts();
+										por.incrementEventMessageAttempts();
 
 										// Save the POD
 										DocumentStore.update(pod, messageId);
@@ -193,17 +223,29 @@ public class CerebralMonitor extends ConnectorMonitorThread
 
 										enqueueMessage(connection, eventMessage);
 									}
+								} 
+								else {
+									// Call savePublishedMessage method to save receive message in the DynamoDB
+									savePORInDB(pod, por);
+									offlineConnectors.add(subscriberConnector.getPort());
 								}
 							}
+							// Call savePublishedMessage method to save publish message in the DynamoDB
+								savePODInDB(pod);
+							// Delete POD in local store
+							if(pod.isMessageInDB() && pod.getSubscriberCount() == pod.getRelayCount().intValue()) 
+							{
+								deletePod(pod);
+							}
 						}
-					}
+					}					
 				}
 				catch (MessageBuildFailedException e) 
 				{
 					// Log
 					NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
 							.messageId(messageId)
-							.action(por.getPorState().getState() == 100 || por.getPorState().getState() == 200 ? "NCEPH_EVENT build failed":"ACK_RECEIVED build failed")
+							.action(por.getMessageDeliveryState().getState() == 100 || por.getMessageDeliveryState().getState() == 200 ? "NCEPH_EVENT build failed":"ACK_RECEIVED build failed")
 							.description("message build failed in monitor")
 							.logError(),e);
 					por.decrementAttempts();
@@ -218,7 +260,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 						NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
 								.messageId(String.valueOf(pod.getMessageId()))
 								.action("Pod updation failed")
-								.description(por.getPorState().getState() == 100 || por.getPorState().getState() == 200 ? "Relay":"ThreeWayAck"+" counter decrement failed after MessageBuildFailedException")
+								.description(por.getMessageDeliveryState().getState() == 100 || por.getMessageDeliveryState().getState() == 200 ? "Relay":"ThreeWayAck"+" counter decrement failed after MessageBuildFailedException")
 								.logError(), e1);
 					}
 				} 
@@ -236,5 +278,114 @@ public class CerebralMonitor extends ConnectorMonitorThread
 				.monitorPort(connector.getPort())
 				.action("Cerebral monitor end")
 				.logInfo());
+	}
+
+	/**
+	 * 
+	 * @param pod
+	 * @param por
+	 * @throws DocumentSaveFailedException
+	 */
+	private void savePORInDB(ProofOfPublish pod, ProofOfRelay por)
+	{
+		try 
+		{
+			if(!por.isMessageInDB() && por.getMessageDeliveryState().getState() == MessageDeliveryState.FINISHED.getState()) 
+			{
+				saveReceiveMessage(por, pod.getEvent().getObjectJSON());
+				por.setMessageInDB(true);
+				DocumentStore.update(pod, pod.getMessageId());	
+			}
+		} catch (DatabaseException e) {
+			NcephLogger.DYNAMODB_LOGGER.fatal(new DynamodbLog.Builder()
+					.action("DatabaseException")
+					.description("Receive Message save failed: " + e.getMessage())
+					.logError(),e);
+		} catch (DocumentSaveFailedException e) {
+			NcephLogger.DYNAMODB_LOGGER.fatal(new DynamodbLog.Builder()
+					.action("POR: MessageInDB update Failed")
+					.description(e.getMessage())
+					.logError(),e);
+		}
+	}
+	
+	private void savePODInDB(ProofOfPublish pod) 
+	{
+		try 
+		{
+			if(!pod.isMessageInDB() && pod.getMessageDeliveryState().getState() == MessageDeliveryState.FINISHED.getState() && pod.getSubscriberCount() == pod.getRelayCount().get()) 
+			{
+				
+				savePublishedMessage(pod);
+				pod.setMessageInDB(true);
+				DocumentStore.update(pod, pod.getMessageId());	
+			}
+			
+		} catch (DatabaseException e) {
+			NcephLogger.DYNAMODB_LOGGER.fatal(new DynamodbLog.Builder()
+					.action("DatabaseException")
+					.description("Publish Message save failed: " + e.getMessage())
+					.logError(),e);
+		} catch (DocumentSaveFailedException e) {
+			NcephLogger.DYNAMODB_LOGGER.fatal(new DynamodbLog.Builder()
+					.action("POD: MessageInDB update Failed")
+					.description(e.getMessage())
+					.logError(),e);
+		}
+	}
+
+	/**
+	 * Save Publish message in DynamoDB
+	 * 
+	 * @param pod
+	 * @throws DatabaseException
+	 */
+	public void savePublishedMessage(ProofOfPublish pod) throws DatabaseException
+	{
+		try 
+		{
+			PublishedMessageEntity publishMessage = new PublishedMessageEntity.Builder()
+					.pod(pod.toString())
+					.build();
+			// Save data in the DynamoDB
+			publishedMessageRepository.save(publishMessage);
+		} catch (ResourceNotFoundException | DynamoDBMappingException | JsonProcessingException e) {
+			throw new DatabaseException("Publish message save failed Exception " , e);
+		}
+	}
+
+	/**
+	 * Save Receive message in DynamoDB
+	 * 
+	 * @param por
+	 * @throws DatabaseException
+	 */
+	public void saveReceiveMessage(ProofOfRelay por, String eventData) throws DatabaseException
+	{
+		try 
+		{
+			ReceivedMessageEntity receiveMessage = new ReceivedMessageEntity.Builder()
+					.por(por.toString())
+					.event(eventData)
+					.build();
+
+			// Save data in the DynamoDB
+			relayedMessageRepository.save(receiveMessage);
+		} catch (ResourceNotFoundException | DynamoDBMappingException | JsonProcessingException e) {
+			throw new DatabaseException("Receive message save failed Exception " , e);
+		}
+	}
+
+	/**
+	 * Delete pod in local store
+	 * 
+	 * @param pod
+	 */
+	private void deletePod(ProofOfPublish pod) 
+	{
+		if(!DocumentStore.delete(pod.getMessageId(), pod)) 
+		{
+			// Pod not deleted ?
+		}
 	}
 }

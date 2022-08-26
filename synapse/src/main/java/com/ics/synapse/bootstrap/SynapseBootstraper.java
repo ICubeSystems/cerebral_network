@@ -19,7 +19,7 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.message.MessageLedger;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
@@ -147,7 +147,7 @@ public class SynapseBootstraper
 	    		System.out.print("Loading...");
 	    		for (File podFile : messageDirectory.listFiles()) 
 	    		{
-	    			ProofOfDelivery pod = (ProofOfDelivery)DocumentStore.load(podFile, ProofOfDelivery.class);
+	    			ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(podFile, ProofOfPublish.class);
 	    			// Print the validity status of the POD
 //	    			String status = pod.validate();
 	    			

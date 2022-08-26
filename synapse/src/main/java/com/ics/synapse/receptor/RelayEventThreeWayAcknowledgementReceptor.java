@@ -7,7 +7,7 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PorState;
+import com.ics.nceph.core.document.MessageDeliveryState;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
@@ -51,19 +51,19 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 		{
 			// 2. Create a NetworkRecord for 3-way relay ack and update the POR
 			// 2.1 set RELAY_EVENT WriteRecord which is sent in RELAY_ACK_RECEIVED message body
-			por.setWriteRecord(getThreeWayAcknowledgement().getWriteRecord());
+			por.setEventMessageWriteRecord(getThreeWayAcknowledgement().getWriteRecord());
 			// 2.2 set RELAY_ACK_RECEIVED network record
-			por.setThreeWayAckNetworkRecord(buildNetworkRecord());
+			por.setThreeWayAckMessageNetworkRecord(buildNetworkRecord());
 			// 2.3 set RELAYED_EVENT_ACK network record which is sent in RELAY_ACK_RECEIVED message body
-			por.setAckNetworkRecord(getThreeWayAcknowledgement().getAckNetworkRecord());
+			por.setAckMessageNetworkRecord(getThreeWayAcknowledgement().getAckNetworkRecord());
 			// 2.4 set RELAY_ACK_RECEIVED read record
-			por.setThreeWayAckReadRecord(getMessage().getReadRecord());
+			por.setThreeWayAckMessageReadRecord(getMessage().getReadRecord());
 			// 2.5 Set the threeWayAck attempts
-			por.incrementThreeWayAckAttempts();
+			por.incrementThreeWayAckMessageAttempts();
 			// 2.6 Set the delePod attempts
-			por.incrementDeletePorAttempts();
+			por.incrementFinalMessageAttempts();
 			// 2.7 Set POR State to ACK_RECIEVED
-			por.setPorState(PorState.ACK_RECIEVED);
+			por.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
 			// 2.5 Update the POD in the local storage
 			DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
 			
@@ -91,7 +91,7 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 				getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
 				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 				// Delete the POR
-				por.setPorState(PorState.FINISHED);
+				por.setMessageDeliveryState(MessageDeliveryState.FINISHED);
 				if (!DocumentStore.delete(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId(),por))
 				{
 					NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
@@ -111,7 +111,7 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 					.action("POR_DELETED build failed")
 					.logError(),e1);
 			// decrement acknowledgement attempts in the pod		
-			por.decrementDeletePorAttempts();
+			por.decrementFinalMessageAttempts();
 			// Save the POD
 			try 
 			{

@@ -9,8 +9,8 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PorState;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
@@ -37,7 +37,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 	{
 
 		// 1. Load POD: Ideally POD will always be loaded for the ack message
-		ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = (ProofOfPublish) DocumentStore.load(getMessage().decoder().getId());
 
 		// Following are the cases when the POD will not be found for the message id:
 		// a. POD is deleted by mistake on the synaptic node
@@ -55,7 +55,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 
 		// 1.1 Make sure that WriteRecord is written in the POR. If not then try to load again after 1000 ms. 
 		// This happens when the RelayedEventAffector executes after RelayedEventAcknowledgeReceptor	
-		while(por.getWriteRecord()==null) 
+		while(por.getEventMessageWriteRecord()==null) 
 		{
 			try 
 			{
@@ -70,19 +70,19 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 		{
 			// 2. Update POR - create a NetworkRecord for RELAYED_EVENT_ACK
 			// 2.1 Set RELAY_EVENT read record on the Synapse
-			por.setReadRecord(getAcknowledgement().getReadRecord());
+			por.setEventMessageReadRecord(getAcknowledgement().getReadRecord());
 			// 2.2 Set RELAYED_EVENT_ACK network record
-			por.setAckNetworkRecord(buildNetworkRecord());
+			por.setAckMessageNetworkRecord(buildNetworkRecord());
 			// 2.3 Set the acknowledgement attempts
-			por.incrementAcknowledgementAttempts();
+			por.incrementAcknowledgementMessageAttempts();
 			// 2.4 Set the threeWayAck attempts
-			por.incrementThreeWayAckAttempts();
+			por.incrementThreeWayAckMessageAttempts();
 			// 2.5 Set RELAY_EVENT network record on the synapse
-			por.setEventNetworkRecord(getAcknowledgement().getEventNetworkRecord());
+			por.setEventMessageNetworkRecord(getAcknowledgement().getEventNetworkRecord());
 			// 2.6 Set RELAYED_EVENT_ACK read record 
-			por.setAckReadRecord(getMessage().getReadRecord());
+			por.setAckMessageReadRecord(getMessage().getReadRecord());
 			// 2.7 Set Por State to ACKNOWLEDGED
-			por.setPorState(PorState.ACKNOWLEDGED);
+			por.setMessageDeliveryState(MessageDeliveryState.ACKNOWLEDGED);
 			// 2.8 Set event application receptor name
 			por.setAppReceptorName(getAcknowledgement().getAppReceptorName());
 			// 2.9 Set application receptor execution time
@@ -94,6 +94,9 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			// 2.12 increment AppReceptorExecutionAttempts
 			por.incrementAppReceptorExecutionAttempts();
 			// 2.13 Update the POD in the local storage
+			// 2.7 Set NodeId
+			por.setConsumerNodeId(getAcknowledgement().getNodeId());
+			// 2.8 Update the POD in the local storage
 			DocumentStore.update(pod, getMessage().decoder().getId());
 
 			// MOCK CODE: to test the reliable delivery of the messages
@@ -106,7 +109,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			// 3.0 Create the message data for RELAY_ACK_RECEIVED message to be sent to synapse
 
 			ThreeWayAcknowledgementData threeWayAck = new ThreeWayAcknowledgementData.Builder()
-					.writeRecord(por.getWriteRecord())
+					.writeRecord(por.getEventMessageWriteRecord())
 					.ackNetworkRecord(buildNetworkRecord()).build();
 			// 3.1 Create the RELAY_ACK_RECEIVED message 
 			Message message = new AcknowledgeMessage.Builder()
@@ -130,7 +133,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 					.logError(),e1);
 
 			// decrement acknowledgement attempts in the pod		
-			por.decrementThreeWayAckAttempts();
+			por.decrementThreeWayAckMessageAttempts();
 			// Save the POD
 			try 
 			{

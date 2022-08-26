@@ -7,8 +7,8 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PorState;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.message.Message;
 
@@ -35,7 +35,7 @@ public class RelayEventThreeWayAcknowledgementAffector extends Affector
 	public void process() 
 	{
 		// Load the POD for this message
-		ProofOfDelivery pod = (ProofOfDelivery)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
 		if (pod == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
@@ -47,11 +47,11 @@ public class RelayEventThreeWayAcknowledgementAffector extends Affector
 		
 		// Set the WriteRecord in the POD
 		ProofOfRelay por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
-		por.setThreeWayAckWriteRecord(getMessage().getWriteRecord());
+		por.setThreeWayAckMessageWriteRecord(getMessage().getWriteRecord());
 		
 		// Update por state only if it is not yet ACK_RECIEVED (this is done for the case where receptor executes prior to affector)
-		if(por.getPorState().getState() < PorState.ACK_RECIEVED.getState())
-			por.setPorState(PorState.ACK_RECIEVED);
+		if(por.getMessageDeliveryState().getState() < MessageDeliveryState.ACK_RECIEVED.getState())
+			por.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
 		
 		// Save the POD
 		try {

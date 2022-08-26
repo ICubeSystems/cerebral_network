@@ -15,7 +15,6 @@ import com.ics.util.ByteUtil;
 
 public class CerebralOutgoingMessageType extends OutgoingMessageType 
 {
-
 	public CerebralOutgoingMessageType(int type, Class<? extends Affector> affectorClass, String typeName) 
 	{
 		super(type, affectorClass, typeName);
@@ -43,21 +42,25 @@ public class CerebralOutgoingMessageType extends OutgoingMessageType
 	public static CerebralOutgoingMessageType RELAY_ACK_RECEIVED = new CerebralOutgoingMessageType(12, RelayEventThreeWayAcknowledgementAffector.class, "RELAY_ACK_RECEIVED");
 	
 	/**
-	 * This message type is used to Authentication Message in the network
+	 * This message type is used to Authentication connection in the network
 	 */
 	public static CerebralOutgoingMessageType AUTHENTICATE = new CerebralOutgoingMessageType(6, AuthenticationAffector.class, "AUTHENTICATE");
+	
 	/**
 	 * This message type is used to set READY the connection state
 	 */
 	public static CerebralOutgoingMessageType READY = new CerebralOutgoingMessageType(7, ReadyAffector.class, "READY");
+	
 	/**
 	 * This message type is used to set AUTH_FAILED the connection state
 	 */
 	public static CerebralOutgoingMessageType ERROR = new CerebralOutgoingMessageType(8, AuthErrorAffector.class, "ERROR");
+	
 	/**
 	 * This message type is used to set AUTH_FAILED the connection state
 	 */
 	public static CerebralOutgoingMessageType CONFIG = new CerebralOutgoingMessageType(16, ConfigAffector.class, "CONFIG");
+	
 	/**
 	 * 
 	 */
@@ -86,5 +89,4 @@ public class CerebralOutgoingMessageType extends OutgoingMessageType
 				return messageType;
 		throw new InvalidMessageTypeException(new Exception("Invalid message type"));
 	}
-
 }

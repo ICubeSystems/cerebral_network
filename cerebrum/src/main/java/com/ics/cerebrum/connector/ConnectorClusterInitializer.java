@@ -5,10 +5,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.LinkedBlockingQueue;
-
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import com.ics.cerebrum.nodes.xml.Subscription;
 import com.ics.cerebrum.nodes.xml.Subscriptions;
 import com.ics.cerebrum.nodes.xml.SynapticNode;
@@ -17,6 +16,8 @@ import com.ics.logger.BootstraperLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
+import com.ics.nceph.core.db.dynamoDB.repository.PublishedMessageRepository;
+import com.ics.nceph.core.db.dynamoDB.repository.ReceivedMessageRepository;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.ssl.NcephSSLContext;
 import com.ics.nceph.core.ssl.exception.SSLContextInitializationException;
@@ -39,6 +40,12 @@ public class ConnectorClusterInitializer
 
 	Subscriptions eventSubscriptions;
 
+	@Autowired
+	public PublishedMessageRepository publishedMessageRepository;
+	
+	@Autowired
+	public ReceivedMessageRepository relayedMessageRepository;
+	
 	/**
 	 * Map of EventId -> ArrayList of connectors subscribed for the event
 	 */
@@ -90,19 +97,20 @@ public class ConnectorClusterInitializer
 							.workQueue(new LinkedBlockingQueue<Runnable>())
 							.rejectedThreadHandler(new RejectedWriterHandler()).build())
 					.sslContext(NcephSSLContext.getSSLContext())
+					.cerebralMonitor(new CerebralMonitor(publishedMessageRepository, relayedMessageRepository))
 					.build();
 
 			// 4.2. Add the newly created connector to the ConnectorCluster
 			connectorCluster.add(connector);
 			
 			// 4.3. Loop over the subscriptions & create subscription meta data for the cerebrum
-			if(synapticNode.getSubscriptions()!=null) 
+			if(synapticNode.getSubscriptions() != null) 
 			{
 				eventSubscriptions = synapticNode.getSubscriptions();
-				for (int i = 0; i < eventSubscriptions.getSubscriptions().size(); i++) 
+				for (int i = 0; i < eventSubscriptions.getSubscriptionList().size(); i++) 
 				{
-					subscribeForEvent(eventSubscriptions.getSubscriptions().get(i).getEventType(), synapticNode.getPort());
-					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.getSubscriptions().get(i));
+					subscribeForEvent(eventSubscriptions.getSubscriptionList().get(i).getEventType(), synapticNode.getPort());
+					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.getSubscriptionList().get(i));
 				}
 			}
 		}

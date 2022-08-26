@@ -6,12 +6,13 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * Base class of local messages 
+ * 
  * @author Anshul
  * @since 11-Apr-2022
  */
 public abstract class Document 
 {
-	String messageId;
+	private String messageId;
 	
 	public long createdOn;
 	
@@ -26,10 +27,23 @@ public abstract class Document
 	@JsonIgnore
 	public abstract String getName();
 	
+	public Document() {}
+	
+	public Document(String messageId) 
+	{
+		this.messageId = messageId;
+	}
+	
 	public String getMessageId() {
 		return messageId;
 	}
-
+	
+	public void setMessageId(String messageId) 
+	{
+		this.messageId = messageId;
+		outOfSync("messageId");
+	}
+	
 	/**
 	 * 
 	 * @param fieldName

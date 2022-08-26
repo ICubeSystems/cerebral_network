@@ -323,7 +323,7 @@ public class Connection implements Comparable<Connection>
 					getMetric().totalSuccessfulRequestsServed.incrementAndGet();
 
 				// Add the connection to the LB after counters are re-adjusted and if the write operation is not disabled on the connection due to relayTimeout
-				if (isReady() && !temporaryWriteDisabled)
+				if (!temporaryWriteDisabled)
 					addToLoadBalancer();
 			}
 		}
@@ -654,7 +654,6 @@ public class Connection implements Comparable<Connection>
 			this.cerebralConnectorAddress = cerebralConnectorAddress;
 			return this;
 		}
-		
 		
 		public Connection build() throws ConnectionInitializationException, ConnectionException
 		{

@@ -19,4 +19,6 @@ public class NcephLogger
 	public static final Logger GENERAL_LOGGER = LogManager.getLogger("general");
 	
 	public static final Logger MONITOR_LOGGER = LogManager.getLogger("monitor");
+	
+	public static final Logger DYNAMODB_LOGGER = LogManager.getLogger("dynamoDB");
 }

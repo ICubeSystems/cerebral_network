@@ -9,8 +9,8 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PodState;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.IORecord;
@@ -25,7 +25,7 @@ import com.ics.nceph.core.receptor.ThreeWayAcknowledgementReceptor;
  * 
  * The incoming ACK_RECEIVED messages is processed as follows:
  * <ol>
- * 	<li>Load {@link ProofOfDelivery POD} from the local document store on the cerebrum</li>
+ * 	<li>Load {@link ProofOfPublish POD} from the local document store on the cerebrum</li>
  * 	<li>Update the POD with following information and save it to the local document store:
  * 		<ol>
  * 			<li>{@link IORecord threeWayAckReadRecord} of the {@link CerebralIncomingMessageType#ACK_RECEIVED ACK_RECEIVED} message on the cerebrum</li>
@@ -33,7 +33,7 @@ import com.ics.nceph.core.receptor.ThreeWayAcknowledgementReceptor;
  * 			<li>{@link NetworkRecord threeWayAckNetworkRecord} of the {@link CerebralIncomingMessageType#ACK_RECEIVED ACK_RECEIVED} message. Calculate, save and send it to synapse via {@link CerebralOutgoingMessageType#DELETE_POD DELETE_POD} message</li>
  * 			<li>{@link NetworkRecord ackNetworkRecord} of the {@link CerebralOutgoingMessageType#NCEPH_EVENT_ACK NCEPH_EVENT_ACK} message on the synapse. This was calculated on synapse & is sent back for logging to cerebrum</li>
  *			<li>Increment the threeWayAck & delePod attempts</li>
- *			<li>Set the POD state to {@link PodState.ACK_RECIEVED ACK_RECIEVED} </li>
+ *			<li>Set the POD state to {@link MessageDeliveryState.ACK_RECIEVED ACK_RECIEVED} </li>
  *		</ol>
  * 	</li>
  * 	<li>Enqueue the {@link CerebralOutgoingMessageType#DELETE_POD DELETE_POD} message to be sent back to the synapse, notifying that the acknowledgement has been received and instructing to delete the POD from their local document store</li>
@@ -55,7 +55,7 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 	public void process() 
 	{
 		// 1. Save the write record and three way acknowledgement record in the local datastore
-		ProofOfDelivery pod = (ProofOfDelivery) DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = (ProofOfPublish) DocumentStore.load(getMessage().decoder().getId());
 		// Following are the cases when the POD will not be found for the message id:
 		// a. POD is uploaded to the DB and 3-way ack is received after that [In this case we should check the DB and send Delete message if POD exists in DB]
 		// b. POD is deleted by mistake on the synaptic node [Handling TBD - for now just logging such occurrence]
@@ -74,19 +74,19 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 		{
 			// 2. update the POD
 			// 2.1 set ThreeWayAckReadRecord 
-			pod.setThreeWayAckReadRecord(getMessage().getReadRecord());
+			pod.setThreeWayAckMessageReadRecord(getMessage().getReadRecord());
 			// 2.2 set PUBLISH_EVENT WriteRecord which is sent in ACK_RECEIVED message body
-			pod.setWriteRecord(getThreeWayAcknowledgement().getWriteRecord());
+			pod.setEventMessageWriteRecord(getThreeWayAcknowledgement().getWriteRecord());
 			// 2.3 set ACK_RECEIVED network record
-			pod.setThreeWayAckNetworkRecord(buildNetworkRecord());
+			pod.setThreeWayAckMessageNetworkRecord(buildNetworkRecord());
 			// 2.4 set NCEPH_EVENT_ACK network record which is sent in ACK_RECEIVED message body
-			pod.setAckNetworkRecord(getThreeWayAcknowledgement().getAckNetworkRecord());
+			pod.setAckMessageNetworkRecord(getThreeWayAcknowledgement().getAckNetworkRecord());
 			// 2.5 Set the threeWayAck attempts
-			pod.incrementThreeWayAckAttempts();
+			pod.incrementThreeWayAckMessageAttempts();
 			// 2.6 Set the delePod attempts
-			pod.incrementDeletePodAttempts();
+			pod.incrementFinalMessageAttempts();
 			// 2.7 Set Pod State to ACK_RECIEVED
-			pod.setPodState(PodState.ACK_RECIEVED);
+			pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
 			// 2.8 Update the POD in the local storage
 			DocumentStore.update(pod, getMessage().decoder().getId());
 
@@ -113,7 +113,7 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 					.action("DELETE_POD build failed")
 					.logError(),e1);
 			// decrement acknowledgement attempts in the pod		
-			pod.decrementDeletePodAttempts();
+			pod.decrementFinalMessageAttempts();
 			// Save the POD
 			try 
 			{

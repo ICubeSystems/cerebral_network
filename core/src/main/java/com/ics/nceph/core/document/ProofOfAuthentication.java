@@ -98,22 +98,17 @@ public class ProofOfAuthentication extends Document
 	private long deletePoaTime;
 
 	public ProofOfAuthentication() {
-		super.changeLog = new ArrayList<String>();
+		changeLog = new ArrayList<String>();
 	}
 
 	public ProofOfAuthentication(String messageId, long createdOn) 
 	{
+		changeLog = new ArrayList<String>();
+		setMessageId(messageId);
 		DOC_PREFIX = "a";
-		this.messageId = messageId;
 		this.createdOn = createdOn;
 		this.poaState = PoaState.INITIAL;
-		super.changeLog = new ArrayList<String>();
 		changeLog.add("New");
-	}
-
-	public String getMessageId() 
-	{
-		return messageId;
 	}
 
 	public NetworkRecord getAuthenticationNetworkRecord() 
@@ -124,12 +119,6 @@ public class ProofOfAuthentication extends Document
 	public NetworkRecord getCredentialsNetworkRecord() 
 	{
 		return credentialsNetworkRecord;
-	}
-
-	public void setMessageId(String messageId) 
-	{
-		this.messageId = messageId;
-		outOfSync("messageId");
 	}
 
 	public NetworkRecord getStartupNetworkRecord() {

@@ -7,8 +7,8 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PodState;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.receptor.PodReceptor;
@@ -20,12 +20,12 @@ import com.ics.synapse.message.type.SynapticOutgoingMessageType;
  * 
  * The incoming DELETE_POD messages is processed as follows:
  * <ol>
- * 	<li>Load {@link ProofOfDelivery POD} from the local document store on the synapse</li>
+ * 	<li>Load {@link ProofOfPublish POD} from the local document store on the synapse</li>
  * 	<li>Update the POD with following information and save it to the local document store (update is only required in case the delete operation fails):
  * 		<ol>
  * 			<li>{@link NetworkRecord threeWayAckNetworkRecord} of the {@link SynapticOutgoingMessageType#ACK_RECEIVED ACK_RECEIVED} message. This was calculated on cerebrum & is sent back for logging to synapse</li>
  *			<li>Increment the delePod attempts</li>
- *			<li>Set the POD state to {@link PodState.FINISHED FINISHED} </li>
+ *			<li>Set the POD state to {@link MessageDeliveryState.FINISHED FINISHED} </li>
  *		</ol>
  * 	</li>
  * 	<li>Delete the POD from the local document store</li>
@@ -47,7 +47,7 @@ public class DeletePodReceptor extends PodReceptor
 	public void process() 
 	{
 		// 1. Load the POD to delete
-		ProofOfDelivery pod = (ProofOfDelivery)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
 		if (pod == null)
 		{
 			// Log and return
@@ -59,11 +59,11 @@ public class DeletePodReceptor extends PodReceptor
 		}
 		
 		// 2. Set ThreeWayAckNetworkRecord and save to local storage. Save is only required in case the delete operation fails
-		pod.setThreeWayAckNetworkRecord(getPod().getThreeWayAckNetworkRecord());
+		pod.setThreeWayAckMessageNetworkRecord(getPod().getThreeWayAckNetworkRecord());
 		// 2.4 Set the delePod attempts
-		pod.incrementDeletePodAttempts();
+		pod.incrementFinalMessageAttempts();
 		// 2.5 Set Pod State to FINISHED
-		pod.setPodState(PodState.FINISHED);
+		pod.setMessageDeliveryState(MessageDeliveryState.FINISHED);
 		try {
 			DocumentStore.update(pod, getMessage().decoder().getId());
 			// MOCK CODE: to test the reliable delivery of the messages

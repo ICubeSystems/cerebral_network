@@ -1,6 +1,7 @@
 package com.ics.cerebrum.nodes.xml;
 
 import java.util.List;
+import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 
 /**
@@ -12,15 +13,14 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement(name = "subscriptions")
 public class Subscriptions 
 {
-	private List<Subscription> subscriptions;
+	private List<Subscription> subscriptionList;
 
-	public List<Subscription> getSubscriptions() {
-		return subscriptions;
+	@XmlElement(name = "subscription")
+	public List<Subscription> getSubscriptionList() {
+		return subscriptionList;
 	}
 
-	public void setSubscriptions(List<Subscription> event) {
-		this.subscriptions = event;
+	public void setSubscriptionList(List<Subscription> subscriptionList) {
+		this.subscriptionList = subscriptionList;
 	}
-
-	
 }

@@ -76,8 +76,6 @@ public class ReadyConfirmedReceptor extends Receptor
 			// 3.1 Add the connection object to load balancer for read/ write allocations
 			getIncomingConnection().addToLoadBalancer();
 			getIncomingConnection().getConnector().getActiveConnections().put(getIncomingConnection().getId(), getIncomingConnection());
-			// 3.2 Remove POA from cache
-			DocumentStore.removeFromCache(ProofOfAuthentication.DOC_PREFIX  + getMessage().decoder().getId(), poa);
 			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
 					.connectionId(String.valueOf(getIncomingConnection().getId()))
 					.action("Ready connection")
@@ -108,9 +106,8 @@ public class ReadyConfirmedReceptor extends Receptor
 						.action("requesting teardown failed")
 						.logError(), e1);
 			}
-			// Delete POA in local store
-			DocumentStore.delete(ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId(), poa);
-			return ;
 		}
+		// Delete POA in local store
+		DocumentStore.delete(ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId(), poa);
 	}
 }

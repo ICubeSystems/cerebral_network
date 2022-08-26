@@ -12,7 +12,7 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.EventMessage;
@@ -53,7 +53,7 @@ public final class Emitter
 	 * Following is the process to emit an event:
 	 * <ol>
 	 * 	<li>Convert the {@link EventData} to the {@link Message} object</li>
-	 * 	<li>Create a {@link ProofOfDelivery ProofOfDelivery} (POD) and save it to the local document store. 
+	 * 	<li>Create a {@link ProofOfPublish ProofOfPublish} (POD) and save it to the local document store. 
 	 * 		The pod is used to track the status of the delivery of the message (on the synapse side the POD only keeps track of delivery to cerebrum) </li>
 	 * 	<li>Get a connection with least load from the connector's load balancer ({@link Connector#getConnection()}) </li>
 	 * 	<li>If no active connection is available on the connector then {@link Connector#enqueueMessage(Message) enqueue} the message on the connector's relay {@link Connector#relayQueue queue} and <code>return</code></li>
@@ -83,20 +83,22 @@ public final class Emitter
 				.data(
 						new LogData()
 						.entry("eventId", String.valueOf(event.getEventId()))
+						.entry("eventType", String.valueOf(event.getEventType()))
 						.entry("createdOn", String.valueOf(event.getCreatedOn()))
 						.toString())
 				.logInfo());
-		
-		// 2. Create a ProofOfDelivery object and save it to the local DocumentStore. This pod object will be updated when the ack for this message is received from cerebrum.
-		ProofOfDelivery pod = new ProofOfDelivery.Builder()
+
+		// 2. Create a ProofOfPublish object and save it to the local DocumentStore. This pod object will be updated when the ack for this message is received from cerebrum.
+		ProofOfPublish pod = new ProofOfPublish.Builder()
 				.event(event)
 				.messageId(message.decoder().getId())
 				.createdOn(event.getCreatedOn())
-				.portNumber(connector.getPort())
+				.producerPortNumber(connector.getPort())
+				.producerNodeId(message.decoder().getSourceId())
 				.build();
 		// 2.1 Set the PUBLISH_EVENT attempts
-		pod.incrementPublishAttempts();
-		
+		pod.incrementEventMessageAttempts();
+
 		try 
 		{
 			DocumentStore.save(pod, message.decoder().getId());
@@ -113,14 +115,14 @@ public final class Emitter
 		try 
 		{
 			connection = connector.getConnection();
-			
+
 			if (connection == null)
 			{
 				// enqueue the message on connectors queue instead of connections queue. When the connections come live these messages would be transferred to the connections queue during the accept phase. 
 				connector.enqueueMessage(message);
 				return;
 			} 
-			
+
 			// 4. Enqueue the message on the connection to be sent to the Cerebrum
 			connection.enqueueMessage(message, QueuingContext.QUEUED_FROM_EMITTER);
 
@@ -129,5 +131,6 @@ public final class Emitter
 		} catch (ImproperConnectorInstantiationException e) {
 			throw new EmitException("Connector instantiation improper", e);
 		}
+
 	}
 }

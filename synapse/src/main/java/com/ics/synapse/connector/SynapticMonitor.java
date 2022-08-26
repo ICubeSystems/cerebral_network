@@ -21,8 +21,8 @@ import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationExce
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
 import com.ics.nceph.core.document.Document;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PodState;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.EventMessage;
@@ -41,7 +41,7 @@ import com.ics.synapse.message.type.SynapticOutgoingMessageType;
  * 	<li>If there are any messages in the connector's relay queue then transfer them to connection's relay queue for transmission</li>
  * 	<li>Check for PODs which have exceeded the {@link Configuration#APPLICATION_PROPERTIES transmission.window} configuration and process them as per their state:</li>
  * 		<ul>
- * 			<li>INITIAL | PUBLISHED: re-send PUBLISH_EVENT message</li>
+ * 			<li>INITIAL | DELIVERED: re-send PUBLISH_EVENT message</li>
  * 			<li>ACKNOWLEDGED | ACK_RECIEVED: re-send ACK_RECIEVED message</li>
  * 			<li>FINISHED: Delete the POD from local storage</li>
  * 		</ul>
@@ -177,9 +177,9 @@ public class SynapticMonitor extends ConnectorMonitorThread
 			for (Map.Entry<String, Document> entry : DocumentStore.getCache().entrySet())
 			{
 				String messageId = entry.getKey();
-				if(entry.getValue().getClass().toString().equals(ProofOfDelivery.class.toString())) 
+				if(entry.getValue().getClass().toString().equals(ProofOfPublish.class.toString())) 
 				{
-					ProofOfDelivery pod = (ProofOfDelivery)entry.getValue();
+					ProofOfPublish pod = (ProofOfPublish)entry.getValue();
 				int podState = 0;
 				try 
 				{
@@ -194,12 +194,12 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					if (transmissionWindowElapsed(pod)) 
 					{
 						// get pod state of current pod
-						podState = pod.getPodState().getState();
+						podState = pod.getMessageDeliveryState().getState();
 
 						switch (podState) 
 						{
 						case 100:// INITIAL state of POD
-						case 200:// PUBLISHED state of POD
+						case 200:// DELIVERED state of POD
 							// Create PUBLISH_EVENT message 
 							Message message1 = new EventMessage.Builder()
 							.event(pod.getEvent())
@@ -208,9 +208,9 @@ public class SynapticMonitor extends ConnectorMonitorThread
 
 							enqueueMessage(connection, message1);
 							// Set the publish attempts
-							pod.incrementPublishAttempts();
-							// Set POD State to PUBLISHED
-							pod.setPodState(PodState.PUBLISHED);
+							pod.incrementEventMessageAttempts();
+							// Set POD State to DELIVERED
+							pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
 							DocumentStore.update(pod, messageId);
 							break;
 						case 300:// ACKNOWLEDGED state of POD
@@ -218,17 +218,17 @@ public class SynapticMonitor extends ConnectorMonitorThread
 							// Create the ACK_RECEIVED message  
 							Message message = new AcknowledgeMessage.Builder()
 							.data(new ThreeWayAcknowledgementData.Builder()
-									.writeRecord(pod.getWriteRecord()) // WriteRecord of PUBLISH_EVENT
-									.ackNetworkRecord(pod.getAckNetworkRecord()) // NCEPH_EVENT_ACK network record
+									.writeRecord(pod.getEventMessageWriteRecord()) // WriteRecord of PUBLISH_EVENT
+									.ackNetworkRecord(pod.getAckMessageNetworkRecord()) // NCEPH_EVENT_ACK network record
 									.build())
 							.mid(pod.getMessageId())
 							.type(SynapticOutgoingMessageType.ACK_RECEIVED.getMessageType())
 							.build();
 							enqueueMessage(connection, message);
 							// Set the threeWayAck attempts
-							pod.incrementThreeWayAckAttempts();
+							pod.incrementThreeWayAckMessageAttempts();
 							// Set POD State to ACK_RECIEVED
-							pod.setPodState(PodState.ACK_RECIEVED);
+							pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
 							DocumentStore.update(pod, messageId);
 							break;
 						case 500:// FINISHED state of POD

@@ -6,8 +6,8 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PorState;
-import com.ics.nceph.core.document.ProofOfDelivery;
+import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.receptor.PodReceptor;
@@ -29,7 +29,7 @@ public class PorDeletedReceptor extends PodReceptor
 	public void process() 
 	{
 		// 1. Load the POD to Update RELAY_ACK_RECEIVED network record.
-		ProofOfDelivery pod = (ProofOfDelivery)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
 		if (pod == null)
 		{
 			// Log and return
@@ -42,14 +42,15 @@ public class PorDeletedReceptor extends PodReceptor
 
 		ProofOfRelay por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
 		// 2. Increment relay count only if porstate is not finished already.
-		if(por.getPorState() != PorState.FINISHED)
+		if(por.getMessageDeliveryState() != MessageDeliveryState.FINISHED)
 			pod.incrementRelayCount();
 		// 3. Set ThreeWayRelayAckNetworkRecord and save to local storage.
-		por.setThreeWayAckNetworkRecord(getPod().getThreeWayAckNetworkRecord());
-		por.incrementDeletePorAttempts();
+		por.setThreeWayAckMessageNetworkRecord(getPod().getThreeWayAckNetworkRecord());
+		por.incrementFinalMessageAttempts();
 		por.setAppReceptorFailed(false);
-		por.setPorState(PorState.FINISHED);
-		try {
+		por.setMessageDeliveryState(MessageDeliveryState.FINISHED);
+		try 
+		{
 			DocumentStore.update(pod, getMessage().decoder().getId());
 		} catch (IOException e) {
 		}

@@ -181,6 +181,8 @@ public class CerebralConnector extends Connector
 		
 		private SSLContext sslContext;
 		
+		private CerebralMonitor cerebralMonitor;
+		
 		/**
 		 * Not required if building a SYNAPTIC connector. Port number of the server socket within the connector
 		 * 
@@ -247,6 +249,12 @@ public class CerebralConnector extends Connector
 			return this;
 		}
 		
+		public Builder cerebralMonitor(CerebralMonitor cerebralMonitor)
+		{
+			this.cerebralMonitor = cerebralMonitor;
+			return this;
+		}
+		
 		/**
 		 * Builds the {@link Connector} instance
 		 * 
@@ -265,7 +273,7 @@ public class CerebralConnector extends Connector
 								sslContext
 								);
 			// 2. Initialize the monitor thread
-			connnector.initializeMonitor(new CerebralMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
+			connnector.initializeMonitor(cerebralMonitor, NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 			// 3. Return the connector
 			return connnector;
 		}

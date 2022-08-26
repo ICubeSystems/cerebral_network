@@ -3,12 +3,11 @@ package com.ics.nceph.core.document;
 import java.util.ArrayList;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.event.EventData;
-import com.ics.nceph.core.message.IORecord;
-import com.ics.nceph.core.message.NetworkRecord;
 
 /**
  * Data structure to hold the complete information regarding the complex process of message relay.<br>
@@ -48,250 +47,69 @@ import com.ics.nceph.core.message.NetworkRecord;
  * @version 1.0
  * @since 08-Mar-2022
  */
-public class ProofOfRelay extends Document
+public class ProofOfRelay extends ProofOfDelivery
 {
 	public static String DOC_PREFIX = "p";
 	
-	private Date deliveredOn;
+	/**
+	 * Message Receiver NodeId {@link consumerNodeId}
+	 */
+	private Integer consumerNodeId;
 	
-	private Date ackReceivedOn;
+	/**
+	 * Message Receiver Port Number {@link consumerPortNumber}
+	 */
+	private Integer consumerPortNumber;
 	
-	private EventData event;
-	
-	private IORecord writeRecord;
-	
-	private IORecord readRecord;
-	
-	private IORecord ackWriteRecord;
-	
-	private IORecord ackReadRecord;
-	
-	private IORecord threeWayAckWriteRecord;
-	
-	private IORecord threeWayAckReadRecord;
-	
-	private NetworkRecord eventNetworkRecord;
-	
-	private NetworkRecord ackNetworkRecord;
-	
-	private NetworkRecord threeWayAckNetworkRecord;
-	
-	private Date DeleteReqTime;
-	
-	private PorState porState;
-	
-	private int acknowledgementAttempts = 0;
-	
-	private int relayAttempts = 0;
-	
-	private int threeWayAckAttempts = 0;
-	
-	private int deletePorAttempts = 0;
-	
+	/**
+	 * 
+	 */
 	private String appReceptorName;
 	
+	/**
+	 * 
+	 */
 	private long appReceptorExecutionTime;
 	
+	/**
+	 * 
+	 */
 	private String appReceptorExecutionErrorMsg;
 	
+	/**
+	 * 
+	 */
 	private int appReceptorExecutionAttempts = 0;
 	
+	/**
+	 * 
+	 */
 	private boolean appReceptorFailed;
 	
-	ProofOfRelay(){
-		super.changeLog = new ArrayList<String>();
+	ProofOfRelay() {
+		changeLog = new ArrayList<String>();
 	}
 	
-	ProofOfRelay(String messageId, EventData event, long createdOn)
+	ProofOfRelay(String messageId, EventData event, long createdOn, Integer nodeId)
 	{
+		changeLog = new ArrayList<String>();
 		this.createdOn = createdOn;
-		this.messageId = messageId;
-		this.event = event;
-		this.porState = PorState.INITIAL;
-		super.changeLog = new ArrayList<String>();
+		setMessageId(messageId);
+		setEvent(event);
+		setMessageDeliveryState(MessageDeliveryState.INITIAL);
+		this.consumerNodeId = nodeId;
 		changeLog.add("New");
 	}
-
-	public EventData getEvent() {
-		return event;
-	}
-
-	public IORecord getWriteRecord() {
-		return writeRecord;
-	}
-
-	public void setWriteRecord(IORecord writeRecord) {
-		this.writeRecord = writeRecord;
-		outOfSync("WriteRecord");
-	}
-
-	public IORecord getReadRecord() {
-		return readRecord;
-	}
-	public int getAcknowledgementAttempts() {
-		return acknowledgementAttempts;
-	}
-
-	public int getRelayAttempts() {
-		return relayAttempts;
-	}
-
-	public int getThreeWayAckAttempts() {
-		return threeWayAckAttempts;
-	}
-
-	public int getDeletePorAttempts() {
-		return deletePorAttempts;
-	}
 	
-	public void incrementRelayAttempts() {
-		this.relayAttempts++;
-		outOfSync("relayAttempts");
-	}
-	
-	public void incrementAcknowledgementAttempts() {
-		this.acknowledgementAttempts++;
-		outOfSync("acknowledgementAttempts");
-	}
-	
-	public void incrementThreeWayAckAttempts() {
-		this.threeWayAckAttempts++;
-		outOfSync("threeWayAckAttempts");
-	}
-	
-	public void incrementDeletePorAttempts() {
-		this.deletePorAttempts++;
-		outOfSync("deletePorAttempts");
-	}
-	
-	public void decrementRelayAttemptsAttempts() {
-		this.relayAttempts--;
-		outOfSync("publishAttempts");
-	}
-	
-	public void decrementAcknowledgementAttempts() {
-		this.acknowledgementAttempts--;
-		outOfSync("acknowledgementAttempts");
-	}
-	
-	public void decrementThreeWayAckAttempts() {
-		this.threeWayAckAttempts--;
-		outOfSync("threeWayAckAttempts");
-	}
-	
-	public void decrementDeletePorAttempts() {
-		this.deletePorAttempts--;
-		outOfSync("deletePorAttempts");
-	}
-	
-	public void setReadRecord(IORecord readRecord) {
-		this.readRecord = readRecord;
-		outOfSync("ReadRecord");
-	}
-	
-	public String getMessageId() {
-		return messageId;
+	public Integer getConsumerPortNumber() {
+		return consumerPortNumber;
 	}
 
-	public Date getDeliveredOn() {
-		return deliveredOn;
+	public void setConsumerPortNumber(Integer consumerPortNumber) 
+	{
+		this.consumerPortNumber = consumerPortNumber;
 	}
 
-	public void setDeliveredOn(Date deliveredOn) {
-		this.deliveredOn = deliveredOn;
-		outOfSync("DeliveredOn");
-	}
-
-	public Date getAckReceivedOn() {
-		return ackReceivedOn;
-	}
-
-	public void setAckReceivedOn(Date ackReceivedOn) {
-		this.ackReceivedOn = ackReceivedOn;
-		outOfSync("AckReceivedOn");
-	}
-
-	public NetworkRecord getAckNetworkRecord() {
-		return ackNetworkRecord;
-	}
-
-	public void setAckNetworkRecord(NetworkRecord ackNetworkRecord) {
-		this.ackNetworkRecord = ackNetworkRecord;
-		outOfSync("AckNetworkRecord");
-	}
-
-	public NetworkRecord getThreeWayAckNetworkRecord() {
-		return threeWayAckNetworkRecord;
-	}
-
-	public void setThreeWayAckNetworkRecord(NetworkRecord threeWayAckNetworkRecord) {
-		this.threeWayAckNetworkRecord = threeWayAckNetworkRecord;
-		outOfSync("ThreeWayAckNetworkRecord");
-	}
-
-	public NetworkRecord getEventNetworkRecord() {
-		return eventNetworkRecord;
-	}
-
-	public void setEventNetworkRecord(NetworkRecord eventNetworkRecord) {
-		this.eventNetworkRecord = eventNetworkRecord;
-		outOfSync("EventNetworkRecord");
-	}
-
-	public Date getDeleteReqTime() {
-		return DeleteReqTime;
-	}
-
-	public void setDeleteReqTime(Date deleteReqTime) {
-		DeleteReqTime = deleteReqTime;
-		outOfSync("DeleteReqTime");
-	}
-	
-	public IORecord getAckWriteRecord() {
-		return ackWriteRecord;
-	}
-
-	public void setAckWriteRecord(IORecord ackWriteRecord) {
-		this.ackWriteRecord = ackWriteRecord;
-		outOfSync("AckWriteRecord");
-	}
-
-	public IORecord getAckReadRecord() {
-		return ackReadRecord;
-	}
-
-	public void setAckReadRecord(IORecord ackReadRecord) {
-		this.ackReadRecord = ackReadRecord;
-		outOfSync("AckReadRecord");
-	}
-
-	public IORecord getThreeWayAckWriteRecord() {
-		return threeWayAckWriteRecord;
-	}
-
-	public void setThreeWayAckWriteRecord(IORecord threeWayAckWriteRecord) {
-		this.threeWayAckWriteRecord = threeWayAckWriteRecord;
-		outOfSync("ThreeWayAckWriteRecord");
-	}
-
-	public IORecord getThreeWayAckReadRecord() {
-		return threeWayAckReadRecord;
-	}
-
-	public void setThreeWayAckReadRecord(IORecord threeWayAckReadRecord) {
-		this.threeWayAckReadRecord = threeWayAckReadRecord;
-		outOfSync("ThreeWayAckReadRecord");
-	}
-	
-	public PorState getPorState() {
-		return porState;
-	}
-
-	public void setPorState(PorState porState) {
-		this.porState = porState;
-		outOfSync("PorState");
-	}
-	
 	public String getAppReceptorName() {
 		return appReceptorName;
 	}
@@ -324,7 +142,7 @@ public class ProofOfRelay extends Document
 		this.appReceptorExecutionAttempts++;
 	}
 	
-	public boolean isAppReceptorFailed()
+	public boolean isAppReceptorFailed() 
 	{
 		return appReceptorFailed;
 	}
@@ -334,13 +152,23 @@ public class ProofOfRelay extends Document
 		this.appReceptorFailed = appReceptorFailed;
 	}
 
+	public Integer getConsumerNodeId() 
+	{
+		return consumerNodeId;
+	}
+
+	public void setConsumerNodeId(Integer nodeId) 
+	{
+		this.consumerNodeId = nodeId;
+		outOfSync("consumerNodeId");
+	}
+
 	public String toString()
 	{
-		ObjectMapper mapper = new ObjectMapper();
+		ObjectMapper mapper = new ObjectMapper().setSerializationInclusion(Include.NON_NULL);
 		try {
 			return mapper.writeValueAsString(this);
 		} catch (JsonProcessingException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return null;
@@ -348,16 +176,15 @@ public class ProofOfRelay extends Document
 	
 	public void decrementAttempts()
 	{
-		if(porState.getState() == 100 || porState.getState() == 200)
-			decrementRelayAttemptsAttempts();
+		if(getMessageDeliveryState().getState() == 100 || getMessageDeliveryState().getState() == 200)
+			decrementEventMessageAttempts();
 		else
-			decrementThreeWayAckAttempts();
+			decrementThreeWayAckMessageAttempts();
 	}
 	
 	@Override
 	public String localMessageStoreLocation() 
 	{
-		// TODO Auto-generated method stub
 		return Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location");
 	}
 	
@@ -372,6 +199,8 @@ public class ProofOfRelay extends Document
 		
 		private EventData event;
 		
+		private int nodeId;
+		
 		private long relayedOn;
 		
 		public Builder messageId(String messageId)
@@ -380,12 +209,18 @@ public class ProofOfRelay extends Document
 			return this;
 		}
 		
+		public Builder nodeId(int nodeId)
+		{
+			this.nodeId = nodeId;
+			return this;
+		}
+		
 		public Builder event(EventData event)
 		{
 			this.event = event;
 			return this;
 		}
-		
+
 		public Builder relayedOn(long relayedOn)
 		{
 			this.relayedOn = relayedOn;
@@ -394,7 +229,7 @@ public class ProofOfRelay extends Document
 		
 		public ProofOfRelay build()
 		{
-			return new ProofOfRelay(messageId, event, this.relayedOn  == 0L? new Date().getTime() : this.relayedOn);
+			return new ProofOfRelay(messageId, event, this.relayedOn  == 0L? new Date().getTime() : this.relayedOn, nodeId);
 		}
 	}
 }

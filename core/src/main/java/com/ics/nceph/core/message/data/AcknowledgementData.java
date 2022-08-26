@@ -54,11 +54,18 @@ public class AcknowledgementData extends MessageData implements Serializable
 	boolean appReceptorFailed;
 	
 	/**
+	 * 
+	 */
+	int nodeId;
+	
+	/**
 	 * Default constructor used by ObjectMapper to serialize/ deserialize this object
 	 */
 	public AcknowledgementData() {}
 	
-	private AcknowledgementData(IORecord readRecord, NetworkRecord ackNetworkRecord, NetworkRecord eventNetworkRecord, String appReceptorName, String appReceptorExecutionErrorMsg, long appReceptorExecutionTime, boolean appReceptorFailed)
+
+	private AcknowledgementData(IORecord readRecord, NetworkRecord ackNetworkRecord, NetworkRecord eventNetworkRecord, String appReceptorName, String appReceptorExecutionErrorMsg, long appReceptorExecutionTime, boolean appReceptorFailed, int nodeId)
+
 	{
 		this.readRecord = readRecord;
 		this.ackNetworkRecord = ackNetworkRecord;
@@ -67,6 +74,7 @@ public class AcknowledgementData extends MessageData implements Serializable
 		this.appReceptorExecutionErrorMsg = appReceptorExecutionErrorMsg;
 		this.appReceptorExecutionTime = appReceptorExecutionTime;
 		this.appReceptorFailed = appReceptorFailed;
+		this.nodeId = nodeId;
 	}
 	
 	public IORecord getReadRecord() {
@@ -85,7 +93,7 @@ public class AcknowledgementData extends MessageData implements Serializable
 		return appReceptorName;
 	}
 
-	public String getAppReceptorExecutionErrorMsg() {
+	public String getAppReceptorExecutionErrorMsg() {	
 		return appReceptorExecutionErrorMsg;
 	}
 
@@ -96,6 +104,11 @@ public class AcknowledgementData extends MessageData implements Serializable
 	public boolean isAppReceptorFailed()
 	{
 		return appReceptorFailed;
+	}
+
+	public int getNodeId() 
+	{
+		return nodeId;
 	}
 
 	public static class Builder
@@ -113,6 +126,8 @@ public class AcknowledgementData extends MessageData implements Serializable
 		private long appReceptorExecutionTime;
 		
 		boolean appReceptorFailed;
+
+		private int nodeId;
 		
 		public Builder readRecord(IORecord readRecord)
 		{
@@ -123,6 +138,12 @@ public class AcknowledgementData extends MessageData implements Serializable
 		public Builder ackNetworkRecord(NetworkRecord ackNetworkRecord)
 		{
 			this.ackNetworkRecord = ackNetworkRecord;
+			return this;
+		}
+		
+		public Builder nodeId(int nodeId)
+		{
+			this.nodeId = nodeId;
 			return this;
 		}
 		
@@ -158,7 +179,7 @@ public class AcknowledgementData extends MessageData implements Serializable
 		
 		public AcknowledgementData build() 
 		{
-			return new AcknowledgementData(readRecord, ackNetworkRecord, eventNetworkRecord, appReceptorName, appReceptorExecutionErrorMsg, appReceptorExecutionTime, appReceptorFailed);
+			return new AcknowledgementData(readRecord, ackNetworkRecord, eventNetworkRecord, appReceptorName, appReceptorExecutionErrorMsg, appReceptorExecutionTime, appReceptorFailed, nodeId);
 		}
 	}
 }

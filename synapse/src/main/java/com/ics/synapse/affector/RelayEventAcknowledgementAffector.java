@@ -5,7 +5,7 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PorState;
+import com.ics.nceph.core.document.MessageDeliveryState;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.message.Message;
@@ -43,10 +43,10 @@ public class RelayEventAcknowledgementAffector extends Affector
 			return;
 		}
 		
-		por.setAckWriteRecord(getMessage().getWriteRecord());
+		por.setAckMessageWriteRecord(getMessage().getWriteRecord());
 		// Update por state only if it is not yet ACKNOWLEDGED ( this is done for the case where receptor executes prior to affector )
-		if(por.getPorState().getState() < PorState.ACKNOWLEDGED.getState())
-			por.setPorState(PorState.ACKNOWLEDGED);
+		if(por.getMessageDeliveryState().getState() < MessageDeliveryState.ACKNOWLEDGED.getState())
+			por.setMessageDeliveryState(MessageDeliveryState.ACKNOWLEDGED);
 		// Save the POD
 		try {
 			DocumentStore.update(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
