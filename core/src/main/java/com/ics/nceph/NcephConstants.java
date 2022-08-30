@@ -26,17 +26,25 @@ public class NcephConstants
 	 * used to check the context from where messages was queued to connector or connection
 	 */
 	public static int QUEUED_FROM_CONNECTOR = 100;
+	
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
 	public static int QUEUED_FROM_EMITTER = 200;
+	
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
 	public static int QUEUED_FROM_RECEPTOR = 300;
+	
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
 	public static int QUEUED_FROM_MONITOR = 400;
+	
+	/**
+	 * Save message in DynamoDB or local stores (True, False)
+	 */
+	public static boolean saveInDB = true;
 	
 }

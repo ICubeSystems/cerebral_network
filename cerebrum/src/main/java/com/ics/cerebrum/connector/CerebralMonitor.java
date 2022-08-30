@@ -15,6 +15,7 @@ import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.MonitorLog;
 import com.ics.logger.NcephLogger;
+import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
@@ -30,9 +31,11 @@ import com.ics.nceph.core.db.dynamoDB.repository.ReceivedMessageRepository;
 import com.ics.nceph.core.document.Document;
 import com.ics.nceph.core.document.DocumentStore;
 import com.ics.nceph.core.document.MessageDeliveryState;
+import com.ics.nceph.core.document.ProofOfDelivery;
 import com.ics.nceph.core.document.ProofOfPublish;
 import com.ics.nceph.core.document.ProofOfRelay;
 import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.event.exception.EventNotSubscribedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.EventMessage;
@@ -135,10 +138,9 @@ public class CerebralMonitor extends ConnectorMonitorThread
 							// Get the subscriber connectors for this event
 							ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(pod.getEvent().getEventType());
 							// Loop over the subscriber and check the PORs within the POD
-							ArrayList<Integer> offlineConnectors = new ArrayList<Integer>();
 							for (Connector subscriberConnector : subscribers) 
 							{
-								
+
 								// Get connection from subscriber's connector
 								Connection connection = subscriberConnector.getConnection();
 
@@ -192,7 +194,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 											DocumentStore.update(pod, messageId);
 											break;
 										case 500:// FINISHED state of POR
-											// Call savePublishedMessage method to save receive message in the DynamoDB
+											// Call savePORInDB method to save receive message in the DynamoDB
 											savePORInDB(pod, por);
 											break;
 										default:
@@ -225,18 +227,15 @@ public class CerebralMonitor extends ConnectorMonitorThread
 									}
 								} 
 								else {
-									// Call savePublishedMessage method to save receive message in the DynamoDB
+									// Call savePORInDB method to save receive message in the DynamoDB
 									savePORInDB(pod, por);
-									offlineConnectors.add(subscriberConnector.getPort());
 								}
 							}
-							// Call savePublishedMessage method to save publish message in the DynamoDB
-								savePODInDB(pod);
+							// Call savePODInDB method to save publish message in the DynamoDB
+							savePODInDB(pod);
+
 							// Delete POD in local store
-							if(pod.isMessageInDB() && pod.getSubscriberCount() == pod.getRelayCount().intValue()) 
-							{
-								deletePod(pod);
-							}
+							deletePod(pod);
 						}
 					}					
 				}
@@ -279,7 +278,13 @@ public class CerebralMonitor extends ConnectorMonitorThread
 				.action("Cerebral monitor end")
 				.logInfo());
 	}
-
+	
+	private boolean isReadyToUpload(ProofOfDelivery pod) {
+		return NcephConstants.saveInDB 
+				&& !pod.isMessageInDB() 
+				&& pod.getMessageDeliveryState().getState() == MessageDeliveryState.FINISHED.getState();
+	}
+	
 	/**
 	 * 
 	 * @param pod
@@ -290,9 +295,9 @@ public class CerebralMonitor extends ConnectorMonitorThread
 	{
 		try 
 		{
-			if(!por.isMessageInDB() && por.getMessageDeliveryState().getState() == MessageDeliveryState.FINISHED.getState()) 
+			if(isReadyToUpload(por)) 
 			{
-				saveReceiveMessage(por, pod.getEvent().getObjectJSON());
+				saveReceiveMessage(por, pod.getEvent());
 				por.setMessageInDB(true);
 				DocumentStore.update(pod, pod.getMessageId());	
 			}
@@ -308,19 +313,18 @@ public class CerebralMonitor extends ConnectorMonitorThread
 					.logError(),e);
 		}
 	}
-	
-	private void savePODInDB(ProofOfPublish pod) 
+
+	private void savePODInDB(ProofOfPublish pop) 
 	{
 		try 
 		{
-			if(!pod.isMessageInDB() && pod.getMessageDeliveryState().getState() == MessageDeliveryState.FINISHED.getState() && pod.getSubscriberCount() == pod.getRelayCount().get()) 
+			if(isReadyToUpload(pop)) 
 			{
-				
-				savePublishedMessage(pod);
-				pod.setMessageInDB(true);
-				DocumentStore.update(pod, pod.getMessageId());	
+				savePublishedMessage(pop);
+				pop.setMessageInDB(true);
+				DocumentStore.update(pop, pop.getMessageId());	
 			}
-			
+
 		} catch (DatabaseException e) {
 			NcephLogger.DYNAMODB_LOGGER.fatal(new DynamodbLog.Builder()
 					.action("DatabaseException")
@@ -337,15 +341,15 @@ public class CerebralMonitor extends ConnectorMonitorThread
 	/**
 	 * Save Publish message in DynamoDB
 	 * 
-	 * @param pod
+	 * @param pop
 	 * @throws DatabaseException
 	 */
-	public void savePublishedMessage(ProofOfPublish pod) throws DatabaseException
+	public void savePublishedMessage(ProofOfPublish pop) throws DatabaseException
 	{
 		try 
 		{
 			PublishedMessageEntity publishMessage = new PublishedMessageEntity.Builder()
-					.pod(pod.toString())
+					.pod(pop.toString())
 					.build();
 			// Save data in the DynamoDB
 			publishedMessageRepository.save(publishMessage);
@@ -360,7 +364,7 @@ public class CerebralMonitor extends ConnectorMonitorThread
 	 * @param por
 	 * @throws DatabaseException
 	 */
-	public void saveReceiveMessage(ProofOfRelay por, String eventData) throws DatabaseException
+	public void saveReceiveMessage(ProofOfRelay por, EventData eventData) throws DatabaseException
 	{
 		try 
 		{
@@ -383,9 +387,10 @@ public class CerebralMonitor extends ConnectorMonitorThread
 	 */
 	private void deletePod(ProofOfPublish pod) 
 	{
-		if(!DocumentStore.delete(pod.getMessageId(), pod)) 
+		if(pod.isMessageInDB() && pod.getSubscriberCount() == pod.getRelayCount().intValue() && !DocumentStore.delete(pod.getMessageId(), pod)) 
 		{
 			// Pod not deleted ?
 		}
+		
 	}
 }

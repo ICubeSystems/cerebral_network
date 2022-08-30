@@ -8,9 +8,9 @@ public class MessageDeliveryState
 {
 	private int state;
 	
-	MessageDeliveryState(){}
+	public MessageDeliveryState(){}
 	
-	MessageDeliveryState(int state)
+	public MessageDeliveryState(int state)
 	{
 		this.state = state;
 	}

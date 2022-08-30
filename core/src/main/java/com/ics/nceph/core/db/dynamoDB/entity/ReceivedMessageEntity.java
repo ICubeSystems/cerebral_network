@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
+import com.ics.nceph.core.event.EventData;
 
 /**
  * Model class for RELAY_EVENT messages emitted via cerebrum to the subscribing synaptic nodes
@@ -124,7 +125,7 @@ public class ReceivedMessageEntity extends MessageEntity
 	{
 		private String por;
 		
-		private String event;
+		private EventData event;
 		
 		// DynamoDB MessageEntity Table keyPrefix (If message is published then add keyPrefix)
 		private String keyPrefix = "R:";
@@ -141,9 +142,10 @@ public class ReceivedMessageEntity extends MessageEntity
 			return this;
 		}
 		
-		public Builder event(String event)
+		public Builder event(EventData event)
 		{
 			this.event = event;
+			
 			return this;
 		}
 		
@@ -159,7 +161,7 @@ public class ReceivedMessageEntity extends MessageEntity
 					.build();
 			
 			// Set Event Data
-			receivedMessage.setEventData(event);
+			receivedMessage.setEvent(event);
 			
 			// Set Primary Key
 			receivedMessage.setKey(key);
