@@ -5,8 +5,8 @@ import java.lang.reflect.InvocationTargetException;
 import com.ics.logger.GeneralLog;
 import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
-import com.ics.nceph.config.ConfigStore;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.db.document.store.ConfigStore;
 import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.worker.Reader;
@@ -75,7 +75,7 @@ public abstract class ApplicationReceptor
 				// Class load the Receptor object
 				Class<?>[] constructorParamTypes = {EventData.class};
 				Object[] params = {eventData};
-				return (ApplicationReceptor) Class.forName(ConfigStore.getApplicationReceptor(eventData.getEventType())).getConstructor(constructorParamTypes).newInstance(params);
+				return (ApplicationReceptor) Class.forName(ConfigStore.getInstance().getApplicationReceptor(eventData.getEventType())).getConstructor(constructorParamTypes).newInstance(params);
 			} catch (InstantiationException | IllegalAccessException | IllegalArgumentException
 					| InvocationTargetException | NoSuchMethodException | SecurityException
 					| ClassNotFoundException e) {

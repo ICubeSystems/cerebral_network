@@ -195,9 +195,10 @@ public class MessageWriter
 			// Remove the message from the relayQueue & Store message sent to the outgoing message register
 			connection.getRelayQueue().poll();
 			connection.getConnector().removeConnectionQueuedUpMessage(message);
-			connection.getConnector().storeOutgoingMessage(message);
+			
 			// Open a write thread to do the post writing work like updating the ACK status of the messages
 			connection.getConnector().createPostWriteWorker(message, connection);
+			connection.getConnector().storeOutgoingMessage(message);
 			connection.updateMetric(message);
 			// Log
 			NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()

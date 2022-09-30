@@ -22,6 +22,7 @@ import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
+import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.worker.Reader;
@@ -65,6 +66,8 @@ public class CerebralConnector extends Connector
 		serverChannel.configureBlocking(false);
 		// This set the ReceiveBufSize for all the SocketChannels which will be accepted in this serverChannel
 		serverChannel.setOption(StandardSocketOptions.SO_RCVBUF, 1024*256);
+		// Set connector state to ready
+		this.setState(ConnectorState.READY);
 	}
 	
 	/**
@@ -117,9 +120,14 @@ public class CerebralConnector extends Connector
 							.entry("Port", String.valueOf(connection.getConnector().getPort()))
 							.toString())
 					.logInfo());
-			
 		} catch (ConnectionException e) {
-			e.printStackTrace();
+			NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
+					.connectionId("New")
+					.action("Connection build failed")
+					.data(new LogData()
+							.entry("Port", String.valueOf(this.getPort()))
+							.toString())
+					.logError(),e);
 		}
 	}
 	
@@ -138,7 +146,7 @@ public class CerebralConnector extends Connector
 	@Override
 	public void createPostWriteWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().register(new CerebralWriter(incomingConnection, message));
+		getReaderPool().execute(new CerebralWriter(incomingConnection, message));
 	}
 	
 	/**
@@ -181,8 +189,6 @@ public class CerebralConnector extends Connector
 		
 		private SSLContext sslContext;
 		
-		private CerebralMonitor cerebralMonitor;
-		
 		/**
 		 * Not required if building a SYNAPTIC connector. Port number of the server socket within the connector
 		 * 
@@ -219,22 +225,22 @@ public class CerebralConnector extends Connector
 		/**
 		 * Pool of reader worker threads
 		 * 
-		 * @param readerPool
+		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder readerPool(WorkerPool<Reader> readerPool) {
-			this.readerPool = readerPool;
+		public Builder readerPool(WorkerPool<Reader> workerPool) {
+			this.readerPool = workerPool;
 			return this;
 		}
 		
 		/**
 		 * Pool of writer worker threads
 		 * 
-		 * @param writerPool
+		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder writerPool(WorkerPool<Writer> writerPool) {
-			this.writerPool = writerPool;
+		public Builder writerPool(WorkerPool<Writer> workerPool) {
+			this.writerPool = workerPool;
 			return this;
 		}
 		
@@ -246,12 +252,6 @@ public class CerebralConnector extends Connector
 		 */
 		public Builder sslContext(SSLContext sslContext) {
 			this.sslContext = sslContext;
-			return this;
-		}
-		
-		public Builder cerebralMonitor(CerebralMonitor cerebralMonitor)
-		{
-			this.cerebralMonitor = cerebralMonitor;
 			return this;
 		}
 		
@@ -273,7 +273,7 @@ public class CerebralConnector extends Connector
 								sslContext
 								);
 			// 2. Initialize the monitor thread
-			connnector.initializeMonitor(cerebralMonitor, NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
+			connnector.initializeMonitor(new CerebralMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 			// 3. Return the connector
 			return connnector;
 		}

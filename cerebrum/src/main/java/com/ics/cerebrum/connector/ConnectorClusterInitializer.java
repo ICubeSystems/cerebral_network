@@ -1,23 +1,22 @@
 package com.ics.cerebrum.connector;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
-import javax.xml.bind.JAXBContext;
-import javax.xml.bind.JAXBException;
+
 import org.springframework.beans.factory.annotation.Autowired;
-import com.ics.cerebrum.nodes.xml.Subscription;
-import com.ics.cerebrum.nodes.xml.Subscriptions;
-import com.ics.cerebrum.nodes.xml.SynapticNode;
-import com.ics.cerebrum.nodes.xml.SynapticNodes;
+
+import com.ics.cerebrum.configuration.CerebralConfiguration;
+import com.ics.cerebrum.configuration.exception.ConfigurationException;
+import com.ics.cerebrum.db.document.NetworkConfiguration;
+import com.ics.cerebrum.db.document.Subscription;
+import com.ics.cerebrum.db.document.SynapticNodesList;
 import com.ics.logger.BootstraperLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
-import com.ics.nceph.core.db.dynamoDB.repository.PublishedMessageRepository;
-import com.ics.nceph.core.db.dynamoDB.repository.ReceivedMessageRepository;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.ssl.NcephSSLContext;
 import com.ics.nceph.core.ssl.exception.SSLContextInitializationException;
@@ -28,7 +27,7 @@ import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 
 /**
- * Factory class to create {@link ConnectorCluster} from the organs.xml.
+ * Factory class to create {@link ConnectorCluster}.
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -38,13 +37,10 @@ public class ConnectorClusterInitializer
 {
 	ReactorCluster reactorCluster;
 
-	Subscriptions eventSubscriptions;
-
-	@Autowired
-	public PublishedMessageRepository publishedMessageRepository;
+	List<Subscription> eventSubscriptions;
 	
 	@Autowired
-	public ReceivedMessageRepository relayedMessageRepository;
+	private CerebralConfiguration cerebralConfiguration;
 	
 	/**
 	 * Map of EventId -> ArrayList of connectors subscribed for the event
@@ -60,20 +56,18 @@ public class ConnectorClusterInitializer
 		this.applicationReceptors = new HashMap<Integer, HashMap<Integer, String>>();
 	}
 
-	public ConnectorCluster initializeConnectionCluster() throws IOException, JAXBException, SSLContextInitializationException
+	public ConnectorCluster initializeConnectionCluster() throws IOException, ConfigurationException, SSLContextInitializationException
 	{
 		// 1. Instantitiate new ConnectorCluster
 		ConnectorCluster connectorCluster = new ConnectorCluster();
 		
-		// 2. Load the file - SynapticNodes.xml
-		InputStream xmlNode = Thread.currentThread().getContextClassLoader().getResourceAsStream("SynapticNodes.xml");
-
-		// 3. Initialize JAXBContext for SynapticNodes object
-		JAXBContext context = JAXBContext.newInstance(SynapticNodes.class);
-		SynapticNodes synapticNodes = (SynapticNodes) context.createUnmarshaller().unmarshal(xmlNode); 
-
+		SynapticNodesList synapticNodes;
+		
+		synapticNodes = cerebralConfiguration.getSynapticNodes();
+		
+		
 		// 4. Loop over synaptic nodes and create CerebralConnector per node. And create subscription meta data for the cerebrum.
-		for (SynapticNode synapticNode : synapticNodes.getNodes()) 
+		for (NetworkConfiguration synapticNode : synapticNodes) 
 		{
 			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
 					.action("Creating Connector")
@@ -97,7 +91,6 @@ public class ConnectorClusterInitializer
 							.workQueue(new LinkedBlockingQueue<Runnable>())
 							.rejectedThreadHandler(new RejectedWriterHandler()).build())
 					.sslContext(NcephSSLContext.getSSLContext())
-					.cerebralMonitor(new CerebralMonitor(publishedMessageRepository, relayedMessageRepository))
 					.build();
 
 			// 4.2. Add the newly created connector to the ConnectorCluster
@@ -107,12 +100,13 @@ public class ConnectorClusterInitializer
 			if(synapticNode.getSubscriptions() != null) 
 			{
 				eventSubscriptions = synapticNode.getSubscriptions();
-				for (int i = 0; i < eventSubscriptions.getSubscriptionList().size(); i++) 
+				for (int i = 0; i < eventSubscriptions.size(); i++) 
 				{
-					subscribeForEvent(eventSubscriptions.getSubscriptionList().get(i).getEventType(), synapticNode.getPort());
-					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.getSubscriptionList().get(i));
+					subscribeForEvent(eventSubscriptions.get(i).getEventType(), synapticNode.getPort());
+					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.get(i));
 				}
 			}
+			
 		}
 
 		ConnectorCluster.subscriptions = subscriptions;

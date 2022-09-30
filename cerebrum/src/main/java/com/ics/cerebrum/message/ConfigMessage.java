@@ -16,8 +16,8 @@ import com.ics.util.ByteUtil;
  */
 public class ConfigMessage extends Message
 {
-	ConfigMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId) {
-		super(eventType, type, data, messageId, sourceId);
+	ConfigMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId,  byte[] originatingPort) {
+		super(eventType, type, data, messageId, sourceId, originatingPort);
 		// TODO Auto-generated constructor stub
 	}
 
@@ -38,6 +38,8 @@ public class ConfigMessage extends Message
 		private byte[] messageId;
 		
 		private byte[] sourceId;
+		
+		private byte[] originatingPort;
 		
 		public Builder data(MessageData messageData) throws MessageBuildFailedException
 		{
@@ -60,6 +62,11 @@ public class ConfigMessage extends Message
 			return this;
 		} 
 		
+		public Builder originatingPort(Integer originatingPort) {
+			this.originatingPort = ByteUtil.convertToByteArray(originatingPort, 2);
+			return this;
+		}
+		
 		public Builder mid(String mid) {
 			String[] idArray = mid.split("-",2);
 			this.messageId = ByteUtil.convertToByteArray(Integer.valueOf(idArray[1]), 6);
@@ -70,7 +77,7 @@ public class ConfigMessage extends Message
 		public ConfigMessage build()
 		{
 			eventType = Integer.valueOf(0).byteValue(); 
-			return new ConfigMessage(type, eventType, data, messageId, sourceId);
+			return new ConfigMessage(type, eventType, data, messageId, sourceId, originatingPort);
 		}
 	}
 }

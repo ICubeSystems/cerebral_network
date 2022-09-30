@@ -6,10 +6,10 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfRelay;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfRelay;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.data.AcknowledgementDoneData;
@@ -34,16 +34,16 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 
 	@Override
 	public void process() 
-	{
+	{                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 		// 1. Save the write record and three way acknowledgement record in the local datastore
-		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+		ProofOfRelay por = ProofOfRelay.load(getMessage().decoder().getOriginatingPort(), getIncomingConnection().getConnector().getPort(), getMessage().decoder().getId());
 		if (por == null)
 		{
 			// TODO: Handle case a.
 			// Log the fatal error if the POR is not in the local storage
 			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())
-					.action("404 - POD not found")
+					.action("404 - POR not found")
 					.logInfo());
 			return;
 		}
@@ -63,9 +63,9 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 			// 2.6 Set the delePod attempts
 			por.incrementFinalMessageAttempts();
 			// 2.7 Set POR State to ACK_RECIEVED
-			por.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
+			por.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED.getState());
 			// 2.5 Update the POD in the local storage
-			DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+			DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 			
 			// Application receptor execution failed to execute from RelayedEventReceptor, following 2 cases arise:
 			// CASE 1: this class is called via 3way ack message from cerebrum 
@@ -86,21 +86,16 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 						.messageId(getMessage().getMessageId())
 						.type(SynapticOutgoingMessageType.POR_DELETED.getMessageType())
 						.sourceId(getMessage().getSourceId())
+						.originatingPort(getMessage().getOriginatingPort())
 						.build();
 				// 3.2 Enqueue POD_DELETED on the incoming connection
 				getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
 				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 				// Delete the POR
-				por.setMessageDeliveryState(MessageDeliveryState.FINISHED);
-				if (!DocumentStore.delete(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId(),por))
-				{
-					NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
-							.messageId(getMessage().decoder().getId())
-							.action("POR deletion failed")
-							.logError());
-					return;
-				}
-				DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+				por.setMessageDeliveryState(MessageDeliveryState.FINISHED.getState());
+				DocumentStore.getInstance().update(por, getMessage().decoder().getId());
+				por.removeFromCache();
+				
 			}
 		} 
 		catch (DocumentSaveFailedException e) {}
@@ -115,7 +110,7 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 			// Save the POD
 			try 
 			{
-				DocumentStore.update(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+				DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 			} catch (DocumentSaveFailedException e){}
 			return;
 		}
@@ -141,6 +136,6 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 			por.setAppReceptorFailed(true);
 			// LOG
 		}
-		DocumentStore.update(por,  ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+		DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 	}
 }

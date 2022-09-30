@@ -8,10 +8,10 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.IORecord;
 import com.ics.nceph.core.message.Message;
@@ -55,7 +55,7 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 	public void process() 
 	{
 		// 1. Save the write record and three way acknowledgement record in the local datastore
-		ProofOfPublish pod = (ProofOfPublish) DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		// Following are the cases when the POD will not be found for the message id:
 		// a. POD is uploaded to the DB and 3-way ack is received after that [In this case we should check the DB and send Delete message if POD exists in DB]
 		// b. POD is deleted by mistake on the synaptic node [Handling TBD - for now just logging such occurrence]
@@ -86,9 +86,9 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 			// 2.6 Set the delePod attempts
 			pod.incrementFinalMessageAttempts();
 			// 2.7 Set Pod State to ACK_RECIEVED
-			pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
+			pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED.getState());
 			// 2.8 Update the POD in the local storage
-			DocumentStore.update(pod, getMessage().decoder().getId());
+			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
 
 
 			// 3.1 Create the DELETE_POD message 			
@@ -99,6 +99,7 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 					.messageId(getMessage().getMessageId())
 					.type(CerebralOutgoingMessageType.DELETE_POD.getMessageType())
 					.sourceId(getMessage().getSourceId())
+					.originatingPort(getMessage().getOriginatingPort())
 					.build();
 			// 3.2 Enqueue DELETE_POD on the incoming connection
 			getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
@@ -117,7 +118,7 @@ public class PublishedEventThreeWayAcknowledgementReceptor extends ThreeWayAckno
 			// Save the POD
 			try 
 			{
-				DocumentStore.update(pod, getMessage().decoder().getId());
+				DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
 			} catch (DocumentSaveFailedException e) 
 			{
 				//Log

@@ -1,5 +1,7 @@
 package com.ics.nceph;
 
+import com.ics.nceph.core.Configuration;
+
 public class NcephConstants 
 {
 	/**
@@ -45,6 +47,16 @@ public class NcephConstants
 	/**
 	 * Save message in DynamoDB or local stores (True, False)
 	 */
-	public static boolean saveInDB = true;
+	public static final boolean saveInDB = Boolean.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("messages.saveindb"));
 	
+
+	/**
+	 * {@link ProofOfPublish} & {@link ProofOfRelay} objects for the messages in transit can be stored in a local datastore or in an external database like DynamoDB.
+	 * <ul>
+	 * 	<li><b>100:</b> Local storage as files in a pre specified directory. <i>[Default]</i></li>
+	 * 	<li><b>200:</b> External database like DynamoDB. <i>[Note: {@link NcephConstants#MESSAGE_PERSISTANCE MESSAGE_PERSISTANCE} should be true for TRANSIT_MESSAGE_STORAGE to be set to external database (200)]</i></li>
+	 * </ul>
+	 */
+	public static final int TRANSIT_MESSAGE_STORAGE = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("messages.transit"));
+
 }

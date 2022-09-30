@@ -27,7 +27,7 @@ import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
  */
 public class dbScriptRunner 
 {
-	static public String tableName = "Message";
+	static public String messageTableName = "Message";
 
 	public static AmazonDynamoDB amazonDynamoDB() 
 	{
@@ -46,11 +46,11 @@ public class dbScriptRunner
 
 	public static void main(String[] args) throws Exception 
 	{
-		deleteTable();
-		createTable();
+		//deleteTable(messageTableName);
+		createMessageTable();
 	}
 
-	public static void createTable() 
+	public static void createMessageTable() 
 	{
 		// Attribute definitions
 		ArrayList<AttributeDefinition> attributeDefinitions = new ArrayList<AttributeDefinition>();
@@ -138,7 +138,7 @@ public class dbScriptRunner
 		// TableRequest
 		CreateTableRequest createTableRequest = new CreateTableRequest()
 				// Table Name
-				.withTableName(tableName)
+				.withTableName(messageTableName)
 				// Provisioned throughput table read write capacity units
 				.withProvisionedThroughput(provisionedThroughput)
 				// Attribute Definitions
@@ -149,15 +149,15 @@ public class dbScriptRunner
 				.withGlobalSecondaryIndexes(eventTypeIndex, eventIdIndex, producerNodeIdIndex, messageIdIndex, producerPortNumberIndex);
 
 
-		System.out.println("Creating table " + tableName + "...");
+		System.out.println("Creating table " + messageTableName + "...");
 		
 		// Create table in DynamoDB
 		dynamodb.createTable(createTableRequest);
 
 		// Wait for table to become active
-		System.out.println("Waiting for " + tableName + " to become ACTIVE...");
+		System.out.println("Waiting for " + messageTableName + " to become ACTIVE...");
 		try {
-			Table table = dynamodb.getTable(tableName);
+			Table table = dynamodb.getTable("hello");
 			table.waitForActive();
 		}
 		catch (InterruptedException e) {
@@ -165,16 +165,17 @@ public class dbScriptRunner
 		}
 	}
 	
-	public static void deleteTable() {
-		Table table = dynamodb.getTable(tableName);
-		try { 
-			System.out.println("Performing table delete, wait..."); 
-			table.delete(); 
-			table.waitForDelete(); 
-			System.out.print("Table successfully deleted.");  
-		} catch (Exception e) { 
-			System.err.println("Cannot perform table delete: "); 
-			System.err.println(e.getMessage()); 
-		}
-	}
+	
+//	private static void deleteTable(String tableName) {
+//		Table table = dynamodb.getTable(tableName);
+//		try { 
+//			System.out.println("Performing table delete, wait..."); 
+//			table.delete(); 
+//			table.waitForDelete(); 
+//			System.out.print("Table successfully deleted.");  
+//		} catch (Exception e) { 
+//			System.err.println("Cannot perform table delete: "); 
+//			System.err.println(e.getMessage()); 
+//		}
+//	}
 }

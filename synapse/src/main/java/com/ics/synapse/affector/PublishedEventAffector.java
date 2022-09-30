@@ -4,10 +4,10 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -33,7 +33,7 @@ public class PublishedEventAffector extends Affector
 	public void process() 
 	{
 		// Load the POD for this message
-		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		if (pod == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
@@ -45,11 +45,11 @@ public class PublishedEventAffector extends Affector
 		// Set the WriteRecord in the POD
 		pod.setEventMessageWriteRecord(getMessage().getWriteRecord());
 		// Update pod state only if it is not yet published ( this is done for the case where receptor executes prior to affector )
-		if(pod.getMessageDeliveryState().getState() < MessageDeliveryState.DELIVERED.getState())
-			pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
+		if(pod.getMessageDeliveryState() < MessageDeliveryState.DELIVERED.getState())
+			pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
 		// Save the POD
 		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
+			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
 		} catch (DocumentSaveFailedException e) {}
 	}
 }

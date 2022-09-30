@@ -48,23 +48,23 @@ public class EventType {
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
-	public static final EventType GIFT_ITEM = new EventType(1000, GiftItem.class, GiftItemThread.class);
+	public static final EventType GIFT_ITEM = new EventType(1, GiftItem.class, GiftItemThread.class);
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
-	public static final EventType GIFT_REDEEM = new EventType(2000, GiftRedeem.class, GiftRedeemThread.class);
+	public static final EventType GIFT_REDEEM = new EventType(2, GiftRedeem.class, GiftRedeemThread.class);
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
-	public static final EventType GIFT_REFUND = new EventType(3000, GiftRefund.class, GiftRefundThread.class);
+	public static final EventType GIFT_REFUND = new EventType(3, GiftRefund.class, GiftRefundThread.class);
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
-	public static final EventType GIFT_DELIVERED = new EventType(4000, GiftDelivered.class, GiftDeliveredThread.class);
+	public static final EventType GIFT_DELIVERED = new EventType(4, GiftDelivered.class, GiftDeliveredThread.class);
 	/**
 	 * used to check the context from where messages was queued to connector or connection
 	 */
-	public static final EventType GIFT_STATUS = new EventType(5000, GiftStatus.class, GiftStatusThread.class);
+	public static final EventType GIFT_STATUS = new EventType(5, GiftStatus.class, GiftStatusThread.class);
 	/**
 	 * 
 	 */ 

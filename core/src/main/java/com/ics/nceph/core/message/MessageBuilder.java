@@ -33,6 +33,8 @@ public class MessageBuilder
 	
 	public int messageCounter;
 	
+	public int messageOriginatingPort;
+	
 	byte[] tempBytes;
 	
 	byte counter;
@@ -48,6 +50,8 @@ public class MessageBuilder
 	byte[] dataLength = new byte[4];
 	
 	byte[] timeStamp = new byte[8];
+	
+	byte[] originatingPort = new byte[2];
 	
 	byte[] data;
 	
@@ -87,7 +91,11 @@ public class MessageBuilder
 	public void setTimeStamp(byte[] timeStamp) {
 		this.timeStamp = timeStamp;
 	}
-
+	
+	public void setOriginatingPort(byte[] originatingPort) {
+		this.originatingPort = originatingPort;
+	}
+	
 	public void saveTempBytes(byte[] tempBytes) throws IOException 
 	{
 		// If the tempBytes is set to null then assign the incoming bytes else merge and then assign
@@ -118,6 +126,8 @@ public class MessageBuilder
 		
 		// Set network start time
 		this.networkRecord = ByteUtil.convertToLong(timeStamp);
+		
+		this.messageOriginatingPort = ByteUtil.convertToInt(originatingPort);
 	}
 	
 	/**
@@ -188,7 +198,8 @@ public class MessageBuilder
 				dataLength, 
 				data, 
 				this.readRecordBuilder.end(new Date().getTime()).build(),
-				timeStamp
+				timeStamp,
+				originatingPort
 				);
 	}
 }

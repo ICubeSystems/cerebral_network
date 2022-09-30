@@ -2,9 +2,10 @@ package com.ics.nceph.core.message.data;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
@@ -15,25 +16,16 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
  * @version 1.0
  * @since 29-Mar-2022
  */
+@DynamoDBDocument
 public class MessageData 
 {
-	long createdOn;
-	
-	public MessageData() 
-	{
-		createdOn = new Date().getTime();
-	}
-
-	public long getCreatedOn() 
-	{
-		return createdOn;
-	}
-	
+	public MessageData() {}
 	public byte[] bytes() throws MessageBuildFailedException 
 	{
 		try
 		{
-			ObjectMapper mapper = new ObjectMapper();
+			ObjectMapper mapper = new ObjectMapper()
+					.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
 			String JSON = mapper.writeValueAsString(this);
 			return JSON.getBytes(StandardCharsets.UTF_8);
 		} catch (IOException e)

@@ -1,7 +1,7 @@
 package com.ics.id;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.ics.nceph.core.Configuration;
 
@@ -12,14 +12,14 @@ import com.ics.nceph.core.Configuration;
  */
 public class IdCounter
 {
-	private ConcurrentHashMap<Integer, AtomicInteger> sequenceCounters;
+	private ConcurrentHashMap<Integer, AtomicLong> sequenceCounters;
 	
 	public IdCounter() 
 	{
-		sequenceCounters = new ConcurrentHashMap<Integer, AtomicInteger>();
+		sequenceCounters = new ConcurrentHashMap<Integer, AtomicLong>();
 	}
 
-	public ConcurrentHashMap<Integer, AtomicInteger> getSequenceCounters() {
+	public ConcurrentHashMap<Integer, AtomicLong> getSequenceCounters() {
 		return sequenceCounters;
 	}
 

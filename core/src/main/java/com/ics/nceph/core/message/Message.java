@@ -6,9 +6,9 @@ import java.nio.ByteBuffer;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.id.IdGenerator;
 import com.ics.id.exception.IdGenerationFailedException;
-import com.ics.nceph.config.ConfigStore;
+import com.ics.nceph.core.db.document.store.ConfigStore;
+import com.ics.nceph.core.db.document.store.IdStore;
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.util.ByteUtil;
 
@@ -32,14 +32,16 @@ import com.ics.util.ByteUtil;
  *    +---------+---------+---------+---------+
  *    |                M_length               |
  *    +---------+---------+---------+---------+
- *    |                                       |
+ *    |  Originator_port  |                   |
+ *    +---------+---------+                   .
+ *    |                                       .
  *    .            ...  Data ...              .
  *    .                                       .
  *    .                                       .
  *    +----------------------------------------
  * </pre>
  * 
- * 16 Bytes header with following sections:
+ * 26 Bytes header with following sections:
  * <ol>
  * 	<li><b>Genesis</b> - 1 byte. Fixed value of -127.</li>
  * 	<li><b>Message Counter</b> - 1 Byte. Starting at 0, incremented every time a message is sent on the connection. 
@@ -98,6 +100,7 @@ import com.ics.util.ByteUtil;
  *  <li><b>Message Id</b> - 6 byte. When sending request messages, this message id must be set by the client. 
  *  	This will be unique for every message per node (client application/ nceph server)</li>
  * 	<li><b>Message Length</b> - 4 byte. Length of the message body in number of bytes</li>
+ * <li><b>Originating Port</b> - 2 byte. Originating location of the message</li>
  *  <li><b>TimeStamp</b> - 8 byte. timestamp of the message when it starts writing to the connection</li>
  * </ol>
  * 
@@ -129,6 +132,8 @@ public class Message
 	
 	byte[] timeStamp = new byte[8];
 	
+	byte[] originatingPort = new byte[2];
+	
 	byte[] data;
 	
 	private Decoder decoder;
@@ -144,7 +149,7 @@ public class Message
 	 * @param dataLength
 	 * @param data
 	 */
-	Message(byte counter, byte eventType, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord, byte[] timestamp)
+	Message(byte counter, byte eventType, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord, byte[] timestamp, byte[] originatingPort )
 	{
 		this.counter = counter;
 		this.eventType = eventType;
@@ -155,6 +160,7 @@ public class Message
 		this.data = data;
 		this.readRecord = readRecord;
 		this.timeStamp = timestamp;
+		this.originatingPort = originatingPort;
 	}
 	
 	
@@ -165,9 +171,9 @@ public class Message
 	 * @param data
 	 * @throws IdGenerationFailedException 
 	 */
-	Message(byte eventType, byte type, byte[] data) throws IdGenerationFailedException
+	Message(byte eventType, byte type, byte[] data, byte[] originatingPort) throws IdGenerationFailedException
 	{
-		init(eventType, type, data, null, null);
+		init(eventType, type, data, null, null, originatingPort);
 	}
 	
 	/**
@@ -179,31 +185,34 @@ public class Message
 	 * @param sourceId
 	 * @throws IdGenerationFailedException 
 	 */
-	protected Message(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId)
+	protected Message(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId, byte[] originatingPort)
 	{
 		try 
 		{
-			init(eventType, type, data, messageId, sourceId);
+			init(eventType, type, data, messageId, sourceId, originatingPort);
 		} catch (IdGenerationFailedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
 	
-	private void init(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId) throws IdGenerationFailedException
+	private void init(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId, byte[] originatingPort) throws IdGenerationFailedException
 	{
 		this.type = type;
 		this.eventType = eventType;
 		this.data = data;
 		
 		// Generate the message id from the message counter. This will be unique for the node.
-		this.messageId = (messageId != null) ? messageId : ByteUtil.convertToByteArray(IdGenerator.getId((decoder().getType() == 0x0B || decoder().getType() == 0x03) ? 100 : 200), this.messageId.length);
+		this.messageId = (messageId != null) ? messageId : ByteUtil.convertToByteArray(IdStore.getInstance().getId((decoder().getType() == 0x0B || decoder().getType() == 0x03) ? 100 : 200), this.messageId.length);
 		
 		// Set the Id of the source node where this message is originating from. 
-		this.sourceId = (sourceId != null) ? sourceId : ByteUtil.convertToByteArray(ConfigStore.getNodeId(), this.sourceId.length);
+		this.sourceId = (sourceId != null) ? sourceId : ByteUtil.convertToByteArray(ConfigStore.getInstance().getNodeId(), this.sourceId.length);
 		
 		// Set the dataLength
 		dataLength = ByteUtil.convertToByteArray(data.length, dataLength.length);
+		
+		//set originatingPort
+		this.originatingPort = originatingPort;
 	}
 
 	/**
@@ -227,6 +236,7 @@ public class Message
 				, sourceId // Source id (node id which is creating the message) [2 Bytes]
 				, messageId // Message id [6 Bytes]
 				, timeStamp // timestamp [8 Bytes]
+				, originatingPort // originatingPort [2 Bytes]
 				, dataLength // Data Length [4 Bytes]
 				, data); //Actual Data
 		
@@ -263,6 +273,11 @@ public class Message
 	public byte[] getMessageId() {
 		return messageId;
 	}
+	
+	public byte[] getOriginatingPort()
+	{
+		return originatingPort;
+	}
 
 	public byte[] getDataLength() {
 		return dataLength;
@@ -279,7 +294,11 @@ public class Message
 	public void setTimeStamp(byte[] timeStamp) {
 		this.timeStamp = timeStamp;
 	}
-
+	
+	public void setOriginatingPort(byte[] originatingPort) {
+		this.originatingPort = originatingPort;
+	}
+	
 	public IORecord getReadRecord() {
 		return readRecord;
 	}
@@ -336,6 +355,11 @@ public class Message
 		public long getTimestamp()
 		{
 			return ByteUtil.convertToLong(Message.this.timeStamp);
+		}
+		
+		public int getOriginatingPort()
+		{
+			return ByteUtil.convertToInt(Message.this.originatingPort);
 		}
 		
 		public int geteventType()

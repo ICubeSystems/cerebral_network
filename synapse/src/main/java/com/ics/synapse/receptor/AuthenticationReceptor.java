@@ -11,10 +11,10 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.PoaState;
-import com.ics.nceph.core.document.ProofOfAuthentication;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.PoaState;
+import com.ics.nceph.core.db.document.ProofOfAuthentication;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.AuthenticationMessage;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.NetworkRecord;
@@ -42,7 +42,12 @@ public class AuthenticationReceptor extends Receptor
 			authenticationData = (AuthenticationData) message.decoder().getData(AuthenticationData.class);
 		} catch (JsonProcessingException e) 
 		{
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.description("Class Name: " + this.getClass().getSimpleName())
+					.action("Authentication data mapping failed")
+					.logError(),e);
 		}
 	}
 
@@ -50,7 +55,7 @@ public class AuthenticationReceptor extends Receptor
 	public void process() 
 	{
 		// 2. Load POA in the local DocumentStore
-		ProofOfAuthentication poa = (ProofOfAuthentication) DocumentStore.load(ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId());
+		ProofOfAuthentication poa = ProofOfAuthentication.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		if (poa == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
@@ -74,13 +79,14 @@ public class AuthenticationReceptor extends Receptor
 			// 2.6 Set connection state
 			poa.setPoaState(PoaState.AUTHENTICATE);
 			// 2.7 Update the POA in the local DocumentStore
-			DocumentStore.update(poa, ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId());
+			DocumentStore.getInstance().update(poa, getMessage().decoder().getId());
 			
 			// 3. Create the CREDENTIALS message
 			AuthenticationMessage credentialsMessage = new AuthenticationMessage.Builder()
 					.messageId(getMessage().getMessageId()) // 3.1 Set incoming messageId
 					.sourceId(getMessage().getSourceId()) // 3.2 Set incoming sourceId
 					.type(SynapticOutgoingMessageType.CREDENTIALS.getMessageType()) // 3.3 Set message type
+					.originatingPort(getMessage().getOriginatingPort())
 					.data(new CredentialsData.Builder() // 3.3.1 Create the CREDENTIALS Data
 							.startupWriteRecord(poa.getStartupWriteRecord()) // 3.3.2 Set STARTUP write record
 							.authenticationReadRecord(getMessage().getReadRecord()) // 3.3.3 Set AUTHENTICATION read record
@@ -116,7 +122,7 @@ public class AuthenticationReceptor extends Receptor
 						.logError(), e1);
 			}			
 			// Delete POA in local store
-			DocumentStore.delete(ProofOfAuthentication.DOC_PREFIX + getMessage().decoder().getId(),poa);
+			poa.removeFromCache();
 		}
 	}
 }

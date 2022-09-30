@@ -2,10 +2,10 @@ package com.ics.synapse.ncephEvent;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Date;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.id.IdGenerator;
 import com.ics.nceph.core.event.EventData;
 
 public class Event implements NcephEvent, Serializable
@@ -19,14 +19,14 @@ public class Event implements NcephEvent, Serializable
 	}
 	
 	@Override
-	public EventData toEvent() throws IOException
+	public EventData toEvent(Integer eventId) throws IOException
 	{
 		EventData eventData = new EventData.Builder()
-				.eventId(IdGenerator.getId(type))
+				.createdOn(new Date().getTime())
+				.eventId(eventId)
 				.eventType(type)
 				.objectJSON(toJSON())
 				.build();
-		IdGenerator.save();
 		return eventData;
 	}
 	

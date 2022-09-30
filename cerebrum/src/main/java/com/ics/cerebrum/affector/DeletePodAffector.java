@@ -1,14 +1,13 @@
 package com.ics.cerebrum.affector;
 
-import java.io.IOException;
-
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -33,7 +32,7 @@ public class DeletePodAffector extends Affector
 	public void process() 
 	{
 		// Load the POD for this message
-		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		if (pod == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
@@ -42,9 +41,9 @@ public class DeletePodAffector extends Affector
 					.logInfo());
 			return;
 		}
-		pod.setMessageDeliveryState(MessageDeliveryState.FINISHED);
+		pod.setMessageDeliveryState(MessageDeliveryState.FINISHED.getState());
 		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
-		} catch (IOException e) {}
+			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
+		} catch (DocumentSaveFailedException e) {}
 	}
 }

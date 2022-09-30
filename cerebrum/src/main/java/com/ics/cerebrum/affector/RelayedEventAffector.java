@@ -1,15 +1,13 @@
 package com.ics.cerebrum.affector;
 
-import java.io.IOException;
-
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.ProofOfRelay;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfRelay;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -34,28 +32,27 @@ public class RelayedEventAffector extends Affector
 	@Override
 	public void process() 
 	{
-		// Load the POD for this message
-		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
-		if (pod == null)
+		// Load the POR for this message
+		ProofOfRelay por = ProofOfRelay.load(getMessage().decoder().getOriginatingPort(), getIncomingConnection().getConnector().getPort(), getMessage().decoder().getId());
+		if (por == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())
-					.action("404 - POD not found")
+					.action("404 - POR not found")
 					.logInfo());
 			return;
 		}
-		
+
 		// Set the WriteRecord in the POR
-		ProofOfRelay por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
 		por.setEventMessageWriteRecord(getMessage().getWriteRecord());
-		
+
 		// Update POR state only if it is not yet RELAYED (this is done for the case where receptor executes prior to affector)
-		if(por.getMessageDeliveryState().getState() < MessageDeliveryState.DELIVERED.getState())
-			por.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
-		
+		if(por.getMessageDeliveryState() < MessageDeliveryState.DELIVERED.getState())
+			por.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
+
 		// Save the POD
 		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
-		} catch (IOException e) {}
+			DocumentStore.getInstance().update(por, getMessage().decoder().getId());
+		} catch (DocumentSaveFailedException e) {}
 	}
 }

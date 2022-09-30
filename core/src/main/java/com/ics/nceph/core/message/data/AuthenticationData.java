@@ -14,25 +14,17 @@ public class AuthenticationData extends MessageData implements Serializable
 {
 	private static final long serialVersionUID = 1L;
 
-	private long authenticationNetworkRecord;
-
 	private NetworkRecord startupNetworkRecord;
 
 	private IORecord startupReadRecord;
 
 	public AuthenticationData() {}
 
-	public AuthenticationData(long authenticationNetworkRecord, NetworkRecord startupNetworkRecord, IORecord startupReadRecord) 
+	public AuthenticationData(NetworkRecord startupNetworkRecord, IORecord startupReadRecord) 
 	{
 		super();
-		this.authenticationNetworkRecord = authenticationNetworkRecord;
 		this.startupReadRecord = startupReadRecord;
 		this.startupNetworkRecord = startupNetworkRecord;
-	}
-
-	public long getAuthenticationNetworkRecord() 
-	{
-		return authenticationNetworkRecord;
 	}
 
 	public IORecord getStartupReadRecord() 
@@ -47,17 +39,9 @@ public class AuthenticationData extends MessageData implements Serializable
 
 	public static class Builder
 	{
-		private long authenticationNetworkRecord;
-
 		private NetworkRecord startupNetworkRecord;
 
 		private IORecord startupReadRecord;
-
-		public Builder authenticationNetworkRecord(long networkRecord)
-		{
-			this.authenticationNetworkRecord = networkRecord;
-			return this;
-		}
 
 		public Builder startupNetworkRecord(NetworkRecord startupNetworkRecord)
 		{
@@ -72,7 +56,7 @@ public class AuthenticationData extends MessageData implements Serializable
 		}
 		public AuthenticationData build()
 		{
-			return new AuthenticationData(authenticationNetworkRecord, startupNetworkRecord, startupReadRecord);
+			return new AuthenticationData(startupNetworkRecord, startupReadRecord);
 		}
 	}
 }

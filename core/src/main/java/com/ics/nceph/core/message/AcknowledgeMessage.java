@@ -12,9 +12,9 @@ import com.ics.util.ByteUtil;
  */
 public class AcknowledgeMessage extends Message 
 {
-	public AcknowledgeMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId)
+	public AcknowledgeMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId, byte[]originatingPort)
 	{
-		super(eventType, type, data, messageId, sourceId);
+		super(eventType, type, data, messageId, sourceId, originatingPort);
 	}
 	
 	/**
@@ -32,6 +32,8 @@ public class AcknowledgeMessage extends Message
 		private byte[] messageId;
 		
 		private byte[] sourceId;
+		
+		private byte[] originatingPort;
 		
 		public Builder data(MessageData messageData) throws MessageBuildFailedException
 		{
@@ -54,6 +56,11 @@ public class AcknowledgeMessage extends Message
 			return this;
 		}
 		
+		public Builder originatingPort(byte[] originatingPort) {
+			this.originatingPort = originatingPort;
+			return this;
+		}
+		
 		public Builder mid(String mid) {
 			String[] idArray = mid.split("-",2);
 			this.messageId = ByteUtil.convertToByteArray(Integer.valueOf(idArray[1]), 6);
@@ -64,7 +71,7 @@ public class AcknowledgeMessage extends Message
 		public AcknowledgeMessage build()
 		{
 			eventType = Integer.valueOf(0).byteValue(); 
-			return new AcknowledgeMessage(type, eventType, data, messageId, sourceId);
+			return new AcknowledgeMessage(type, eventType, data, messageId, sourceId, originatingPort);
 		}
 	}
 }

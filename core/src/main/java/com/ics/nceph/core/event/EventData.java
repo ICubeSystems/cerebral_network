@@ -1,9 +1,12 @@
 package com.ics.nceph.core.event;
 
 import java.io.Serializable;
-import java.util.Date;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
 import com.ics.nceph.core.message.data.MessageData;
+
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * 
@@ -11,6 +14,9 @@ import com.ics.nceph.core.message.data.MessageData;
  * @version 1.0
  * @since 24-Dec-2021
  */
+@Getter
+@Setter
+@DynamoDBDocument
 public class EventData extends MessageData implements Serializable
 {
 	private static final long serialVersionUID = 1L;
@@ -25,30 +31,14 @@ public class EventData extends MessageData implements Serializable
 	
 	public EventData() {}
 	
-	private EventData(Integer eventId, Integer eventType, String objectJSON)
+	public EventData(Integer eventId, Integer eventType, String objectJSON, long createdOn)
 	{
-		createdOn = new Date().getTime();
+		this.createdOn = createdOn;
 		this.eventId = eventId;
 		this.eventType = eventType;
 		this.objectJSON = objectJSON;
 	}
 
-	public String getObjectJSON() {
-		return objectJSON;
-	}
-
-	public Integer getEventId() {
-		return eventId;
-	}
-	
-	public Integer getEventType() {
-		return eventType;
-	}
-	
-	public long getCreatedOn() {
-		return createdOn;
-	}
-	
 	public static class Builder
 	{
 		private Integer eventId;
@@ -56,6 +46,8 @@ public class EventData extends MessageData implements Serializable
 		private Integer eventType;
 
 		private String objectJSON;
+		
+		private long createdOn;
 		
 		public Builder eventId(Integer eventId)
 		{
@@ -75,9 +67,15 @@ public class EventData extends MessageData implements Serializable
 			return this;
 		}
 		
+		public Builder createdOn(long createdOn)
+		{
+			this.createdOn = createdOn;
+			return this;
+		}
+		
 		public EventData build()
 		{
-			return new EventData(eventId, eventType, objectJSON);
+			return new EventData(eventId, eventType, objectJSON, createdOn);
 		}
 	}
 }

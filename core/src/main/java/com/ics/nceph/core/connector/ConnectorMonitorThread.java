@@ -14,7 +14,7 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
-import com.ics.nceph.core.document.Document;
+import com.ics.nceph.core.db.document.MessageDocument;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -78,9 +78,9 @@ public abstract class ConnectorMonitorThread extends Thread
 		}
 	}
 	
-	public boolean transmissionWindowElapsed(Document document) 
+	public boolean transmissionWindowElapsed(MessageDocument document) 
 	{
-		if (System.currentTimeMillis() - document.createdOn > Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("transmission.window"))  * 1000)
+		if (System.currentTimeMillis() - document.getCreatedOn() > Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("transmission.window"))  * 1000)
 			return true;
 		return false;
 	}

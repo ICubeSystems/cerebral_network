@@ -8,11 +8,10 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.ProofOfRelay;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfRelay;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.data.ThreeWayAcknowledgementData;
@@ -37,21 +36,20 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 	{
 
 		// 1. Load POD: Ideally POD will always be loaded for the ack message
-		ProofOfPublish pod = (ProofOfPublish) DocumentStore.load(getMessage().decoder().getId());
-
+		ProofOfRelay por = ProofOfRelay.load(getMessage().decoder().getOriginatingPort(), getIncomingConnection().getConnector().getPort(), getMessage().decoder().getId());
 		// Following are the cases when the POD will not be found for the message id:
 		// a. POD is deleted by mistake on the synaptic node
 		// b. POD was deleted properly following the DELETE message from cerebrum, but cerebrum has repeated the ACK for this message
 		// TODO: Handle here - For now just log such occurrence. Real handling - TBD after we gather some more data for the same
-		if (pod == null)
+		if (por == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())
-					.action("404 - POD not found")
+					.action("404 - POR not found")
 					.logInfo());
 			return;
 		}
-		ProofOfRelay por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
+		
 
 		// 1.1 Make sure that WriteRecord is written in the POR. If not then try to load again after 1000 ms. 
 		// This happens when the RelayedEventAffector executes after RelayedEventAcknowledgeReceptor	
@@ -63,7 +61,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {}
 			// 1.2 Load the POD again
-			por = pod.getPors().get(getIncomingConnection().getConnector().getPort());
+			por = ProofOfRelay.load(getMessage().decoder().getOriginatingPort(), getIncomingConnection().getConnector().getPort(), getMessage().decoder().getId());
 		}
 
 		try
@@ -82,7 +80,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			// 2.6 Set RELAYED_EVENT_ACK read record 
 			por.setAckMessageReadRecord(getMessage().getReadRecord());
 			// 2.7 Set Por State to ACKNOWLEDGED
-			por.setMessageDeliveryState(MessageDeliveryState.ACKNOWLEDGED);
+			por.setMessageDeliveryState(MessageDeliveryState.ACKNOWLEDGED.getState());
 			// 2.8 Set event application receptor name
 			por.setAppReceptorName(getAcknowledgement().getAppReceptorName());
 			// 2.9 Set application receptor execution time
@@ -97,7 +95,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			// 2.7 Set NodeId
 			por.setConsumerNodeId(getAcknowledgement().getNodeId());
 			// 2.8 Update the POD in the local storage
-			DocumentStore.update(pod, getMessage().decoder().getId());
+			DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 
 			// MOCK CODE: to test the reliable delivery of the messages
 			if(Environment.isDev() && por.getMessageId().equals("1-30")) 
@@ -117,6 +115,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 					.messageId(getMessage().getMessageId())
 					.type(CerebralOutgoingMessageType.RELAY_ACK_RECEIVED.getMessageType())
 					.sourceId(getMessage().getSourceId())
+					.originatingPort(getMessage().getOriginatingPort())
 					.build();
 			// 3.2 Enqueue RELAY_ACK_RECEIVED on the incoming connection
 			getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
@@ -137,7 +136,7 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 			// Save the POD
 			try 
 			{
-				DocumentStore.update(pod, getMessage().decoder().getId());
+				DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 			} catch (DocumentSaveFailedException e){}
 			return;
 		}

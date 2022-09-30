@@ -1,6 +1,5 @@
 package com.ics.synapse.connector;
 
-import java.io.File;
 import java.nio.channels.SelectionKey;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -19,17 +18,17 @@ import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
 import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
-import com.ics.nceph.core.document.Document;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.EventMessage;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.data.ThreeWayAcknowledgementData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
+import com.ics.util.ByteUtil;
 
 /**
  * A {@link ConnectorMonitorThread Monitor} thread residing on the synaptic node, responsible for continuous monitoring the state of the messages to be published by the synapse. 
@@ -129,7 +128,9 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					connector.connect();
 			} catch (ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) {
 				//Log
-				e.printStackTrace();
+				NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
+						.action("Connection Initialization failed")
+						.logError(),e);
 			}
 		}
 
@@ -154,7 +155,6 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		}
 		
 		// 4. Check for PODs which are not deleted for more than a specified time
-		File podDirectory = new File(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location"));
 		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
 				.monitorPort(connector.getPort())
 				.action("Synaptic monitor")
@@ -165,7 +165,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		{
 			//4.1 get all files from the POD directory
 			// 4.2 if there are no pods then exit ProcessPOD block
-			if (podDirectory.listFiles() == null) 
+			if (ProofOfPublish.getMessageCache(getConnector().getPort()).isEmpty()) 
 			{
 				NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
 						.monitorPort(connector.getPort())
@@ -174,7 +174,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 						.logInfo());
 				break ProcessPOD;
 			}	
-			for (Map.Entry<String, Document> entry : DocumentStore.getCache().entrySet())
+			for (Map.Entry<String, ProofOfPublish> entry : ProofOfPublish.getMessageCache(getConnector().getPort()).entrySet())
 			{
 				String messageId = entry.getKey();
 				if(entry.getValue().getClass().toString().equals(ProofOfPublish.class.toString())) 
@@ -194,7 +194,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					if (transmissionWindowElapsed(pod)) 
 					{
 						// get pod state of current pod
-						podState = pod.getMessageDeliveryState().getState();
+						podState = pod.getMessageDeliveryState();
 
 						switch (podState) 
 						{
@@ -204,14 +204,16 @@ public class SynapticMonitor extends ConnectorMonitorThread
 							Message message1 = new EventMessage.Builder()
 							.event(pod.getEvent())
 							.mid(pod.getMessageId())
+							.originatingPort(connector.getPort())
 							.buildAgain();
 
 							enqueueMessage(connection, message1);
 							// Set the publish attempts
 							pod.incrementEventMessageAttempts();
 							// Set POD State to DELIVERED
-							pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
-							DocumentStore.update(pod, messageId);
+							pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
+							// Set POD State to PUBLISHED
+							DocumentStore.getInstance().update(pod, messageId);
 							break;
 						case 300:// ACKNOWLEDGED state of POD
 						case 400:// ACK_RECIEVED state of POD
@@ -222,28 +224,24 @@ public class SynapticMonitor extends ConnectorMonitorThread
 									.ackNetworkRecord(pod.getAckMessageNetworkRecord()) // NCEPH_EVENT_ACK network record
 									.build())
 							.mid(pod.getMessageId())
+							.originatingPort(ByteUtil.convertToByteArray(connector.getPort(), 2))
 							.type(SynapticOutgoingMessageType.ACK_RECEIVED.getMessageType())
 							.build();
 							enqueueMessage(connection, message);
 							// Set the threeWayAck attempts
 							pod.incrementThreeWayAckMessageAttempts();
 							// Set POD State to ACK_RECIEVED
-							pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
-							DocumentStore.update(pod, messageId);
+							pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED.getState());
+							DocumentStore.getInstance().update(pod, messageId);
 							break;
 						case 500:// FINISHED state of POD
 							// Delete the POD from local storage
-							if (!DocumentStore.delete(pod.getMessageId(),pod))
-							{
-								NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
-										.messageId(pod.getMessageId())
-										.action("POD deletion failed")
-										.logError());
-							}
+							pod.removeFromCache();
 							break;
 						default:
 							break;
 						}
+
 					}
 				} 
 				catch (MessageBuildFailedException e) 
@@ -258,7 +256,8 @@ public class SynapticMonitor extends ConnectorMonitorThread
 					//IOException Save the POD
 					try 
 					{
-						DocumentStore.update(pod, messageId);
+
+						DocumentStore.getInstance().update(pod, pod.getMessageId());
 					} 
 					catch (DocumentSaveFailedException e1) 
 					{

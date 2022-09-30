@@ -1,14 +1,13 @@
 package com.ics.cerebrum.affector;
 
-import java.io.IOException;
-
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -34,7 +33,7 @@ public class EventAcknowledgementAffector extends Affector
 	public void process() 
 	{
 		// Load the POD for this message
-		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		// LOG: In case POD is not loaded from the cache
 		if (pod == null)
 		{
@@ -47,11 +46,11 @@ public class EventAcknowledgementAffector extends Affector
 
 		pod.setAckMessageWriteRecord(getMessage().getWriteRecord());
 		// Update pod state only if it is not yet ACKNOWLEDGED (this is done for the case where receptor executes prior to affector)
-		if(pod.getMessageDeliveryState().getState() < MessageDeliveryState.ACKNOWLEDGED.getState())
-			pod.setMessageDeliveryState(MessageDeliveryState.ACKNOWLEDGED);
+		if(pod.getMessageDeliveryState() < MessageDeliveryState.ACKNOWLEDGED.getState())
+			pod.setMessageDeliveryState(MessageDeliveryState.ACKNOWLEDGED.getState());
 		// Save the POD
 		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
-		} catch (IOException e) {}
+			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
+		} catch (DocumentSaveFailedException e) {}
 	}
 }

@@ -16,15 +16,16 @@ public class MasterMessageLedger
 	 * 
 	 */
 	private ConcurrentHashMap<Integer, MessageLedger> masterLedger;
-	
+
 	private ConcurrentHashMap<Integer, Long> authMessageIdCounter;
-	
+
 	public MasterMessageLedger()
 	{
+
 		this.masterLedger = new ConcurrentHashMap<Integer, MessageLedger>();
 		this.authMessageIdCounter = new ConcurrentHashMap<Integer, Long>();
 	}
-	
+
 	/**
 	 * 
 	 * @param message
@@ -34,21 +35,7 @@ public class MasterMessageLedger
 	{
 		// Message register should only store event messages (no other message types should be stored)
 		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
-		{
-			// get the messageIds stored for a particular node
-			// If there are no messaged for the node/ source then create a new hash set and put it inside the register
-			MessageLedger messageLedger = masterLedger.get(message.decoder().getSourceId());
-			if (messageLedger == null)
-			{
-				messageLedger = new MessageLedger();
-				masterLedger.put(message.decoder().getSourceId(), messageLedger);
-			}
-			// Add the message id in the hash set. If the messageId is duplicate then it will not save it again. 
-			// DUPLICACY CHECKED
-			synchronized (messageLedger) {
-				messageLedger.add(message);
-			}
-		}
+			add(message.decoder().getSourceId(), message.decoder().geteventType(),message.decoder().getMessageId());
 		else if (message.decoder().getType() == 0x00)
 		{
 			if (authMessageIdCounter.get(message.decoder().getSourceId()) == null // If there is no entry for the node then create an entry
@@ -56,7 +43,23 @@ public class MasterMessageLedger
 				authMessageIdCounter.put(message.decoder().getSourceId(), message.decoder().getMessageId());
 		}
 	}
-	
+
+	public void add(Integer sourceId, Integer eventType, long messageId) {
+		// get the messageIds stored for a particular node
+		// If there are no messaged for the node/ source then create a new hash set and put it inside the register
+		MessageLedger messageLedger = masterLedger.get(sourceId);
+		if (messageLedger == null)
+		{
+			messageLedger = new MessageLedger();
+			masterLedger.put(sourceId, messageLedger);
+		}
+		// Add the message id in the hash set. If the messageId is duplicate then it will not save it again. 
+		// DUPLICACY CHECKED
+		synchronized (messageLedger) {
+			messageLedger.add(eventType, messageId);
+		}
+	}
+
 	/**
 	 * Removes the message from the register
 	 * @param message
@@ -72,7 +75,7 @@ public class MasterMessageLedger
 			}
 		}
 	}
-	
+
 	/**
 	 * 
 	 * @param message
@@ -85,7 +88,7 @@ public class MasterMessageLedger
 			return false;
 		return messageLedger.contains(message);
 	}
-	
+
 	public int size() 
 	{
 		int masterLedgerSize = 0;
@@ -94,6 +97,14 @@ public class MasterMessageLedger
 			masterLedgerSize += ledger.size();
 		}
 		return masterLedgerSize;
+	}
+
+	public long messageCount(Integer sourceId) 
+	{
+		try
+		{
+			return masterLedger.get(sourceId).messageCounter();
+		} catch (NullPointerException e){return 0;}
 	}
 
 	public ConcurrentHashMap<Integer, MessageLedger> getMasterLedger() {

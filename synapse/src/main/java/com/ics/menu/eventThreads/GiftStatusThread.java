@@ -27,7 +27,7 @@ public class GiftStatusThread extends EventThread
 							.sendOnMobile("9876543210")
 							.build();
 					
-					Emitter.emit(giftStatus.toEvent());
+					Emitter.emit(giftStatus.toEvent(123));
 				} catch (Exception e) 
 				{
 					e.printStackTrace();

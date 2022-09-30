@@ -17,14 +17,14 @@ import com.ics.util.ByteUtil;
  */
 public class EventMessage extends Message 
 {
-	EventMessage(byte type, byte eventType, byte[] data) throws IdGenerationFailedException
+	EventMessage(byte type, byte eventType, byte[] data, byte[]originatingPort) throws IdGenerationFailedException
 	{
-		super(eventType, type, data);
+		super(eventType, type, data, originatingPort);
 	}
 	
-	EventMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId)
+	EventMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId, byte[]originatingPort)
 	{
-		super(eventType, type, data, messageId, sourceId);
+		super(eventType, type, data, messageId, sourceId, originatingPort);
 	}
 	/**
 	 * 
@@ -42,6 +42,8 @@ public class EventMessage extends Message
 		
 		private byte[] sourceId;
 		
+		private byte[] originatingPort;
+		
 		public Builder event(EventData event) throws MessageBuildFailedException 
 		{
 			try {
@@ -52,6 +54,11 @@ public class EventMessage extends Message
 			} catch (JsonProcessingException e) {
 				throw new MessageBuildFailedException("JsonProcessingException", e);
 			}
+			return this;
+		}
+		
+		public Builder originatingPort(Integer originatingPort) {
+			this.originatingPort = ByteUtil.convertToByteArray(originatingPort, 2);
 			return this;
 		}
 		
@@ -79,7 +86,7 @@ public class EventMessage extends Message
 		
 		public EventMessage build() throws IdGenerationFailedException 
 		{
-			return new EventMessage(type, eventType, data);
+			return new EventMessage(type, eventType, data, originatingPort);
 		}
 		
 		/**
@@ -88,7 +95,7 @@ public class EventMessage extends Message
 		 */
 		public EventMessage buildAgain() 
 		{
-			return new EventMessage(type, eventType, data, messageId, sourceId);
+			return new EventMessage(type, eventType, data, messageId, sourceId, originatingPort);
 		}
 	}
 }

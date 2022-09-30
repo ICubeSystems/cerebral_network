@@ -1,5 +1,11 @@
 package com.ics.nceph.core.message;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
+
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * This class records the time taken in the IO operation involved like<br>
  * <ol>
@@ -11,13 +17,23 @@ package com.ics.nceph.core.message;
  * @version 1.0
  * @since 15-Mar-2022
  */
-public class IORecord extends TimeRecord 
+@Getter
+@Setter
+@DynamoDBDocument
+public class IORecord 
 {
-	IORecord() {super();}
+	@DynamoDBAttribute
+	private long start;
 	
-	private IORecord(long start, long end) 
+	@DynamoDBAttribute
+	private long end;
+	
+	public IORecord() {}
+	
+	public IORecord(long start, long end) 
 	{
-		super(start, end);
+		this.start = start;
+		this.end = end;
 	}
 	
 	/**

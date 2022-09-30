@@ -1,6 +1,8 @@
 package com.ics.cerebrum.worker;
 
 import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.affector.AffectorInstantiationException;
 import com.ics.nceph.core.connector.connection.Connection;
@@ -37,11 +39,19 @@ public class CerebralWriter extends Writer
 		} 
 		catch (InvalidMessageTypeException e) 
 		{
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Invalid message type")
+					.logError(),e);
 		} 
 		catch (AffectorInstantiationException e) 
 		{
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Affector can't initialize")
+					.logError(),e);
 		}
 	}
 }

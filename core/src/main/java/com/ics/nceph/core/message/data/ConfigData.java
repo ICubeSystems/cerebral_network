@@ -3,6 +3,8 @@ package com.ics.nceph.core.message.data;
 import java.io.Serializable;
 import java.util.HashMap;
 
+import lombok.Getter;
+
 /**
  * Message data for {@link ConfigMessage}. This message contains the following data:<br>
  * <ol>
@@ -13,6 +15,7 @@ import java.util.HashMap;
  * @author Anshul
  * @since 28-Jul-2022
  */
+@Getter
 public class ConfigData extends MessageData implements Serializable
 {
 	private static final long serialVersionUID = 1L;
@@ -20,42 +23,37 @@ public class ConfigData extends MessageData implements Serializable
 	/**
 	 * NodeId - unique identifier of a synaptic node in the nceph network
 	 */
-	public Integer nodeId;
+	private Integer nodeId;
 	
+	private long messageCount;
 	/**
 	 * Map of EventType and ApplicationReceptor
 	 */
-	public HashMap<Integer, String> eventReceptors;
+	private HashMap<Integer, String> eventReceptors;
+	
+	private String error;
 	
 	public ConfigData() {}
 	
-	public ConfigData(Integer nodeId, HashMap<Integer, String> eventreceptors) {
+	public ConfigData(Integer nodeId, HashMap<Integer, String> eventreceptors, long messageCount, String error) {
 		super();
 		this.nodeId = nodeId;
 		this.eventReceptors = eventreceptors;
+		this.messageCount = messageCount;
+		this.error = error;
 	}
 	
-	/**
-	 * Get NodeId
-	 * @return NodeId - unique identifier of a synaptic node in the nceph network
-	 */
-	public Integer getNodeId() {
-		return nodeId;
-	}
-
-	/**
-	 * Map of EventType and ApplicationReceptor
-	 * @return HashMap
-	 */
-	public HashMap<Integer, String> getEventReceptors() {
-		return eventReceptors;
-	}
+	
 
 	public static class Builder
 	{
 		private Integer nodeId;
 		
-		public HashMap<Integer, String> eventReceptors;
+		private HashMap<Integer, String> eventReceptors;
+		
+		private String error;
+		
+		private long messageCount;
 		
 		public Builder nodeId(Integer nodeId) {
 			this.nodeId = nodeId;
@@ -67,9 +65,19 @@ public class ConfigData extends MessageData implements Serializable
 			return this;
 		}
 		
+		public Builder messageCount(long messageCount) {
+			this.messageCount = messageCount;
+			return this;
+		}
+		
+		public Builder error(String error) {
+			this.error = error;
+			return this;
+		}
+		
 		public ConfigData build() 
 		{
-			return new ConfigData(this.nodeId, this.eventReceptors);
+			return new ConfigData(this.nodeId, this.eventReceptors, this.messageCount, this.error);
 		}
 	}
 }

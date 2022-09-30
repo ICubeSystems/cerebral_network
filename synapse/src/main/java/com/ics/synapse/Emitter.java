@@ -11,9 +11,9 @@ import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.EventMessage;
 import com.ics.nceph.core.message.Message;
@@ -71,7 +71,10 @@ public final class Emitter
 		Message message;
 		try 
 		{
-			message = new EventMessage.Builder().event(event).build();
+			message = new EventMessage.Builder()
+					.event(event)
+					.originatingPort(connector.getPort())
+					.build();
 		} catch (MessageBuildFailedException e) {
 			throw new EmitException("Message build falied", e);
 		}
@@ -101,7 +104,7 @@ public final class Emitter
 
 		try 
 		{
-			DocumentStore.save(pod, message.decoder().getId());
+			DocumentStore.getInstance().save(pod, message.decoder().getId());
 			// MOCK CODE: to test the reliable delivery of the messages
 			if(Environment.isDev() && pod.getMessageId().equals("1-12")) 
 				return;

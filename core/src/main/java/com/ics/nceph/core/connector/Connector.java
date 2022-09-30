@@ -20,6 +20,7 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
+import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.message.MasterMessageLedger;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.MessageWriter;
@@ -66,6 +67,8 @@ public abstract class Connector
 	private Integer port;
 
 	private String name;
+	
+	private ConnectorState state = ConnectorState.PENDING_AUTH;
 
 	private Integer totalConnectionsServed = 0;
 
@@ -433,7 +436,7 @@ public abstract class Connector
 	public void setTotalConnectionsServed(Integer totalConnectionsServed) {
 		this.totalConnectionsServed = totalConnectionsServed;
 	}
-
+	
 	public ConcurrentLinkedQueue<Message> getRelayQueue() {
 		return relayQueue;
 	}
@@ -461,4 +464,15 @@ public abstract class Connector
 	public SSLContext getSslContext() {
 		return sslContext;
 	}
+
+	public ConnectorState getState()
+	{
+		return state;
+	}
+
+	public void setState(ConnectorState state)
+	{
+		this.state = state;
+	}
+	
 }

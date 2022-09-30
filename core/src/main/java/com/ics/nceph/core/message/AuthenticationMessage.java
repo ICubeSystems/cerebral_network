@@ -11,9 +11,9 @@ import com.ics.nceph.core.message.exception.MessageBuildFailedException;
  */
 public class AuthenticationMessage extends Message
 {
-	AuthenticationMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId) 
+	AuthenticationMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId, byte[]originatingPort) 
 	{
-		super(eventType, type, data, messageId, sourceId);
+		super(eventType, type, data, messageId, sourceId, originatingPort);
 	}
 
 	public static class Builder
@@ -27,6 +27,8 @@ public class AuthenticationMessage extends Message
 		private byte[] messageId;
 
 		private byte[] sourceId;
+		
+		private byte[] originatingPort;
 
 		public Builder messageId(byte[] messageId)
 		{
@@ -50,11 +52,16 @@ public class AuthenticationMessage extends Message
 			this.data = messageData.bytes();
 			return this;
 		}
-
+		
+		public Builder originatingPort(byte[] originatingPort) {
+			this.originatingPort = originatingPort;
+			return this;
+		}
+		
 		public AuthenticationMessage build() 
 		{
 			eventType = Integer.valueOf(0).byteValue();
-			return new AuthenticationMessage(type, eventType, data, messageId, sourceId);
+			return new AuthenticationMessage(type, eventType, data, messageId, sourceId, originatingPort);
 		}
 	}
 }

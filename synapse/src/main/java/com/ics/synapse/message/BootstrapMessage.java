@@ -1,6 +1,5 @@
 package com.ics.synapse.message;
 
-import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
@@ -15,10 +14,9 @@ import com.ics.util.ByteUtil;
  */
 public class BootstrapMessage extends Message
 {
-
-	BootstrapMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId) 
+	BootstrapMessage(byte type, byte eventType, byte[] data, byte[] messageId, byte[] sourceId, byte[]originatingPort) 
 	{
-		super(eventType, type, data, messageId, sourceId);
+		super(eventType, type, data, messageId, sourceId, originatingPort);
 	}
 
 	public static class Builder
@@ -32,6 +30,8 @@ public class BootstrapMessage extends Message
 		private byte[] messageId;
 		
 		private byte[] sourceId;
+		
+		private byte[] originatingPort;
 		
 		public Builder data(MessageData messageData) throws MessageBuildFailedException
 		{
@@ -57,6 +57,11 @@ public class BootstrapMessage extends Message
 			return this;
 		} 
 		
+		public Builder originatingPort(Integer originatingPort) {
+			this.originatingPort = ByteUtil.convertToByteArray(originatingPort, 2);
+			return this;
+		}
+		
 		public Builder mid(String mid) 
 		{
 			String[] idArray = mid.split("-",2);
@@ -65,10 +70,10 @@ public class BootstrapMessage extends Message
 			return this;
 		}
 		
-		public AcknowledgeMessage build()
+		public BootstrapMessage build()
 		{
 			eventType = Integer.valueOf(0).byteValue(); 
-			return new AcknowledgeMessage(type, eventType, data, messageId, sourceId);
+			return new BootstrapMessage(type, eventType, data, messageId, sourceId, originatingPort);
 		}
 	}
 }

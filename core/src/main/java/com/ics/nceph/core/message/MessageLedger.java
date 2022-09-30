@@ -21,9 +21,14 @@ public class MessageLedger
 	 */
 	private ConcurrentHashMap<Integer, Set<Long>> ledger;
 	
+	private long messageCounter;
+	
+	//private long messageIdCounter;
+	
 	public MessageLedger()
 	{
 		this.ledger = new ConcurrentHashMap<Integer, Set<Long>>();
+		messageCounter = 0;
 	}
 	
 	/**
@@ -36,20 +41,25 @@ public class MessageLedger
 		// Message register should only store event messages (no other message types should be stored)
 		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
 		{
-			// get the messageIds stored for a particular node
-			Set<Long> messageIds = ledger.get(message.decoder().geteventType());
-			// If there are no messaged for the node/ source then create a new hash set and put it inside the register
-			if (messageIds == null)
-			{
-				messageIds = Collections.synchronizedSet(new HashSet<Long>());
-				ledger.put(message.decoder().geteventType(), messageIds);
-			}
-			// Add the message id in the hash set. If the messageId is duplicate then it will not save it again. 
-			// DUPLICACY CHECKED
-			synchronized (messageIds) {
-				messageIds.add(message.decoder().getMessageId());
-			}
+			
 		}
+	}
+	
+	public void add(Integer eventType, long messageId) {
+		// get the messageIds stored for a particular node
+					Set<Long> messageIds = ledger.get(eventType);
+					// If there are no messaged for the node/ source then create a new hash set and put it inside the register
+					if (messageIds == null)
+					{
+						messageIds = Collections.synchronizedSet(new HashSet<Long>());
+						ledger.put(eventType, messageIds);
+					}
+					// Add the message id in the hash set. If the messageId is duplicate then it will not save it again. 
+					// DUPLICACY CHECKED
+					synchronized (messageIds) {
+						messageIds.add(messageId);
+						messageCounter++;
+					}
 	}
 	
 	/**
@@ -92,6 +102,10 @@ public class MessageLedger
 			// TODO Auto-generated catch block
 			return false;
 		}
+	}
+	
+	public long messageCounter() {
+		return messageCounter;
 	}
 	
 	public int size() {

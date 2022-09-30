@@ -11,5 +11,5 @@ import com.ics.nceph.core.event.EventData;
  */
 public interface NcephEvent 
 {
-	 EventData toEvent() throws IOException;
+	 EventData toEvent(Integer eventId) throws IOException;
 }

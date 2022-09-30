@@ -29,7 +29,7 @@ public class GiftRedeemThread extends EventThread
 						.redeemOn(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy hh:mm")))
 						.build();
 
-				Emitter.emit(giftRedeem.toEvent());
+				Emitter.emit(giftRedeem.toEvent(123));
 			} catch (Exception e) 
 			{
 				e.printStackTrace();

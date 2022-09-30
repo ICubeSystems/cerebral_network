@@ -5,13 +5,13 @@ import java.util.Date;
 
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
-import com.ics.nceph.config.ConfigStore;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfRelay;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfRelay;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.ConfigStore;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.data.AcknowledgementData;
@@ -47,7 +47,7 @@ public class RelayedEventReceptor extends EventReceptor
 	{
 		// 1. Save the event received in the local datastore
 		// 1.1 Check if message has already been received
-		ProofOfRelay por =  (ProofOfRelay) DocumentStore.load(ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+		ProofOfRelay por = ProofOfRelay.load(getMessage().decoder().getOriginatingPort(), getIncomingConnection().getConnector().getPort(), getMessage().decoder().getId());
 		try 
 		{
 			if (por == null) // If the ProofOfRelay for the received message is not in the local storage then create a new ProofOfRelay object for this message
@@ -57,6 +57,9 @@ public class RelayedEventReceptor extends EventReceptor
 						.event(getEvent())
 						.messageId(getMessage().decoder().getId())
 						.relayedOn(new Date().getTime())
+						.consumerPort(getIncomingConnection().getConnector().getPort())
+						.producerPort(getMessage().decoder().getOriginatingPort())
+						.producerNodeId(getMessage().decoder().getSourceId())
 						.build();
 				
 				// 2. Update POR
@@ -64,16 +67,16 @@ public class RelayedEventReceptor extends EventReceptor
 				por.setEventMessageReadRecord(getMessage().getReadRecord());
 				// 2.2 Set RELAY_EVENT network record
 				por.setEventMessageNetworkRecord(buildNetworkRecord());
-				// 2.4 Set the RELAY_EVENT attempts
+				// 2.3 Set the RELAY_EVENT attempts
 				por.incrementEventMessageAttempts();
-				// 2.4 Set the acknowledgement attempts
+				// 2.4 Set the consumerNodeId
+				por.setConsumerNodeId(ConfigStore.getInstance().getNodeId());
+				// 2.5 increment AcknowledgementMessageAttempts 
 				por.incrementAcknowledgementMessageAttempts();
-				// 2.5 Set the consumerNodeId
-				por.setConsumerNodeId(ConfigStore.getNodeId());
-				// 2.6 Set POR State to RELAYED
-				por.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
+				// 2.6 Set MessageDeliveryState State to RELAYED
+				por.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
 				// 2.7 Save the POR in local storage
-				DocumentStore.save(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+				DocumentStore.getInstance().save(por, getMessage().decoder().getId());
 				
 				// Put the message in the connectors incomingMessageStore
 				getIncomingConnection().getConnector().storeIncomingMessage(getMessage());
@@ -88,7 +91,7 @@ public class RelayedEventReceptor extends EventReceptor
 			else
 			{
 				// send acknowledgement back to cerebrum if the POR state is still RELAYED or ACKNOWLEDGED
-				if (por.getMessageDeliveryState().getState() < MessageDeliveryState.ACK_RECIEVED.getState())
+				if (por.getMessageDeliveryState() < MessageDeliveryState.ACK_RECIEVED.getState())
 				{
 					//Initiate application receptor if its execution was failed
 					if(por.isAppReceptorFailed()) 
@@ -112,7 +115,7 @@ public class RelayedEventReceptor extends EventReceptor
 			// Save the POD
 			try 
 			{
-				DocumentStore.update(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+				DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 			} catch (DocumentSaveFailedException e){}
 			return;
 		}
@@ -123,7 +126,7 @@ public class RelayedEventReceptor extends EventReceptor
 		try 
 		{
 			por.incrementAppReceptorExecutionAttempts();
-			por.setAppReceptorName(ConfigStore.getApplicationReceptor(getEvent().getEventType()));
+			por.setAppReceptorName(ConfigStore.getInstance().getApplicationReceptor(getEvent().getEventType()));
 			// Invoke appropriate ApplicationReceptor
 			ApplicationReceptor applicationReceptor = new ApplicationReceptor.Builder()
 					.eventData(por.getEvent())
@@ -141,7 +144,7 @@ public class RelayedEventReceptor extends EventReceptor
 			por.setAppReceptorFailed(true);
 			// LOG
 		}
-		DocumentStore.save(por, ProofOfRelay.DOC_PREFIX + getMessage().decoder().getId());
+		DocumentStore.getInstance().save(por, getMessage().decoder().getId());
 	}
 	
 	private void sendAcknowledgement(ProofOfRelay por) throws MessageBuildFailedException 
@@ -155,11 +158,12 @@ public class RelayedEventReceptor extends EventReceptor
 						.AppReceptorName(por.getAppReceptorName())
 						.AppReceptorExecutionTime(por.getAppReceptorExecutionTime())
 						.appReceptorFailed(por.isAppReceptorFailed())
-						.nodeId(Integer.valueOf(ConfigStore.getNodeId()))
+						.nodeId(Integer.valueOf(ConfigStore.getInstance().getNodeId()))
 						.build())
 				.messageId(getMessage().getMessageId())
 				.type(SynapticOutgoingMessageType.RELAYED_EVENT_ACK.getMessageType())
 				.sourceId(getMessage().getSourceId())
+				.originatingPort(getMessage().getOriginatingPort())
 				.build();
 		
 		// 2.2 Enqueue RELAYED_EVENT_ACK for sending

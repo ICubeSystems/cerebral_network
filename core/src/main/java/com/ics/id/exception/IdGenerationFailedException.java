@@ -17,4 +17,8 @@ public class IdGenerationFailedException extends IOException
 	{
 		super(message, cause);
 	}
+	
+	public IdGenerationFailedException(String message) {
+		super(message);
+	}
 }

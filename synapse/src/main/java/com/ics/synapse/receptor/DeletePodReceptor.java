@@ -1,14 +1,13 @@
 package com.ics.synapse.receptor;
 
-import java.io.IOException;
-
 import com.ics.env.Environment;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.receptor.PodReceptor;
@@ -47,7 +46,7 @@ public class DeletePodReceptor extends PodReceptor
 	public void process() 
 	{
 		// 1. Load the POD to delete
-		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		if (pod == null)
 		{
 			// Log and return
@@ -63,25 +62,18 @@ public class DeletePodReceptor extends PodReceptor
 		// 2.4 Set the delePod attempts
 		pod.incrementFinalMessageAttempts();
 		// 2.5 Set Pod State to FINISHED
-		pod.setMessageDeliveryState(MessageDeliveryState.FINISHED);
+		pod.setMessageDeliveryState(MessageDeliveryState.FINISHED.getState());
 		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
+			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
 			// MOCK CODE: to test the reliable delivery of the messages
 			if(Environment.isDev() && pod.getMessageId().equals("1-15")) {
 				System.out.println("forceStop"+getMessage().decoder().getId());
 				return;
 			}
 			// END MOCK CODE
-		} catch (IOException e) {}
+		} catch (DocumentSaveFailedException e) {}
 
 		// 3. Delete the POD from local storage
-		if (!DocumentStore.delete(getMessage().decoder().getId(),pod))
-		{
-			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
-					.messageId(getMessage().decoder().getId())
-					.action("POD deletion failed")
-					.logError());
-			return;
-		}
+		pod.removeFromCache();
 	}
 }

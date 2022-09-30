@@ -221,6 +221,10 @@ public class MessageReader
 		byte[] timeStamp = new byte[8];
 		headerBuffer.get(timeStamp, 0, 8);
 		messageBuilder.setTimeStamp(timeStamp);
+		//set originatingPort
+		byte[] originatingPort = new byte[2];
+		headerBuffer.get(originatingPort, 0, 2);
+		messageBuilder.setOriginatingPort(originatingPort);
 		// set dataLength
 		byte[] dataLength = new byte[4];
 		headerBuffer.get(dataLength, 0, 4);

@@ -1,5 +1,11 @@
 package com.ics.nceph.core.message;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBAttribute;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
+
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * This class records the time taken by the message to transmit completely from source to destination. It gives a measure of latency for a message in the network.
  * 
@@ -7,13 +13,23 @@ package com.ics.nceph.core.message;
  * @version 1.0
  * @since 15-Mar-2022
  */
-public class NetworkRecord extends TimeRecord 
+@Getter
+@Setter
+@DynamoDBDocument
+public class NetworkRecord
 {
-	NetworkRecord() {super();}
+	@DynamoDBAttribute
+	private long start;
+	
+	@DynamoDBAttribute
+	private long end;
+	
+	public NetworkRecord() {}
 
-	NetworkRecord(long start, long end) 
+	public NetworkRecord(long start, long end) 
 	{
-		super(start, end);
+		this.start = start;
+		this.end = end;
 	}
 
 	/**

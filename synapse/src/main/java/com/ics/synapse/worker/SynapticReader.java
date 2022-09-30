@@ -1,5 +1,7 @@
 package com.ics.synapse.worker;
 
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
@@ -36,11 +38,19 @@ public class SynapticReader extends Reader
 			receptor.execute();
 		} 
 		catch (InvalidMessageTypeException e) {
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Invalid message type")
+					.logError(),e);
 		} 
 		catch (ReceptorInstantiationException e) 
 		{
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Receptor can't initialize")
+					.logError(),e);
 		}
 	}
 }

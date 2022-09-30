@@ -15,11 +15,11 @@ import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.ProofOfRelay;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.ProofOfRelay;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.event.exception.EventNotSubscribedException;
 import com.ics.nceph.core.message.AcknowledgeMessage;
 import com.ics.nceph.core.message.Message;
@@ -86,7 +86,7 @@ public class PublishedEventReceptor extends EventReceptor
 				.logInfo());
 		// 1. Save the message received in the local datastore
 		// 1.1 Check if message has already been received
-		ProofOfPublish pod = (ProofOfPublish) DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		try 
 		{
 			if (pod == null)
@@ -113,9 +113,10 @@ public class PublishedEventReceptor extends EventReceptor
 				// 2.4 Set the acknowledgement attempts
 				pod.incrementAcknowledgementMessageAttempts();
 				// 2.5 Set POD State to DELIVERED
-				pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED);
-				// Save the POD in local storage
-				DocumentStore.save(pod, getMessage().decoder().getId());
+				pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
+
+				// Save the POD in document store
+				DocumentStore.getInstance().save(pod, getMessage().decoder().getId());
 
 				// Put the message in the connectors incomingMessageStore
 				getIncomingConnection().getConnector().storeIncomingMessage(getMessage());
@@ -128,7 +129,9 @@ public class PublishedEventReceptor extends EventReceptor
 				
 				// 4.1 Get the subscriber connectors for this event
 				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventType());
+				
 				pod.setSubscriberCount(subscribers.size());
+				
 
 				// 5. Loop over subscriber connectors
 				for (Connector connector : subscribers) 
@@ -137,18 +140,24 @@ public class PublishedEventReceptor extends EventReceptor
 					{
 						ProofOfRelay por = new ProofOfRelay.Builder()
 								.relayedOn(new Date().getTime())
+								.event(pod.getEvent())
 								.messageId(getMessage().decoder().getId())
+								.consumerPort(connector.getPort())
+								.producerPort(getMessage().decoder().getOriginatingPort())
+								.producerNodeId(pod.getProducerNodeId())
 								.build();
 						// Set the RELAY_EVENT attempts
 						por.incrementEventMessageAttempts();
-						por.setProducerPortNumber(pod.getProducerPortNumber());
-						por.setProducerNodeId(pod.getProducerNodeId());
-						por.setConsumerPortNumber(connector.getPort());
-						pod.addPor(connector.getPort(), por);
 
-						// Save the POD
-						DocumentStore.update(pod, getMessage().decoder().getId());
-
+						// Save the POR
+						DocumentStore.getInstance().save(por, getMessage().decoder().getId());
+						
+						// After creating Por set subscriber port in pod's createdPors set
+						pod.addSubscribedPort(connector.getPort());
+						
+						// Save the Pod
+						DocumentStore.getInstance().save(pod, getMessage().decoder().getId());
+						
 						// MOCK CODE: to test the reliable delivery of the messages
 						if(Environment.isDev() && por.getMessageId().equals("1-11")) 
 							continue;
@@ -184,7 +193,7 @@ public class PublishedEventReceptor extends EventReceptor
 				// duplicate message handling - TBD
 				// If ACK_RECEIVED message is not received then send the NCEPH_EVENT_ACK
 				// If ACK_RECEIVED message is received then send DELETE_POD [DO NOT NEED TO CATER TO THIS - this receptor will never be called if the ACK_RECEIVED message is received]
-				if (pod.getMessageDeliveryState().getState() < MessageDeliveryState.ACK_RECIEVED.getState())
+				if (pod.getMessageDeliveryState() < MessageDeliveryState.ACK_RECIEVED.getState())
 					sendAcknowledgement(pod);
 				else
 					System.out.println("duplicate message found" + getMessage().decoder().getId());
@@ -203,7 +212,7 @@ public class PublishedEventReceptor extends EventReceptor
 			// Save the POD
 			try 
 			{
-				DocumentStore.update(pod, getMessage().decoder().getId());
+				DocumentStore.getInstance().save(pod, getMessage().decoder().getId());
 			} 
 			catch (DocumentSaveFailedException e1){}
 		}
@@ -235,6 +244,7 @@ public class PublishedEventReceptor extends EventReceptor
 				.messageId(getMessage().getMessageId())
 				.type(CerebralOutgoingMessageType.NCEPH_EVENT_ACK.getMessageType())
 				.sourceId(getMessage().getSourceId())
+				.originatingPort(getMessage().getOriginatingPort())
 				.build();
 		// 3.2 Enqueue NCEPH_EVENT_ACK for sending
 		getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);

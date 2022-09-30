@@ -9,7 +9,9 @@
 	
 	<bean id="osInfo" class="com.ics.util.OSInfo" />
 	
-	<bean id="dynamoConfig" class="com.ics.nceph.core.db.dynamoDB.config.DynamoDBConfig" />
+	<bean id="cerebralConfigurationIntializer" class="com.ics.cerebrum.configuration.CerebralConfigurationIntializer" />
+	
+	<bean id="cerebralConfiguration" factory-bean="cerebralConfigurationIntializer" factory-method="initialiseCerebralConfiguration" />
 	
 	<bean id="reactorClusterInitializer" class="com.ics.nceph.core.reactor.ReactorClusterInitializer" />
 	
@@ -20,6 +22,8 @@
 	</bean>
 	
 	<bean id="connectorCluster" factory-bean="connectorClusterInitializer" factory-method="initializeConnectionCluster" />
+	
+	<bean id="applicationContextUtils" class="com.ics.util.ApplicationContextUtils" />
 	
 	<bean id="bootstraper" class="com.ics.cerebrum.bootstrap.Bootstraper">
 		<constructor-arg ref="connectorCluster" />

@@ -4,10 +4,10 @@ import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.MessageDeliveryState;
-import com.ics.nceph.core.document.ProofOfPublish;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.MessageDeliveryState;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 
 /**
@@ -34,7 +34,7 @@ public class PublishedEventThreeWayAcknowledgementAffector extends Affector
 	public void process() 
 	{
 		// Load the POD for this message
-		ProofOfPublish pod = (ProofOfPublish)DocumentStore.load(getMessage().decoder().getId());
+		ProofOfPublish pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		if (pod == null)
 		{
 			NcephLogger.MESSAGE_LOGGER.warn(new MessageLog.Builder()
@@ -46,11 +46,11 @@ public class PublishedEventThreeWayAcknowledgementAffector extends Affector
 		// Set the WriteRecord in the POD
 		pod.setThreeWayAckMessageWriteRecord(getMessage().getWriteRecord());
 		// Update pod state only if it is not yet acknowledged ( this is done for the case where receptor executes prior to affector )
-		if(pod.getMessageDeliveryState().getState() < MessageDeliveryState.ACK_RECIEVED.getState())
-			pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED);
+		if(pod.getMessageDeliveryState() < MessageDeliveryState.ACK_RECIEVED.getState())
+			pod.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED.getState());
 		// Save the POD
 		try {
-			DocumentStore.update(pod, getMessage().decoder().getId());
+			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
 		} catch (DocumentSaveFailedException e) {}
 	}
 }

@@ -3,7 +3,6 @@ package com.ics.synapse.connector;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
-import java.net.UnknownHostException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
@@ -16,15 +15,16 @@ import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
+import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.connection.exception.AuthenticationFailedException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
-import com.ics.nceph.core.document.DocumentStore;
-import com.ics.nceph.core.document.ProofOfAuthentication;
-import com.ics.nceph.core.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.ProofOfAuthentication;
+import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.NetworkRecord;
 import com.ics.nceph.core.message.StartupMessage;
@@ -40,7 +40,6 @@ import com.ics.synapse.message.BootstrapMessage;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 import com.ics.synapse.worker.SynapticReader;
 import com.ics.synapse.worker.SynapticWriter;
-import com.ics.util.OSInfo;
 
 /**
  * Connector implementation for the Micro-service/ application node.
@@ -51,7 +50,7 @@ import com.ics.util.OSInfo;
  */
 public class SynapticConnector extends Connector
 {
-	Configuration config;
+	ConnectionConfiguration config;
 
 	private String cerebrumHostPath; 
 
@@ -95,7 +94,7 @@ public class SynapticConnector extends Connector
 							.toString())
 					.logInfo());
 			
-			// 2. Initiate the bootstrapping of the synapse by sending bootstrapping message to cerebrum
+			// 2. Initiate the bootstrapping of the synapse by sending the BOOTSTRAP message to cerebrum
 			bootstrapSynapse(controlConnection);
 		} catch (IOException | ConnectionInitializationException | ConnectionException e) {//@TODO: ControlConnectionFailedException
 			// Log
@@ -180,22 +179,18 @@ public class SynapticConnector extends Connector
 	/**
 	 * 
 	 * @param controlConnection
-	 * @throws UnknownHostException
 	 * @throws SocketException
 	 * @throws MessageBuildFailedException
 	 */
-	public void bootstrapSynapse(Connection controlConnection) throws UnknownHostException, SocketException, MessageBuildFailedException 
+	public void bootstrapSynapse(Connection controlConnection) throws MessageBuildFailedException 
 	{
-		// Get MAC address
-		String macAddress = OSInfo.getMacAddress();
-		if(macAddress == null)
-			throw new UnknownHostException("MAC address is null");
 		// Build BOOTSTRAP message
 		Message bootstrapMessage = new BootstrapMessage.Builder()
 										.data(new BootstrapData.Builder()
-												.macAddress(macAddress)
+												.secretKey(Configuration.APPLICATION_PROPERTIES.getConfig("secret.key"))
 												.build())
 										.mid(getPort() + "-0") // bootstrap message will have a fixed message id per synaptic connector
+										.originatingPort(getPort())
 										.build();
 		// Enqueue the message on the connection to be sent to the Cerebrum
 		controlConnection.enqueueMessage(bootstrapMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
@@ -219,19 +214,23 @@ public class SynapticConnector extends Connector
 			StartupData startupData = new StartupData.Builder().build();
 			
 			// 2. Create the STARTUP message 
-			Message startupMessage = new StartupMessage.Builder().data(startupData).build();
+			Message startupMessage = new StartupMessage.Builder()
+										.data(startupData)
+										.originatingPort(getPort())
+										.build();
 			
 			// 3. Create a ProofOfAuthentication object and save it to the local DocumentStore
 			ProofOfAuthentication poa = new ProofOfAuthentication.Builder()
 					.messageId(startupMessage.decoder().getId()) // 3.1 Set message Id
-					.createdOn(startupData.getCreatedOn()) // 3.2 Set createdOn
+					.createdOn(new Date().getTime()) // 3.2 Set createdOn
+					.originatingPort(getPort()) //3.2 Set originating port
 					.build();
 			// 3.1 Set STARTUP network record 
 			poa.setStartupNetworkRecord(new NetworkRecord.Builder()
 					.start(new Date().getTime())
 					.build());
 			// 3.2 Save the POA in the local DocumentStore
-			DocumentStore.save(poa, ProofOfAuthentication.DOC_PREFIX + startupMessage.decoder().getId());
+			DocumentStore.getInstance().save(poa, startupMessage.decoder().getId());
 			
 			// 4. Enqueue the message on the connection to be sent to the Cerebrum
 			connection.enqueueMessage(startupMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
@@ -257,14 +256,14 @@ public class SynapticConnector extends Connector
 	@Override
 	public void createPostWriteWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().register(new SynapticWriter(incomingConnection, message));
+		getReaderPool().execute(new SynapticWriter(incomingConnection, message));
 	}
 
-	public Configuration getConfig() {
+	public ConnectionConfiguration getConfig() {
 		return config;
 	}
 
-	private void setConfig(Configuration config) {
+	private void setConfig(ConnectionConfiguration config) {
 		this.config = config;
 	}
 
@@ -285,22 +284,22 @@ public class SynapticConnector extends Connector
 		/**
 		 * Maximum number of sockets allowed in the pool
 		 */
-		private Integer maxConnections = 50;
+		private Integer maxConnections = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("connector.maxConnections"));
 
 		/**
 		 * Number of sockets to start at the pool creation time
 		 */
-		private Integer minConnections = 5;
+		private Integer minConnections = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("connector.minConnections"));;
 
 		/**
 		 * Maximum number of active allocation after which a new socket is opened till maxPoolSize is reached.
 		 */
-		private Integer maxConcurrentRequest = 100;
+		private Integer maxConcurrentRequest = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("connector.maxConcurrentRequest"));;
 
 		/**
 		 * Maximum idle time of the socket after which it will be closed
 		 */
-		private int maxConnectionIdleTime = 510000; //8.5 mins
+		private int maxConnectionIdleTime = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("connector.maxConnectionIdleTime"));; //8.5 mins
 
 		private SSLContext sslContext;
 
@@ -409,7 +408,7 @@ public class SynapticConnector extends Connector
 		public SynapticConnector build() 
 		{
 			// 1. Instantiate new SynapticConnector
-			SynapticConnector connnector = new SynapticConnector(
+			SynapticConnector connector = new SynapticConnector(
 					hostPath,
 					port, 
 					name, 
@@ -419,20 +418,20 @@ public class SynapticConnector extends Connector
 					);
 			
 			// 2. Set the configurations for the connector
-			connnector.setConfig(connnector.new Configuration(
+			connector.setConfig(connector.new ConnectionConfiguration(
 					maxConnections, 
 					minConnections, 
 					maxConcurrentRequest, 
 					maxConnectionIdleTime));
 			
 			// 3. Start the connector
-			connnector.start();
+			connector.start();
 			
 			// 4. Initialize the monitor thread
-			connnector.initializeMonitor(new SynapticMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
+			connector.initializeMonitor(new SynapticMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 
 			// 5. Return the connector
-			return connnector;
+			return connector;
 		}
 	}
 
@@ -442,7 +441,7 @@ public class SynapticConnector extends Connector
 	 * @version 1.0
 	 * @since 17-Jan-2022
 	 */
-	public class Configuration
+	public class ConnectionConfiguration
 	{
 		/**
 		 * Maximum number of sockets allowed in the pool
@@ -465,7 +464,7 @@ public class SynapticConnector extends Connector
 		Integer maxConnectionIdleTime; //8.5 mins
 
 
-		public Configuration(Integer maxConnections, Integer minConnections, Integer maxConcurrentRequest, Integer maxConnectionIdleTime) 
+		public ConnectionConfiguration(Integer maxConnections, Integer minConnections, Integer maxConcurrentRequest, Integer maxConnectionIdleTime) 
 		{
 			this.maxConnections = maxConnections;
 			this.minConnections = minConnections;

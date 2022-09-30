@@ -1,5 +1,7 @@
 package com.ics.synapse.worker;
 
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.affector.Affector;
 import com.ics.nceph.core.affector.AffectorInstantiationException;
 import com.ics.nceph.core.connector.connection.Connection;
@@ -35,13 +37,20 @@ public class SynapticWriter extends Writer
 			// 2. Process the message by calling the process of Affector
 			affector.execute();
 		} 
-		catch (InvalidMessageTypeException e) 
-		{
-			e.printStackTrace();
+		catch (InvalidMessageTypeException e) {
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Invalid message type")
+					.logError(),e);
 		} 
 		catch (AffectorInstantiationException e) 
 		{
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Affector can't initialize")
+					.logError(),e);
 		}
 	}
 }
