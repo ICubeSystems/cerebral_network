@@ -50,7 +50,7 @@ public class LocalStoreCacheInitializer extends CerebrumCacheInitializer
 			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")+entry.getKey()+"/",ProofOfPublish.class, entry.getValue().getIncomingMessageRegister());
 			// LOG
 			// LOG
-			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")+entry.getKey()+"/",ProofOfRelay.class, entry.getValue().getIncomingMessageRegister());
+			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")+entry.getKey()+"/",ProofOfRelay.class, entry.getValue().getOutgoingMessageRegister());
 			// LOG
 		}
 	}

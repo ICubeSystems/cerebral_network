@@ -28,7 +28,7 @@ public class MessageLedger
 	public MessageLedger()
 	{
 		this.ledger = new ConcurrentHashMap<Integer, Set<Long>>();
-		messageCounter = 0;
+		messageCounter = 1;
 	}
 	
 	/**
@@ -58,7 +58,8 @@ public class MessageLedger
 					// DUPLICACY CHECKED
 					synchronized (messageIds) {
 						messageIds.add(messageId);
-						messageCounter++;
+						if(messageCounter < messageId)
+							messageCounter = messageId;
 					}
 	}
 	

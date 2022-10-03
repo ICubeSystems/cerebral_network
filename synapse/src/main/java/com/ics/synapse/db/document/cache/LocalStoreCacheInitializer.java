@@ -47,7 +47,7 @@ public class LocalStoreCacheInitializer extends SynapseCacheInitializer
 		for (Map.Entry<Integer, Connector> entry : ConnectorCluster.activeConnectors.entrySet())
 		{
 			// LOG
-			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")+entry.getKey()+"/",ProofOfPublish.class, entry.getValue().getIncomingMessageRegister());
+			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")+entry.getKey()+"/",ProofOfPublish.class, entry.getValue().getOutgoingMessageRegister());
 			// LOG
 			// LOG
 			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")+entry.getKey()+"/",ProofOfRelay.class, entry.getValue().getIncomingMessageRegister());
