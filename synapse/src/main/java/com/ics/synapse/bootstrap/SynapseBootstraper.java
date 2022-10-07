@@ -3,10 +3,8 @@ package com.ics.synapse.bootstrap;
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import org.springframework.beans.factory.annotation.Value;
-
 import com.ics.logger.NcephLogger;
-import com.ics.menu.SynapticMenu;
+import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
@@ -35,14 +33,11 @@ public class SynapseBootstraper
 {
 	ReactorCluster reactorCluster;
 	
-	@Value("${synapticConnector.name}")
-	private String connectorName;
+	private String connectorName = Configuration.APPLICATION_PROPERTIES.getConfig("synapticConnector.name");
 			
-	@Value("${cerebrum.port}")
-	private Integer cerebrumPort;
+	private Integer cerebrumPort = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("cerebrum.port"));
 	
-	@Value("${cerebrum.host.path}")
-	private String cerebrumHostPath;
+	private String cerebrumHostPath = Configuration.APPLICATION_PROPERTIES.getConfig("cerebrum.host.path");;
 	
 	/**
 	 * Constructor used by the <b>Spring container</b> to create a {@link SynapseBootstraper} object. This object is managed by the <b>Spring container</b> and is singleton scoped. 
@@ -57,13 +52,13 @@ public class SynapseBootstraper
 		// 1. Get the SynapticReactorCluster (singleton scoped)
 		this.reactorCluster = reactorCluster;
 	}
-	
+
 	public void boot() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, ConnectionException, ImproperConnectorInstantiationException, SSLContextInitializationException
 	{
 //		IdStore.getInstance().initialize();
 		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticIncomingMessageType.types.length + " incoming message types");
 		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + SynapticOutgoingMessageType.types.length + " outgoing message types");
-		
+
 		// 1. Create a synaptic connector
 		SynapticConnector connector = new SynapticConnector.Builder()
 				.name(connectorName) 
@@ -85,7 +80,6 @@ public class SynapseBootstraper
 						.build())
 				.sslContext(NcephSSLContext.getSSLContext())
 				.build();
-		
 		// Add the connector to the cluster. On the synapse there will only be 1 connector in the cluster. Added for consistency.
 		ConnectorCluster connectorCluster = new ConnectorCluster();
 		connectorCluster.add(connector);
@@ -98,6 +92,36 @@ public class SynapseBootstraper
 		
 		// 4. synaptic menu
 		
-		SynapticMenu.run(connector);
+		while (connector.getActiveConnections().size()==0)
+		{
+			System.out.println("Waiting for connection establishment...");
+			try
+			{
+				Thread.sleep(2000);
+			} catch (InterruptedException e)
+			{
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	/**
+	 * Builder class of bootstraper
+	 */
+	public static class Builder
+	{
+		ReactorCluster reactorCluster;
+
+		public Builder ReactorCluster(ReactorCluster reactorCluster)
+		{
+			this.reactorCluster = reactorCluster;
+			return this;
+		}
+
+		public SynapseBootstraper build()
+		{
+			return new SynapseBootstraper(reactorCluster);
+		}
 	}
 }
