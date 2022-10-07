@@ -237,7 +237,14 @@ public class Connection implements Comparable<Connection>
 		}
 		
 		// Cancel the selection key
-		key.cancel();
+		try
+		{
+			key.cancel();
+		} catch (NullPointerException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		// Close the socket if it is not already closed
 		if (!getSocket().socket().isClosed())
