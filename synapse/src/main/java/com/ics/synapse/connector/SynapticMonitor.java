@@ -165,7 +165,7 @@ public class SynapticMonitor extends ConnectorMonitorThread
 		{
 			//4.1 get all files from the POD directory
 			// 4.2 if there are no pods then exit ProcessPOD block
-			if (ProofOfPublish.getMessageCache(getConnector().getPort()).isEmpty()) 
+			if (ProofOfPublish.getMessageCache(getConnector().getPort()) == null || ProofOfPublish.getMessageCache(getConnector().getPort()).isEmpty()) 
 			{
 				NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
 						.monitorPort(connector.getPort())
