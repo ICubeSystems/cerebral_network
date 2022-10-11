@@ -7,27 +7,33 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.ics.logger.ConnectionLog;
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
+import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
+import com.ics.nceph.core.connector.ConnectorMonitorThread;
+import com.ics.nceph.core.connector.connection.exception.ConnectionException;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.MessageReader;
 import com.ics.nceph.core.message.MessageWriter;
 import com.ics.nceph.core.message.RelayFailedMessageHandlingThread;
 import com.ics.nceph.core.message.exception.RelayTimeoutException;
+import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
-
+import com.ics.nceph.core.ssl.exception.SSLHandshakeException;
 
 /**
- * This class encapsulates a connection between Service/ Application and a particular Encephelon {@link Connector}
+ * This class encapsulates a connection between Synapse (Service/ Application) and Cerebrum
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -39,18 +45,19 @@ public class Connection implements Comparable<Connection>
 	
 	private SocketChannel socket;
 	
-	private AtomicInteger activeRequests;
-	
-	private AtomicInteger totalRequestsServed;
-	
-	private AtomicInteger totalSuccessfulRequestsServed;
-	
 	private Reactor reactor;
 	
 	private Connector connector;
 	
 	private SelectionKey key;
 	
+	private int relayTimeout;
+	
+	Metric metric;
+	
+	/**
+	 * Queue of messages to be relayed to the subscriber nodes.
+	 */
 	private ConcurrentLinkedQueue<Message> relayQueue;
 	
 	private MessageReader reader;
@@ -61,6 +68,17 @@ public class Connection implements Comparable<Connection>
 	
 	long lastUsed;
 	
+	boolean isClient;
+	
+	int plainTextBufferSize = NcephConstants.READER_BUFFER_SIZE;
+
+	/**
+	 * 
+	 * @return
+	 */
+	public ConcurrentLinkedQueue<Message> getRelayQueue() {
+		return relayQueue;
+	}
 	
 	/**
 	 * Constructs a connection for cerebral connector
@@ -71,14 +89,22 @@ public class Connection implements Comparable<Connection>
 	 * @param receiveBufferSize
 	 * @param sendBufferSize
 	 * @throws IOException
+	 * @throws ConnectionException 
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws ConnectionInitializationException, ConnectionException
 	{
-		// Get the SocketChannel 
-		this.socket = ((ServerSocketChannel)connector.obtainSocketChannel()).accept();
-		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+		this.relayTimeout = relayTimeout;
+		// 1. Get the SocketChannel and accept the incoming connection
+		try 
+		{
+			this.socket = ((ServerSocketChannel)connector.obtainSocketChannel()).accept();
+		}
+		catch (IOException e) {	throw new ConnectionException("Connection with id:"+ id +" constructor failed: "+e.getMessage(), e);}
+		
+		// 2. Initialize the connection created above
+		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, false);
 	}
 	
 	/**
@@ -90,53 +116,79 @@ public class Connection implements Comparable<Connection>
 	 * @param receiveBufferSize
 	 * @param sendBufferSize
 	 * @param cerebralConnectorAddress
+	 * @throws ConnectionException 
 	 * @throws IOException
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
 	 */
-	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	Connection(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, InetSocketAddress cerebralConnectorAddress) throws ConnectionInitializationException, ConnectionException
 	{
-		// Get the SocketChannel 
-		this.socket = (SocketChannel)connector.obtainSocketChannel();
-		this.socket.connect(cerebralConnectorAddress);
-		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+		// 1. Obtain IO channel & connect
+		try 
+		{
+			this.socket = (SocketChannel)connector.obtainSocketChannel();
+			// Connect to the cerebral server
+			this.socket.connect(cerebralConnectorAddress);
+		} catch (IOException e) {
+			// TODO throw connectionException
+			throw new ConnectionException("Connection with id:"+ id +" constructor failed: "+e.getMessage(), e);
+		}
+		this.relayTimeout = relayTimeout;
+		// 2. Initialize connection
+		initialize(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, true);
 	}
 	
 	
-	private void initialize(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize) throws ImproperReactorClusterInstantiationException, ReactorNotAvailableException, IOException
+	private void initialize(Integer id, Connector connector, Integer relayTimeout, Integer receiveBufferSize, Integer sendBufferSize, boolean isClient) throws ConnectionInitializationException
 	{
-		this.id = id;
-		this.connector = connector;
-		
-		// Initialize the counters to 0
-		this.activeRequests = new AtomicInteger(0);
-		this.totalRequestsServed = new AtomicInteger(0);
-		this.totalSuccessfulRequestsServed = new AtomicInteger(0);
-		
-		// Get the reactor from the connector which has least number of active keys 
-		this.reactor = ReactorCluster.getReactor();
-		
-		this.socket.socket().setSendBufferSize(sendBufferSize);
-		this.socket.socket().setReceiveBufferSize(receiveBufferSize);
-		// Set the socketChannel to nonblocking mode
-		this.socket.configureBlocking(false);
-		
-		// Register the selector
+		try 
+		{
+			this.id = id;
+			this.connector = connector;
+			
+			// Initialize the counters to 0
+			this.metric = new Metric();
+			
+			// Get the reactor from the connector which has least number of active keys 
+			this.reactor = ReactorCluster.getReactor();
+			this.socket.socket().setSendBufferSize(sendBufferSize);
+			this.socket.socket().setReceiveBufferSize(receiveBufferSize);
+			
+			// Set the socketChannel to nonblocking mode
+			this.socket.configureBlocking(false);
+			// Set the client mode to true, indicating that the connection is on the client side (synaptic node).
+			this.isClient = isClient;
+			// Initialize the connection
+			initializeConnection();
+		} catch (Exception e) 
+		{
+			try 
+			{
+				teardown();
+			} catch (IOException teardownException) {
+				throw new ConnectionInitializationException("Teardown failed while initalizing connection", teardownException);
+			}
+			throw new ConnectionInitializationException("Connection initialization failed", e);
+		}
+	}
+	
+	protected void initializeConnection() throws IOException, SSLHandshakeException 
+	{
+		// Connection state is AUTH_PENDING when constructed - can only be used for event read and relay after the state changes to READY
+		state = ConnectionState.AUTH_PENDING;
+		// If the handshake is successful then register a selector to socket channel with interestOps
 		key = getSocket().register(reactor.getSelector(), SelectionKey.OP_READ, this);
+		// Initialize the MessageReader & MessageWriter
+		reader = new MessageReader(this);
+		writer = new MessageWriter(this);
 		reactor.getSelector().wakeup();
-		
-		// Initialize the MessageReader
-		reader = new MessageReader();
-		writer = new MessageWriter(relayTimeout);
 		
 		// Initialize the eventQueue
 		relayQueue = new ConcurrentLinkedQueue<Message>();
-		// TODO: Connection state is AUTH_PENDING when constructed - can only be used for event read and relay after the state changes to READY
-		state = ConnectionState.READY;
+		// set last used time of the connection
 		setLastUsed(System.currentTimeMillis());
-		
-		System.out.println("Initializing connection "+ id + ", attaching it to selector of reactor " + reactor.getReactorId() + " for read/ write operation");
 	}
+
 	
 	/**
 	 * This method should be called when the underlying socket gives a <b>java.net.SocketException: Connection reset"</b> exception. 
@@ -146,36 +198,53 @@ public class Connection implements Comparable<Connection>
 	 * The message queued for relay are then transferred to relay queue of the connector. They will be assigned connection for relay once new connections are accepted on the connector. 
 	 * Finally the Selection Key is cancelled and the socket are closed if they are still open.
 	 * 
-	 * @return void
-	 *
 	 * @author Anurag Arya
 	 * @version 1.0
+	 * @return void
 	 * @throws IOException 
 	 * @since 09-Jan-2022
 	 */
 	public void teardown() throws IOException
 	{
 		// LOG: Connection (id:2): Connection teardown. Transfer X messages to transmissionQueue of Connector (port: 1000)
-		System.out.println("Connection (id:"+ id +") - teardown initiated. Transfer " + relayQueue.size() + " messages to relayQueue of Connector (port: "+ getConnector().getPort() +")");
+		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+				.connectionId(String.valueOf(id))
+				.action("teardown initiated")
+				.logInfo());
 		state = ConnectionState.TEARDOWN_REQUESTED;
 		
 		// Remove the connection from LB to re-adjust the counters
 		removeFromLoadBalancer();
 		
 		// Check if there are any messages waiting to be relayed. Transfer them to the connectors outgoing buffer
-		if (relayQueue.size() > 0)
+		if (relayQueue != null && relayQueue.size() > 0)
 		{
+			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+					.connectionId(String.valueOf(getId()))
+					.action("Teardown - dump")
+					.description("Transfering messages to connector's relayQueue")
+					.data(new LogData()
+							.entry("port", String.valueOf(getConnector().getPort()))
+							.entry("#messages", String.valueOf(relayQueue.size()))
+							.toString())
+					.logInfo());
 			while(!relayQueue.isEmpty())
 			{
 				Message message = relayQueue.poll();
+				getConnector().removeConnectionQueuedUpMessage(message);
 				getConnector().enqueueMessage(message);
-				//LOG: Message id: 13341 [transferred]
-				System.out.println("Message id: "+ message.decoder().getId() + " [transferred]");
 			}
 		}
 		
 		// Cancel the selection key
-		key.cancel();
+		try
+		{
+			key.cancel();
+		} catch (NullPointerException e)
+		{
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		// Close the socket if it is not already closed
 		if (!getSocket().socket().isClosed())
@@ -188,8 +257,13 @@ public class Connection implements Comparable<Connection>
 		// Remove the connection from the map of active connections on the connector & change the state of the connection to DECOMMISIONED
 		getConnector().getActiveConnections().remove(getId());
 		state = ConnectionState.DECOMMISIONED;
-		
-		System.out.println("Connection (id:"+ id +") - teardown completed");
+		NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+				.connectionId(String.valueOf(id))
+				.action("teardown completed")
+				.data(new LogData()
+						.entry("ConnectionId", String.valueOf(id))
+						.toString())
+				.logInfo());
 	}
 	
 	/**
@@ -197,53 +271,38 @@ public class Connection implements Comparable<Connection>
 	 * 
 	 * @return void
 	 * @throws IOException 
+	 * @throws ConnectionInitializationException 
 	 */
 	public void read() throws IOException 
 	{
-		System.out.println("READING...");
 		boolean operationStatus = true;
-		
+
 		// 1. Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
 		engage();
-		
+
 		// 2. Invoke the MessageReader to read the message(s) from the underlying socket
 		try 
 		{
-			reader.read(socket);
+			reader.read();
 		}catch (IOException e) // In case there is an exception white reading from socket
 		{
 			// TODO maybe we want to handle this by creating our custom exception - TBD
-			e.printStackTrace(); 
 			//Check if the SocketException () then initiate teardown()
 			if(e instanceof SocketException || e instanceof ClosedChannelException)
 			{
-				System.out.println("Initiating connection teardown due to: " + e.getMessage());
+				NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
+						.connectionId(String.valueOf(getId()))
+						.action("Teardown")
+						.description("Teardown connection due to: ")
+						.logError(),e);
 				teardown();
 			}
 			else
 				operationStatus = false;
 		}
-		
+
 		// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
 		disengage(operationStatus, false);
-		
-		// 4. Get the fully constructed messages from the MessageReader and loop over them if more than 0
-		ConcurrentHashMap<Long, Message> recievedMessages  = reader.getMessages();
-		if (recievedMessages.size() > 0)
-		{
-			for (Entry<Long, Message> entry : recievedMessages.entrySet()) 
-			{
-				Long messageId = entry.getKey();
-				Message message = entry.getValue();
-				System.out.println("Creating reader thread for messageId:" + messageId);
-				// 4.1 Create a reader thread per message
-				getConnector().createPostReadWorker(message, this);
-				// 4.2 Put the message in the connectors incomingMessageStore
-				getConnector().storeIncomingMessage(message);
-				// 4.3 Remove the message from the recievedMessages in the messageReader
-				recievedMessages.remove(messageId);
-			}
-		}
 	}
 
 	/**
@@ -255,22 +314,25 @@ public class Connection implements Comparable<Connection>
 	{
 		synchronized (getConnector().getConnectionLoadBalancer()) 
 		{
-			// Update the last used of the connection
-			setLastUsed(System.currentTimeMillis());
-						
-			// Remove the connection from LB to re-adjust the counters
-			removeFromLoadBalancer();
-			
-			// Decrement the activeRequests counter
-			getActiveRequests().decrementAndGet();
-			
-			// If read/ write was without any error/ exception then increment the totalSuccessfulRequestsServed counter
-			if (operationStatus)
-				getTotalSuccessfulRequestsServed().incrementAndGet();
-			
-			// Add the connection to the LB after counters are re-adjusted and if the write operation is not disabled on the connection due to relayTimeout
-			if (isReady() && !temporaryWriteDisabled)
-				addToLoadBalancer();
+			if(isReady())
+			{
+				// Update the last used of the connection
+				setLastUsed(System.currentTimeMillis());
+
+				// Remove the connection from LB to re-adjust the counters
+				removeFromLoadBalancer();
+
+				// Decrement the activeRequests counter
+				getMetric().activeRequests.decrementAndGet();
+
+				// If read/ write was without any error/ exception then increment the totalSuccessfulRequestsServed counter
+				if (operationStatus)
+					getMetric().totalSuccessfulRequestsServed.incrementAndGet();
+
+				// Add the connection to the LB after counters are re-adjusted and if the write operation is not disabled on the connection due to relayTimeout
+				if (!temporaryWriteDisabled)
+					addToLoadBalancer();
+			}
 		}
 	}
 
@@ -282,21 +344,24 @@ public class Connection implements Comparable<Connection>
 	{
 		synchronized (getConnector().getConnectionLoadBalancer()) 
 		{
-			// Update the last used of the connection
-			setLastUsed(System.currentTimeMillis());
-			
-			// Remove the connection from LB to re-adjust the counters
-			removeFromLoadBalancer();
-			
-			// Increment the counters
-			getActiveRequests().incrementAndGet();
-			getTotalRequestsServed().incrementAndGet();
-			
-			// Add the connection to the LB after counters are re-adjusted 
-			addToLoadBalancer();
+			if(isReady())
+			{
+				// Update the last used of the connection
+				setLastUsed(System.currentTimeMillis());
+
+				// Remove the connection from LB to re-adjust the counters
+				removeFromLoadBalancer();
+
+				// Increment the counters
+				getMetric().activeRequests.incrementAndGet();
+				getMetric().totalRequestsServed.incrementAndGet();
+
+				// Add the connection to the LB after counters are re-adjusted 
+				addToLoadBalancer();
+			}
 		}
 	}
-	
+
 	/**
 	 * Write/ publish the events enqueued in the event queue of the connection to the socket channel
 	 * 
@@ -305,38 +370,33 @@ public class Connection implements Comparable<Connection>
 	 */
 	public void write() throws IOException
 	{
-		System.out.println("Writing...");
 		boolean operationStatus = true;
 		// 1. Write only if the relayQueue has any message to write
 		if (relayQueue.size() > 0)
 		{
-			// 2. Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
-			engage();
-			
-			// 3. Loop over the relayQueue till it is empty
+			// 2. Loop over the relayQueue till it is empty
 			try 
 			{
 				while(!relayQueue.isEmpty())
 				{
-					//
-					// Relay the message
-					writer.write(getSocket(), relayQueue.peek());
-					// Update the last used of the connection
+					// 2.1 Engage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB
+					engage();
+					// 2.2 Relay the message
+					writer.write(relayQueue.peek());
+					// 2.3 Update the last used of the connection
 					setLastUsed(System.currentTimeMillis());
-					// Check if the writer has sent the above message fully and is ready for new message
-					if (writer.isReady())
-						// Remove the message from the relayQueue & Store message sent to the outgoing message register
-						getConnector().storeOutgoingMessage(relayQueue.poll());
+					// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
+					disengage(operationStatus, writer.isReady() ? false : true);
+					//
+					if (state == ConnectionState.PRE_READY)
+						setState(ConnectionState.READY);
 				}
 			}
 			// In case there is an IO exception while writing to the socket
 			catch (IOException e) 
 			{
 				// TODO Update the flag of the message which failed
-				
 				// TODO maybe we want to handle this by creating our custom exception - TBD
-				e.printStackTrace(); 
-				
 				// Check if the SocketException then initiate teardown()
 				if(e instanceof SocketException || e instanceof ClosedChannelException)
 				{
@@ -345,6 +405,7 @@ public class Connection implements Comparable<Connection>
 				}
 				else
 					operationStatus = false;
+				disengage(operationStatus, writer.isReady() ? false : true);
 			}
 			// The client/ receiver end of the socket is not able to accept the bytes within the set relayTimeout. 
 			// Then the RelayTimeoutException will be thrown and it will breaks the above write loop (stopping further relay of messages). 
@@ -352,21 +413,16 @@ public class Connection implements Comparable<Connection>
 			{
 				//Create a new thread (RelayFailedMessageHandlingThread) which will re attempt the write in some time
 				new RelayFailedMessageHandlingThread.Builder()
-								.connection(this)
-								.waitBeforeWriteAgain(60000*5) // 5 Minutes wait before retrying the write operation
-								.build()
-								.start(); // Start the thread
+				.connection(this)
+				.waitBeforeWriteAgain(60000*5) // 5 Minutes wait before retrying the write operation
+				.build()
+				.start(); // Start the thread
+				disengage(operationStatus, writer.isReady() ? false : true);
 			}
-			
-			// 3. Disengage connection - Remove the connection from LB & re-adjust the counters, finally put it back on LB if the relayTimeout has not occurred
-			disengage(operationStatus, writer.isReady() ? false : true);
-			
-			// 4. Set the connnection's socket channel interest to read
-			setInterest(SelectionKey.OP_READ);
-			
-			// 5. Open a write thread to do the post writing work like updating the ACK status of the messages
-			//getConnector().getWriterPool().execute(new Writer(this));
 		}
+
+		// 4. Set the connnection's socket channel interest to read
+		setInterest(SelectionKey.OP_READ);
 	}
 	
 	/**
@@ -391,13 +447,16 @@ public class Connection implements Comparable<Connection>
 	}
 	
 	@Override
-	public int compareTo(Connection connection) {
-		if(getActiveRequests().get() > connection.getActiveRequests().get() // if active request is greater then return 1
-				|| (getActiveRequests().get() == connection.getActiveRequests().get() && getTotalRequestsServed().get() > connection.getTotalRequestsServed().get())) // if active request is same and totalRequestsServed is greater then return 1 
+	public int compareTo(Connection connection) 
+	{
+		if(getMetric().activeRequests.get() > connection.getMetric().activeRequests.get() // if active request is greater then return 1
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() > connection.relayQueue.size()) // if active request is same and relayQueue size is greater then return 1
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() == connection.relayQueue.size() && getMetric().totalRequestsServed.get() > connection.getMetric().totalRequestsServed.get())) // if active request is same and totalRequestsServed is greater then return 1 
 		{
 			return 1;
-		} else if (getActiveRequests().get() < connection.getActiveRequests().get() 
-				|| (getActiveRequests().get() == connection.getActiveRequests().get() && getTotalRequestsServed().get() < connection.getTotalRequestsServed().get())) {
+		} else if (getMetric().activeRequests.get() < connection.getMetric().activeRequests.get() 
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() < connection.relayQueue.size())
+				|| (getMetric().activeRequests.get() == connection.getMetric().activeRequests.get() && relayQueue.size() == connection.relayQueue.size() && getMetric().totalRequestsServed.get() < connection.getMetric().totalRequestsServed.get())) {
 			return -1;
 		} else {
 			return 0;
@@ -405,58 +464,69 @@ public class Connection implements Comparable<Connection>
 	}
 
 	@Override
-	public String toString() {
+	public String toString() 
+	{
 		return "Connection {id=" + id + 
-				", activeRequests=" + activeRequests +
-				", RequestsServed=" + totalRequestsServed +
-				", SuccessfulRequestsServed=" + totalSuccessfulRequestsServed +
+				", activeRequests=" + getMetric().activeRequests +
+				", RequestsServed=" + getMetric().totalRequestsServed +
+				", SuccessfulRequestsServed=" + getMetric().totalSuccessfulRequestsServed +
 				", state=" + state +
 				", relayQueueSize=" + relayQueue.size() +
-				", ReadUnprocessedMessageCount=" + reader.getMessages().size() +
 				", WriterReady=" + writer.isReady() +
+				", IdleTime=" + getIdleTime() +
 				'}';
 	}
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(Object o) 
+    {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Connection connection = (Connection) o;
-        return Integer.compare(connection.activeRequests.get(), activeRequests.get()) == 0 &&
+        return Integer.compare(connection.getMetric().activeRequests.get(), getMetric().activeRequests.get()) == 0 &&
         		Integer.compare(connection.id, id) == 0 &&
-        		Integer.compare(connection.totalRequestsServed.get(), totalRequestsServed.get()) == 0;
+        		Integer.compare(connection.getMetric().totalRequestsServed.get(), getMetric().totalRequestsServed.get()) == 0;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, activeRequests, totalRequestsServed);
+        return Objects.hash(id, getMetric().activeRequests, getMetric().totalRequestsServed);
     }
     
 	/**
-	 * Adds the event to the event queue to be published on this connection's socket channel
+	 * Adds the message in the relay queue of this connection to be written over the socket channel. <br>
+	 * This method checks for duplicacy of the message. 
+	 * Only <b>exception</b> is when the message is being enqueued from the <code>{@link ConnectorMonitorThread}</code> thread. 
+	 * Assumption is that the monitor thread resends the message only after checking the state of POD/POR on expiry of transmission window.
 	 * 
-	 * @param event to be published
+	 * 
+	 * @param message - message to be published
+	 * @param context - QueuingContext
 	 * @return void
 	 */
-	public void enqueueMessage(Message message)
+	public void enqueueMessage(Message message, QueuingContext context)
 	{
+		// DUPLICACY CHECK: Check if the message has already been sent.  
+		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) // Message type should be PUBLISH_EVENT or RELAY_EVENT, only then check for duplicacy
+				&& (context.duplicacyCheckEnabled() && getConnector().hasAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
+				|| getConnector().isAlreadyQueuedUpOnConnection(message) || getConnector().isAlreadyQueuedUpOnConnector(message))) // Check if the message is not already in the relay queue of the connector or any of its connections
+			return;
+		// store message to connectionQueuedUpMessageRegister 
+		getConnector().storeConnectionQueuedUpMessage(message);
+		// add the message to the relay queue
 		relayQueue.add(message);
-	}
-	
-	/**
-	 * Returns the list of events to be published on the socket channel 
-	 * 
-	 * @return ArrayList<Event>
-	 */
-	public ArrayList<Message> dequeueMessages() 
-	{
-		ArrayList<Message> messageToPublish = new ArrayList<Message>();
-		synchronized (relayQueue) 
-		{
-			while (relayQueue.peek() != null)
-				messageToPublish.add(relayQueue.poll());
-			return messageToPublish;
-		}
+		//LOG
+		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+				.messageId(message.decoder().getId())
+				.action(context.logAction)
+				.data(
+						new LogData()
+						.entry("port", String.valueOf(connector.getPort()))
+						.entry("connectionId", String.valueOf(getId()))
+						.entry("CallerClass", Thread.currentThread().getStackTrace()[2].getFileName())
+						.entry("messageType", MessageType.getNameByType(message.decoder().getType()))
+						.toString())
+				.logInfo());
 	}
 	
 	public boolean isReady()
@@ -481,24 +551,52 @@ public class Connection implements Comparable<Connection>
 		return socket;
 	}
 	
-    public AtomicInteger getActiveRequests() {
-		return activeRequests;
-	}
-
-	public AtomicInteger getTotalRequestsServed() {
-		return totalRequestsServed;
-	}
-	
-	public AtomicInteger getTotalSuccessfulRequestsServed() {
-		return totalSuccessfulRequestsServed;
-	}
-
 	public Reactor getReactor() {
 		return reactor;
 	}
 	
 	public Connector getConnector() {
 		return connector;
+	}
+	
+	public int getRelayTimeout() {
+		return relayTimeout;
+	}
+	
+	public int getPlainTextBufferSize() {
+		return plainTextBufferSize;
+	}
+
+	public ConnectionState getState()
+	{
+		return state;
+	}
+	
+	public void setState(ConnectionState state) {
+		this.state = state;
+	}
+	
+	public Metric getMetric() {
+		return metric;
+	}
+	
+	public int updateMetric(Message message)
+	{
+		String callerContext = Thread.currentThread().getStackTrace()[2].getFileName();
+		
+		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) // RELAY_EVENT  || PUBLISH_EVENT
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingEventMessageCounter.incrementAndGet() : getMetric().outgoingEventMessageCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		if (message.decoder().getType() == 0x09 || message.decoder().getType() == 0x04) // RELAYED_EVENT_ACK || NCEPH_EVENT_ACK
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessageAckCounter.incrementAndGet() : getMetric().outgoingMessageAckCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		if (message.decoder().getType() == 0x0C || message.decoder().getType() == 0x05) // RELAY_ACK_RECEIVED || ACK_RECEIVED
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessage3WayAckCounter.incrementAndGet() : getMetric().outgoingMessage3WayAckCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		if (message.decoder().getType() == 0x0A || message.decoder().getType() == 0x0D) // DELETE_POD || POR_DELETED
+			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessageDoneCounter.incrementAndGet() : getMetric().outgoingMessageDoneCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
+		
+		return -1;
 	}
 
 	/**
@@ -524,7 +622,7 @@ public class Connection implements Comparable<Connection>
 		 * Maximum waiting time in milliseconds before the write operation on the socket times out and breaks the socket write loop. 
 		 * Defaulted to 2 minutes unless specified in the organs.xml
 		 */
-		private Integer relayTimeout = 60000*2;
+		private Integer relayTimeout = 60000*5;
 		
 		InetSocketAddress cerebralConnectorAddress;
 		
@@ -564,11 +662,113 @@ public class Connection implements Comparable<Connection>
 			return this;
 		}
 		
-		public Connection build() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+		public Connection build() throws ConnectionInitializationException, ConnectionException
 		{
-			if (cerebralConnectorAddress != null)
-				return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
-			return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+			if(NcephConstants.TLS_MODE) {
+				if (cerebralConnectorAddress != null)
+					return new SSLConnection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
+				return new SSLConnection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+			}
+			else {
+				if (cerebralConnectorAddress != null)
+					return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize, cerebralConnectorAddress);
+				return new Connection(id, connector, relayTimeout, receiveBufferSize, sendBufferSize);
+			}
 		}
+	}
+	
+	/**
+	 * 
+	 * @author Anurag Arya
+	 * @version 1.0
+	 * @since 26-Jul-2022
+	 */
+	public static class Metric
+	{
+		/**
+		 * Total number of messages 
+		 */
+		AtomicInteger activeRequests;
+		
+		AtomicInteger totalRequestsServed;
+		
+		AtomicInteger totalSuccessfulRequestsServed;
+		
+		AtomicInteger incomingEventMessageCounter;
+		
+		AtomicInteger outgoingEventMessageCounter;
+		
+		AtomicInteger incomingMessageAckCounter;
+		
+		AtomicInteger outgoingMessageAckCounter;
+		
+		AtomicInteger incomingMessage3WayAckCounter;
+		
+		AtomicInteger outgoingMessage3WayAckCounter;
+		
+		AtomicInteger incomingMessageDoneCounter;
+		
+		AtomicInteger outgoingMessageDoneCounter;
+		
+		Metric()
+		{
+			this.activeRequests = new AtomicInteger(0);
+			this.totalRequestsServed = new AtomicInteger(0);
+			this.totalSuccessfulRequestsServed = new AtomicInteger(0);
+			this.incomingEventMessageCounter = new AtomicInteger(0);
+			this.outgoingEventMessageCounter = new AtomicInteger(0);
+			this.incomingMessageAckCounter = new AtomicInteger(0);
+			this.outgoingMessageAckCounter = new AtomicInteger(0);
+			this.incomingMessage3WayAckCounter = new AtomicInteger(0);
+			this.outgoingMessage3WayAckCounter = new AtomicInteger(0);
+			this.incomingMessageDoneCounter = new AtomicInteger(0);
+			this.outgoingMessageDoneCounter = new AtomicInteger(0);
+		}
+
+		public AtomicInteger getActiveRequests() {
+			return activeRequests;
+		}
+
+		public AtomicInteger getTotalRequestsServed() {
+			return totalRequestsServed;
+		}
+
+		public AtomicInteger getTotalSuccessfulRequestsServed() {
+			return totalSuccessfulRequestsServed;
+		}
+
+		public AtomicInteger getIncomingEventMessageCounter() {
+			return incomingEventMessageCounter;
+		}
+
+		public AtomicInteger getOutgoingEventMessageCounter() {
+			return outgoingEventMessageCounter;
+		}
+
+		public AtomicInteger getIncomingMessageAckCounter() {
+			return incomingMessageAckCounter;
+		}
+
+		public AtomicInteger getOutgoingMessageAckCounter() {
+			return outgoingMessageAckCounter;
+		}
+
+		public AtomicInteger getIncomingMessage3WayAckCounter() {
+			return incomingMessage3WayAckCounter;
+		}
+
+		public AtomicInteger getOutgoingMessage3WayAckCounter() {
+			return outgoingMessage3WayAckCounter;
+		}
+
+		public AtomicInteger getIncomingMessageDoneCounter() {
+			return incomingMessageDoneCounter;
+		}
+
+		public AtomicInteger getOutgoingMessageDoneCounter() {
+			return outgoingMessageDoneCounter;
+		}
+		
+		
 	}
 }

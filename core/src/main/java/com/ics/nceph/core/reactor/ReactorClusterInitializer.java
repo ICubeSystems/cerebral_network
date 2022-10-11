@@ -23,6 +23,9 @@ public class ReactorClusterInitializer
 		// 1. Initialize the reactorCluster
 		ReactorCluster reactorCluster = new ReactorCluster();
 		
+		if(osInfo == null)
+			osInfo = new OSInfo();
+		
 		// 2. Get the number of CPU cores available
 		int coresCount = osInfo.numberOfCPUCores*2;
 		System.out.println("Number of CPU cores: "+coresCount);

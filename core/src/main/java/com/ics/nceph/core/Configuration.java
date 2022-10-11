@@ -22,7 +22,6 @@ public class Configuration
 			propertyFile.load(inputStream);
 			inputStream.close();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}

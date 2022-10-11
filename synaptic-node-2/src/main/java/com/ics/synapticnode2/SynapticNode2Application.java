@@ -29,6 +29,7 @@ public class SynapticNode2Application implements CommandLineRunner
 	{
 		// 1. Start the connector
 		synapseBootstraper.boot();
-		// 2. Present the menu options
+
+
 	}
 }

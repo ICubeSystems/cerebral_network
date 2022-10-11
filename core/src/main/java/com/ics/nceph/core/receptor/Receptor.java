@@ -2,10 +2,19 @@ package com.ics.nceph.core.receptor;
 
 import java.lang.reflect.InvocationTargetException;
 
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.NetworkRecord;
+import com.ics.nceph.core.message.type.MessageType;
+import com.ics.nceph.core.receptor.exception.ReceptorInstantiationException;
+import com.ics.nceph.core.worker.Reader;
 
 /**
+ * This class is responsible for processing the incoming message inside a reader (worker) thread. 
+ * {@link Connection#read()} reads the {@link Message} and then starts a {@link Reader} thread to process the incoming message. The {@link Reader} instantiates <b>Receptor</b> based on MessageType
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -18,11 +27,27 @@ public abstract class Receptor
 	Connection incomingConnection;
 	
 	/**
-	 * 
+	 * Abstract method to be implemented by all the Receptor classes
 	 * 
 	 * @return void
 	 */
 	abstract public void process();
+	
+	public void execute()
+	{
+		// Log
+		NcephLogger.MESSAGE_LOGGER.info(
+				new MessageLog.Builder()
+				.messageId(getMessage().decoder().getId())
+				.action("RECEIVED")
+				.data(new LogData()
+						.entry("messageType", MessageType.getNameByType(getMessage().decoder().getType()))
+						.entry("dataBytes", String.valueOf(getMessage().decoder().getDataLength()))
+						.entry("workerClass", MessageType.getClassByType(getMessage().decoder().getType()))
+						.toString())
+				.logInfo());
+		process();
+	}
 	
 	public Receptor(Message message, Connection incomingConnection)
 	{
@@ -36,6 +61,13 @@ public abstract class Receptor
 
 	public Connection getIncomingConnection() {
 		return incomingConnection;
+	}
+	
+	public NetworkRecord buildNetworkRecord() 
+	{
+		return new NetworkRecord.Builder()
+				.start(getMessage().decoder().getTimestamp())
+				.end(message.getReadRecord().getStart()).build();
 	}
 	
 	public static class Builder
@@ -73,7 +105,7 @@ public abstract class Receptor
 				return implementationClass.getConstructor(constructorParamTypes).newInstance(params);
 			} catch (InstantiationException | IllegalAccessException | IllegalArgumentException	| InvocationTargetException | NoSuchMethodException | SecurityException e) 
 			{
-				throw new ReceptorInstantiationException(new Exception("Receptor instantiation exception"));
+				throw new ReceptorInstantiationException("Receptor instantiation exception", e);
 			}
 		}
 	}

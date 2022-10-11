@@ -17,3 +17,28 @@ mvn spring-boot:run -pl synaptic-node-1 (on root directory)
 
 mvn spring-boot:run -pl synaptic-node-2 (on root directory)
 
+<b>Execute commands (with SSL debug log option):</b>
+
+mvn spring-boot:run -pl cerebrum -Dspring-boot.run.jvmArguments="-Djavax.net.debug=all"
+
+mvn spring-boot:run -pl synaptic-node-1 -Dspring-boot.run.jvmArguments="-Djavax.net.debug=all"
+
+mvn spring-boot:run -pl synaptic-node-2 -Dspring-boot.run.jvmArguments="-Djavax.net.debug=all"
+
+
+<b>Execute commands (with SSL debug log & dynamic debugging options):</b>
+
+mvn spring-boot:run -pl cerebrum -Dspring-boot.run.jvmArguments="-Djavax.net.debug=all -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
+
+mvn spring-boot:run -pl synaptic-node-1 -Dspring-boot.run.jvmArguments="-Djavax.net.debug=all -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8001"
+
+mvn spring-boot:run -pl synaptic-node-2 -Dspring-boot.run.jvmArguments="-Djavax.net.debug=all -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8002"
+
+
+<b>Execute commands (dynamic debugging options):</b>
+
+mvn spring-boot:run -pl cerebrum -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
+
+mvn spring-boot:run -pl synaptic-node-1 -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8001"
+
+mvn spring-boot:run -pl synaptic-node-2 -Dspring-boot.run.jvmArguments="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8002"

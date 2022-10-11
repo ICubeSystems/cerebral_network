@@ -3,18 +3,20 @@ package com.ics.nceph.core.message;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ics.nceph.core.Configuration;
-import com.ics.nceph.core.event.Event;
+import com.ics.id.exception.IdGenerationFailedException;
+import com.ics.nceph.core.db.document.store.ConfigStore;
+import com.ics.nceph.core.db.document.store.IdStore;
+import com.ics.nceph.core.message.data.MessageData;
 import com.ics.util.ByteUtil;
 
 /**
  * Base class for all the messages flowing in and out of the Encephelon server/ network.
  * 
  * Following is the message header structure (application layer protocol)
+ * <pre>
  * 
  *    0         8        16        24        32
  *    +---------+---------+---------+---------+
@@ -24,15 +26,22 @@ import com.ics.util.ByteUtil;
  *    +---------+---------+---------+---------+
  *    |               Message_id              |
  *    +---------+---------+---------+---------+
+ *    |         Time_for_first_byte           |
+ *    +---------+---------+---------+---------+
+ *    |         Time_for_first_byte           |
+ *    +---------+---------+---------+---------+
  *    |                M_length               |
  *    +---------+---------+---------+---------+
- *    |                                       |
+ *    |  Originator_port  |                   |
+ *    +---------+---------+                   .
+ *    |                                       .
  *    .            ...  Data ...              .
  *    .                                       .
  *    .                                       .
  *    +----------------------------------------
- *    
- * 16 Bytes header with following sections:
+ * </pre>
+ * 
+ * 26 Bytes header with following sections:
  * <ol>
  * 	<li><b>Genesis</b> - 1 byte. Fixed value of -127.</li>
  * 	<li><b>Message Counter</b> - 1 Byte. Starting at 0, incremented every time a message is sent on the connection. 
@@ -45,34 +54,45 @@ import com.ics.util.ByteUtil;
  *  		<li><b>Position 1: Compression flag</b> - If set, the message body is compressed</li>
  *  	</ul>
  *  </li>
- *  <li><b>Message Type</b> - 1 byte. Following are the supported message types:<br>
- *  	<b>Synaptic message types</b> - messages generated via synaptic nodes (consumed by cerebral node):
+ *  <li><b>Message Type</b> - 1 byte. Following are the supported message incomingMessageType:<br>
+ *  	<b>Synaptic message incomingMessageType</b> - messages generated via synaptic nodes (consumed by cerebral node):
  *  	<ul>
- *  		<li><b>0x00: STARTUP</b> - Initialize the connection. 
+ *  		<li><b>0: STARTUP</b> - Initialize the connection. 
  *  			The server will respond by AUTHENTICATE message (in which case credentials will need to be provided using CREDENTIALS). 
  *  			This must be the first message of the connection. Once the connection has been initialized, a client should not send any more STARTUP message</li>
- *  		<li><b>0x01: CREDENTIALS</b> - Authenticate the connection.  
+ *  		<li><b>1: CREDENTIALS</b> - Authenticate the connection.  
  *  			Synaptic node provide the credentials for the purpose of authentication. This message comes as a response to an AUTHENTICATE message from the server. 
  *  			The response to a CREDENTIALS is a READY message (or an ERROR message)</li>
- *  		<li><b>0x02: SUBSCRIBE</b> - Subscribe for a particular event id.  
+ *  		<li><b>2: SUBSCRIBE</b> - Subscribe for a particular event id.  
  *  			Register this connection to receive a type of events. The body of the message is a [string list] representing the event ids to subscribe to. 
  *  			The response to a REGISTER message will be a READY message.</li>
- *  		<li><b>0x03: PUBLISH_EVENT</b> - Synaptic node (micro service/ application) publishes an event</li>
- *  		<li><b>0x04: RELAYED_EVENT_ACK</b> - Synaptic node acknowledges the receipt of the relayed event</li>
+ *  		<li><b>3: PUBLISH_EVENT</b> - Synaptic node (micro service/ application) publishes an event</li>
+ *  		<li><b>4: RELAYED_EVENT_ACK</b> - Synaptic node acknowledges the receipt of the relayed event</li>
+ *  		<li><b>5: ACK_RECEIVED</b> - Synaptic node acknowledges the receipt of the NCEPH_EVENT_ACK message</li>
+ *  		<li><b>13: POR_DELETED</b> - Synaptic node sends a notification that relayv event acknowledged successfully and POR is deleted from snaptic side.</li>
+ *  		<li><b>14: READY_CONFIRM</b> - Synaptic node send READY_CONFIRM message to Cerebrum then cerebrum relay message to Synaptic node.</li>
+ *  		<li><b>15: BOOTSTRAP</b> - Synaptic node send BOOTSTRAP message to Cerebrum , which contains MAC address of Synapse</li>
+
  *  	</ul>
- *  	<b>Cerebral message types</b> - messages generated via cerebral node (consumed by synaptic nodes):
+ *  	<b>Cerebral message incomingMessageType</b> - messages generated via cerebral node (consumed by synaptic nodes):
  *  	<ul>
- *  		<li><b>0x05: AUTHENTICATE</b> - Indicates that the Cerebrum require authentication.
+ *  		<li><b>6: AUTHENTICATE</b> - Indicates that the Cerebrum require authentication.
  *  			This will be sent following a STARTUP message and must be answered by a CREDENTIALS message from the client.</li>
- *  		<li><b>0x06: READY</b> - Indicates that the server is ready to receive & process events via this connection.  
+ *  		<li><b>7: READY</b> - Indicates that the server is ready to receive & process events via this connection.  
  *  			This message will be sent by the server either after a successful CREDENTIALS message or a successful SUBSCRIBE message. 
  *  			The body of a READY message is empty</li>
- *  		<li><b>0x07: ERROR</b> - Indicates an error processing a request.  
+ *  		<li><b>8: AUTH_ERROR</b> - Indicates an error processing a request.  
  *  			The body of the message will be an error code ([int]) followed by a [string] error message. 
  *  			Then, depending on the exception, more content may follow.</li>
- *  		<li><b>0x08: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
- *  		<li><b>0x09: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
- *  		<li><b>0x0A: RELAY_ACK</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
+ *  		<li><b>9: NCEPH_EVENT_ACK</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
+ *  		<li><b>10: DELETE_POD</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
+ *  		<li><b>11: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
+ *  		<li><b>12: RELAY_ACK_RECEIVED</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
+ *  		<li><b>16: CONFIG</b> - Cerebrum node send CONFIG message to Synapse with followintg data:
+ *  				<ul>
+ *  					<li>NodeId of MAC address from name_records.json file</li>
+ *  					<li>List of ApplicationReceptors for the event types subscribed by the node</li>
+ *  				</ul>
  *  	</ul>
  *  </li>
  *  <li><b>Node Id</b> - 2 byte. Unique identifier of the node where the message is originating from. 
@@ -80,24 +100,27 @@ import com.ics.util.ByteUtil;
  *  <li><b>Message Id</b> - 6 byte. When sending request messages, this message id must be set by the client. 
  *  	This will be unique for every message per node (client application/ nceph server)</li>
  * 	<li><b>Message Length</b> - 4 byte. Length of the message body in number of bytes</li>
+ * <li><b>Originating Port</b> - 2 byte. Originating location of the message</li>
+ *  <li><b>TimeStamp</b> - 8 byte. timestamp of the message when it starts writing to the connection</li>
  * </ol>
  * 
  * @author Anurag Arya
  * @version 1.0
  * @since 31-Dec-2021
+ * @implNote To filter meessage logs use : ^((?!1-75).)*\R
  */
 public class Message 
 {
-	private static AtomicInteger messageCounter = new AtomicInteger(2000);
-	
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.
-	private static final int NODE_ID = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("node.id"));
+	private IORecord readRecord;
+	
+	private IORecord writeRecord;
 	
 	private final byte genesis = (byte)-127;
 	
 	byte counter;
 	
-	byte flags;
+	byte eventType;
 	
 	byte type;
 	
@@ -107,6 +130,10 @@ public class Message
 	
 	byte[] dataLength = new byte[4];
 	
+	byte[] timeStamp = new byte[8];
+	
+	byte[] originatingPort = new byte[2];
+	
 	byte[] data;
 	
 	private Decoder decoder;
@@ -115,47 +142,79 @@ public class Message
 	 * This constructor should only be used to re-create the message object during the collection process at the receiving end
 	 *  
 	 * @param counter
-	 * @param flags
+	 * @param eventType
 	 * @param type
 	 * @param sourceId
 	 * @param messageId
 	 * @param dataLength
 	 * @param data
 	 */
-	Message(byte counter, byte flags, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data)
+	Message(byte counter, byte eventType, byte type, byte[] sourceId, byte[] messageId, byte[] dataLength, byte[] data, IORecord readRecord, byte[] timestamp, byte[] originatingPort )
 	{
 		this.counter = counter;
-		this.flags = flags;
+		this.eventType = eventType;
 		this.type = type;
 		this.sourceId = sourceId;
 		this.messageId = messageId;
 		this.dataLength = dataLength;
 		this.data = data;
+		this.readRecord = readRecord;
+		this.timeStamp = timestamp;
+		this.originatingPort = originatingPort;
+	}
+	
+	
+	/**
+	 * 
+	 * @param eventType
+	 * @param type
+	 * @param data
+	 * @throws IdGenerationFailedException 
+	 */
+	Message(byte eventType, byte type, byte[] data, byte[] originatingPort) throws IdGenerationFailedException
+	{
+		init(eventType, type, data, null, null, originatingPort);
 	}
 	
 	/**
 	 * 
-	 * @param flags
+	 * @param eventType
 	 * @param type
 	 * @param data
+	 * @param messageId
+	 * @param sourceId
+	 * @throws IdGenerationFailedException 
 	 */
-	Message(byte flags, byte type, byte[] data)
+	protected Message(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId, byte[] originatingPort)
+	{
+		try 
+		{
+			init(eventType, type, data, messageId, sourceId, originatingPort);
+		} catch (IdGenerationFailedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	private void init(byte eventType, byte type, byte[] data, byte[] messageId, byte[] sourceId, byte[] originatingPort) throws IdGenerationFailedException
 	{
 		this.type = type;
-		this.flags = flags;
+		this.eventType = eventType;
 		this.data = data;
 		
 		// Generate the message id from the message counter. This will be unique for the node.
-		long messageIdNumber = messageCounter.getAndIncrement();
-		messageId = ByteUtil.convertToByteArray(messageIdNumber, messageId.length);
+		this.messageId = (messageId != null) ? messageId : ByteUtil.convertToByteArray(IdStore.getInstance().getId((decoder().getType() == 0x0B || decoder().getType() == 0x03) ? 100 : 200), this.messageId.length);
 		
 		// Set the Id of the source node where this message is originating from. 
-		sourceId = ByteUtil.convertToByteArray(NODE_ID, sourceId.length);
+		this.sourceId = (sourceId != null) ? sourceId : ByteUtil.convertToByteArray(ConfigStore.getInstance().getNodeId(), this.sourceId.length);
 		
 		// Set the dataLength
 		dataLength = ByteUtil.convertToByteArray(data.length, dataLength.length);
+		
+		//set originatingPort
+		this.originatingPort = originatingPort;
 	}
-	
+
 	/**
 	 * This method merges all the messages components and returns a ByteBuffer object
 	 * 
@@ -172,10 +231,12 @@ public class Message
 				ByteUtil.merge(
 						genesis // Genesis byte [1 Bytes] 
 						, counter // Message counter within the connection [1 Bytes]
-						, flags // Flags (8 bit) [1 Bytes]
+						, eventType // eventType [1 Bytes]
 						, type) // Message Type [1 Bytes] 
 				, sourceId // Source id (node id which is creating the message) [2 Bytes]
 				, messageId // Message id [6 Bytes]
+				, timeStamp // timestamp [8 Bytes]
+				, originatingPort // originatingPort [2 Bytes]
 				, dataLength // Data Length [4 Bytes]
 				, data); //Actual Data
 		
@@ -187,7 +248,7 @@ public class Message
 		
 		return buffer;
 	}
-	
+
 	public Decoder decoder()
 	{
 		return (decoder == null) ? new Decoder() : decoder;
@@ -198,7 +259,7 @@ public class Message
 	}
 
 	public byte getFlags() {
-		return flags;
+		return eventType;
 	}
 
 	public byte getType() {
@@ -212,6 +273,11 @@ public class Message
 	public byte[] getMessageId() {
 		return messageId;
 	}
+	
+	public byte[] getOriginatingPort()
+	{
+		return originatingPort;
+	}
 
 	public byte[] getDataLength() {
 		return dataLength;
@@ -221,16 +287,54 @@ public class Message
 		return data;
 	}
 	
-	public void setCounter(byte counter) 
-	{
+	public void setCounter(byte counter) {
 		this.counter = counter;
 	}
 	
+	public void setTimeStamp(byte[] timeStamp) {
+		this.timeStamp = timeStamp;
+	}
+	
+	public void setOriginatingPort(byte[] originatingPort) {
+		this.originatingPort = originatingPort;
+	}
+	
+	public IORecord getReadRecord() {
+		return readRecord;
+	}
+
+	public IORecord getWriteRecord() {
+		return writeRecord;
+	}
+
+	public void setWriteRecord(IORecord writeRecord) 
+	{
+		// This can only be set once in lifetime of a message
+		if (this.writeRecord == null)
+			this.writeRecord = writeRecord;
+	}
+
+	public void setType(byte type) {
+		this.type = type;
+	}
+
+	/**
+	 * Inner class to get the decoded values from the message object
+	 * 
+	 * @author Anurag Arya
+	 * @version 1.0
+	 * @since 07-Mar-2022
+	 */
 	public class Decoder
 	{
-		public long getId()
+		public long getMessageId()
 		{
 			return ByteUtil.convertToLong(Message.this.messageId);
+		}
+		
+		public int getSourceId()
+		{
+			return ByteUtil.convertToInt(Message.this.sourceId);
 		}
 		
 		public int getType()
@@ -238,13 +342,53 @@ public class Message
 			return ByteUtil.convertToInt(Message.this.type);
 		}
 		
-		public Object getData() throws JsonProcessingException
+		public int getDataLength()
+		{
+			return ByteUtil.convertToInt(Message.this.dataLength);
+		}
+		
+		public int getCounter()
+		{
+			return ByteUtil.convertToInt(Message.this.counter);
+		}
+		
+		public long getTimestamp()
+		{
+			return ByteUtil.convertToLong(Message.this.timeStamp);
+		}
+		
+		public int getOriginatingPort()
+		{
+			return ByteUtil.convertToInt(Message.this.originatingPort);
+		}
+		
+		public int geteventType()
+		{
+			return ByteUtil.convertToInt(Message.this.eventType);
+		}
+		
+		public Object getData(Class<? extends MessageData> dataHoldingClass) throws JsonProcessingException
 		{
 			// Get the JSON string form byte array
 			String json = ByteUtil.toObjectJSON(Message.this.data);
-			// Get the Event object from the JSON string
+			// Get the EventData object from the JSON string
 			ObjectMapper mapper = new ObjectMapper();
-			return mapper.readValue(json, Event.class);
+			return mapper.readValue(json, dataHoldingClass);
+		}
+
+		/**
+		 * This method returns the unique identifier of the message. It is constructed by concatenating sourceId/ nodeId & messageId. <br>
+		 * eg. 123-25415261426 (123 is the synaptic node id from where the message was originated. 25415261426 is the message counter of the originating synaptic node)
+		 * 
+		 * @return String id of the message
+		 */
+		public String getId()
+		{
+			return new StringBuilder()
+				.append(getSourceId())
+				.append("-")
+				.append(getMessageId())
+				.toString();
 		}
 	}
 }

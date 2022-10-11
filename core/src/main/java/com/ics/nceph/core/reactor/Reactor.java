@@ -5,10 +5,11 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.util.Iterator;
 
+import com.ics.logger.BootstraperLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 
 /**
  * <p>This class runs the NIO selector event loop. </p>
@@ -22,7 +23,6 @@ public class Reactor extends Thread
 	Integer reactorId;
 	
 	Selector selector;
-	
 	/**
 	 * 
 	 * @param id
@@ -40,15 +40,17 @@ public class Reactor extends Thread
 	{
 		// TODO: Provision for health check of reactor threads
 		// TODO: Separate log files per reactor thread
-		System.out.println("Reactor "+ getReactorId() + " now running####");
+		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+										.id(String.valueOf(getReactorId()))
+										.action("Running")
+										.logInfo());
 		// 1. Run an endless loop
 		while (true) 
 		{
 			//System.out.println("Reactor "+ getReactorId() + " running....");
 			try 
 			{
-				int readyKeys = selector.select();
-				System.out.println("Reactor "+ getReactorId() + ": Number of channels ready:" + readyKeys);
+				selector.select();
 				
 				// Get an iterator over the set of selected keys
                 Iterator<SelectionKey> keys = selector.selectedKeys().iterator();
@@ -69,24 +71,24 @@ public class Reactor extends Thread
                 	}
                 	else if (key.isReadable()) 
                 	{
-                		System.out.println("Reactor "+ getReactorId() + ": Reading...");
+                		//System.out.println("Reactor "+ getReactorId() + ": Reading...");
                 		Connection connection = (Connection) key.attachment();
                 		connection.read();
                 	}
                 	else if (key.isWritable()) 
                 	{
-                		System.out.println("Reactor "+ getReactorId() + ": Writing...");
+                		//System.out.println("Reactor "+ getReactorId() + ": Writing...");
                 		Connection connection = (Connection) key.attachment();
                 		connection.write();
                 	}
                 }
-			} catch (IOException | ImproperReactorClusterInstantiationException | ReactorNotAvailableException e) 
+			} catch (IOException | ConnectionInitializationException e) 
 			{
 				e.printStackTrace();
 				try {
 					Thread.sleep(2*60*1000);
-				} catch (InterruptedException e1) {
-					// TODO Auto-generated catch block
+				} catch (InterruptedException e1) 
+				{
 					e1.printStackTrace();
 				}
 			} 

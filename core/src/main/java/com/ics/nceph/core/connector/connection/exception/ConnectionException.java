@@ -8,4 +8,10 @@ public class ConnectionException extends Exception
 	{
 		e.printStackTrace();
 	}
+	
+	public ConnectionException(String message, Throwable cause)
+	{
+		super(message, cause);
+	}
+
 }

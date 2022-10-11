@@ -1,13 +1,33 @@
 package com.ics.nceph.core.worker;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
+import com.ics.nceph.core.message.Message;
+
+/**
+ * 
+ * @author Anurag Arya
+ * @version 1.0
+ * @since 22-Dec-2021
+ * @param <T extends Worker>
+ */
 public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 {
+	Set<Long> runningMessageIds;
+	
+	private AtomicLong activeWorkers;
+	
+	private AtomicLong totalWorkersCreated;
+	
+	private AtomicLong totalSuccessfulWorkers;
 	/**
      * Creates a new {@code WorkerPool} with the given initial parameters and the {@linkplain Executors#defaultThreadFactory default thread factory}.
      *
@@ -27,28 +47,28 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	public WorkerPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,	BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler) 
 	{
 		super(corePoolSize, maximumPoolSize, keepAliveTime, unit, (BlockingQueue<Runnable>) workQueue, handler);
+		this.activeWorkers = new AtomicLong(0);
+		this.totalSuccessfulWorkers = new AtomicLong(0);
+		this.totalWorkersCreated = new AtomicLong(0);
+		this.runningMessageIds = Collections.synchronizedSet(new HashSet<Long>());
 	}
+	
 
 	@Override
 	protected void beforeExecute(Thread t, Runnable worker) 
 	{
-		// Get the connection from the worker thread
-		//Connection connection = ((T)worker).connection;
-		
-		/*synchronized (connection.getConnector().getConnectionLoadBalancer()) 
+		Message message = ((Worker)worker).getMessage();
+		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
 		{
-			// Remove the connection from LB to re-adjust the counters
-			connection.removeFromLoadBalancer();
-			
-			// Increment the counters
-			connection.getActiveRequests().incrementAndGet();
-			connection.getTotalRequestsServed().incrementAndGet();
-			
-			// Add the connection to the LB after counters are re-adjusted 
-			connection.addToLoadBalancer();
-		}*/
+			synchronized (runningMessageIds) {
+				runningMessageIds.add(message.decoder().getMessageId());
+			}
+		}
+		// 1. Increment activeWorkers
+		activeWorkers.incrementAndGet();
+		// 2. Increment totalWorkersCreated
+		totalWorkersCreated.incrementAndGet();
 		
-		// Call the super beforeExecute
 		super.beforeExecute(t, worker);
 	}
 	
@@ -58,26 +78,48 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		// Call the super afterExecute
 		super.afterExecute(worker, t);
 		
-		// Get the connection from the worker thread
-		//Connection connection = ((T)worker).connection;
-		
-		/*synchronized (connection.getConnector().getConnectionLoadBalancer()) 
+		Message message = ((Worker)worker).getMessage();
+		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
 		{
-			// Remove the connection from LB to re-adjust the counters
-			connection.removeFromLoadBalancer();
-			
-			// Decrement the activeRequests counter
-			connection.getActiveRequests().decrementAndGet();
-			
-			// If worker execution was without any error/ exception then increment the totalSuccessfulRequestsServed counter
-			if (t==null)
-				connection.getTotalSuccessfulRequestsServed().incrementAndGet();
-			
-			// Add the connection to the LB after counters are re-adjusted 
-			connection.addToLoadBalancer();
-		}*/
+			synchronized (runningMessageIds) {
+				runningMessageIds.remove(message.decoder().getMessageId());
+			}
+		}
+		// 1. Decrement activeWorkers
+		activeWorkers.decrementAndGet();
+		// 2. Increment totalSuccessfulWorkers if the throwable is null
+		if (t==null)
+			totalSuccessfulWorkers.incrementAndGet();
 	}
 	
+	public boolean register(Worker worker)
+	{
+		Message message = worker.getMessage();
+		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) 
+			&& (runningMessageIds.contains(message.decoder().getMessageId()) || worker.getConnection().getConnector().hasAlreadyReceived(message)))
+			return false;
+		execute(worker);
+		return true;
+	}
+	
+	public AtomicLong getActiveWorkers() {
+		return activeWorkers;
+	}
+
+	public AtomicLong getTotalWorkersCreated() {
+		return totalWorkersCreated;
+	}
+
+	public AtomicLong getTotalSuccessfulWorkers() {
+		return totalSuccessfulWorkers;
+	}
+	
+	/**
+	 * 
+	 * @author Anshul
+	 * @since 01-Jun-2022
+	 * @param <T>
+	 */
 	public static class Builder<T extends Worker>
 	{
 		Integer corePoolSize = 10;

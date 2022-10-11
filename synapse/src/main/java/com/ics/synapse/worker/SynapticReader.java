@@ -1,12 +1,14 @@
 package com.ics.synapse.worker;
 
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.receptor.Receptor;
-import com.ics.nceph.core.receptor.ReceptorInstantiationException;
+import com.ics.nceph.core.receptor.exception.ReceptorInstantiationException;
 import com.ics.nceph.core.worker.Reader;
-import com.ics.synapse.message.SynapticMessageType;
+import com.ics.synapse.message.type.SynapticIncomingMessageType;
 
 /**
  * @author Anurag Arya
@@ -29,18 +31,26 @@ public class SynapticReader extends Reader
 			Receptor receptor = new Receptor.Builder()
 					.message(getMessage())
 					.incomingConnection(getConnection())
-					.implementationClass(SynapticMessageType.getMessageType(getMessage().getType()).getProcessorClass())
+					.implementationClass(SynapticIncomingMessageType.getMessageType(getMessage().getType()).getProcessorClass())
 					.build();
 			
 			// 2. Process the message by calling the process of Receptor
-			receptor.process();
+			receptor.execute();
 		} 
 		catch (InvalidMessageTypeException e) {
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Invalid message type")
+					.logError(),e);
 		} 
 		catch (ReceptorInstantiationException e) 
 		{
-			e.printStackTrace();
+			//LOG
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
+					.messageId(getMessage().decoder().getId())
+					.action("Receptor can't initialize")
+					.logError(),e);
 		}
 	}
 }

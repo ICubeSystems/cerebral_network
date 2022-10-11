@@ -4,8 +4,14 @@ import java.io.IOException;
 import java.util.Map.Entry;
 
 import com.ics.cerebrum.connector.CerebralConnector;
+import com.ics.cerebrum.db.store.cache.CerebrumCacheInitializer;
+import com.ics.cerebrum.message.type.CerebralIncomingMessageType;
+import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
+import com.ics.nceph.core.db.document.exception.CacheInitializationException;
+import com.ics.nceph.core.db.document.store.cache.DocumentCache;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -44,17 +50,23 @@ public class Bootstraper
 	 * @return void
 	 * @throws ReactorNotAvailableException
 	 * @throws ImproperReactorClusterInstantiationException
+	 * @throws CacheInitializationException 
 	 */
-	public void boot() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	public void boot() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException, CacheInitializationException
 	{
-		System.out.println("Bootstraping in progress .......");
-		System.out.println("# Connectors: " + ConnectorCluster.activeConnectors.size());
-		System.out.println("# Reactors: " + ReactorCluster.activeReactors.size());
+		NcephLogger.BOOTSTRAP_LOGGER.info("# Connectors: " + ConnectorCluster.activeConnectors.size());
+		NcephLogger.BOOTSTRAP_LOGGER.info("# Reactors: " + ReactorCluster.activeReactors.size());
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + CerebralIncomingMessageType.types.length + " incoming message types");
+		NcephLogger.BOOTSTRAP_LOGGER.info("Initializing " + CerebralOutgoingMessageType.types.length + " outgoing message types");
+		
+		// LOG
+		DocumentCache.initialize();
+		//
+		CerebrumCacheInitializer.run();
 		
 		// 3. Loop over connectorCluster and register selector
 		for (Entry<Integer, Connector> entry : ConnectorCluster.activeConnectors.entrySet())
 		{
-			//Integer port = entry.getKey();
 			CerebralConnector connector = (CerebralConnector)entry.getValue();
 			connector.assignReactor(ReactorCluster.getReactor());
 		}

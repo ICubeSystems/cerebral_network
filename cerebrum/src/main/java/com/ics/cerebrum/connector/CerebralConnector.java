@@ -9,19 +9,28 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
 
+import javax.net.ssl.SSLContext;
+
 import com.ics.cerebrum.worker.CerebralReader;
+import com.ics.cerebrum.worker.CerebralWriter;
+import com.ics.logger.BootstraperLog;
+import com.ics.logger.ConnectionLog;
+import com.ics.logger.LogData;
+import com.ics.logger.NcephLogger;
+import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.exception.ConnectionException;
+import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
+import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.Reactor;
-import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
-import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 
 /**
- * Connector implementation for the Event relay server node.
+ * Connector implementation for the EventData relay server node.
  * 
  * @author Anurag Arya
  * @version 1.0
@@ -38,9 +47,10 @@ public class CerebralConnector extends Connector
 			String name, 
 			Integer bufferSize, 
 			WorkerPool<Reader> readerPool, 
-			WorkerPool<Writer> writerPool) throws IOException 
+			WorkerPool<Writer> writerPool,
+			SSLContext sslContext) throws IOException 
 	{
-		super(port, name, readerPool, writerPool);
+		super (port, name, readerPool, writerPool, sslContext);
 		this.bufferSize = bufferSize;
 		initializeCerebralConnector();
 	}
@@ -51,12 +61,13 @@ public class CerebralConnector extends Connector
 		// Open a ServerSocketChannel for communication
 		serverChannel = ServerSocketChannel.open();
 		// Get the ServerSocket from the ServerSocketChannel & bind it to a port to listen
-		serverChannel.socket().bind(new InetSocketAddress("127.0.0.1", getPort()));
+		serverChannel.socket().bind(new InetSocketAddress(getPort()));
 		// Set the ServerSocketChannel to nonblocking mode
 		serverChannel.configureBlocking(false);
-		
 		// This set the ReceiveBufSize for all the SocketChannels which will be accepted in this serverChannel
-		serverChannel.setOption(StandardSocketOptions.SO_RCVBUF, 1024*8);
+		serverChannel.setOption(StandardSocketOptions.SO_RCVBUF, 1024*256);
+		// Set connector state to ready
+		this.setState(ConnectorState.READY);
 	}
 	
 	/**
@@ -69,44 +80,54 @@ public class CerebralConnector extends Connector
 	public void assignReactor(Reactor reactor) throws ClosedChannelException
 	{
 		// Register the ServerSocketChannel of the Connector with the Selector of the supplied Reactor
-		System.out.println("Assigning selector of reactor " + reactor.getReactorId() + "to port " + getPort() + " to accept new connections");
+		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+									.id(String.valueOf(reactor.getReactorId()))
+									.action("Assigning selector")
+									.data(new LogData().entry("Port", String.valueOf(getPort()))
+											.toString())
+									.logInfo());
 		getServerChannel().register(reactor.getSelector(), SelectionKey.OP_ACCEPT, this);
 	}
 	
 	/**
 	 * This method accepts a {@link SocketChannel} from the {@link ServerSocketChannel} when their is an incoming connection request from any service/ application on this connector
 	 * 
-	 * @throws IOException
-	 * @throws ImproperReactorClusterInstantiationException
-	 * @throws ReactorNotAvailableException
-	 * @return void
-	 *
 	 * @author Anurag Arya
 	 * @version 1.0
+	 * @throws ConnectionInitializationException 
+	 * @throws IOException
+	 * @return void
 	 * @since 22-Dec-2021
 	 */
-	public synchronized void acceptConnection() throws IOException, ImproperReactorClusterInstantiationException, ReactorNotAvailableException
+	public void acceptConnection() throws IOException, ConnectionInitializationException
 	{
-		// 1. Increment the totalConnectionsServed by 1
-		setTotalConnectionsServed(getTotalConnectionsServed()+1);
-		
-		// 2. Create a new connection builder object
-		Connection connection = new Connection.Builder()
-				.id(getTotalConnectionsServed())
-				.connector(this)
-				.build();
-		
-		// 3. Add the connection object to load balancer for read/ write allocations
-		getConnectionLoadBalancer().add(connection);
-		getActiveConnections().put(connection.getId(), connection);
-		
-		// 4. If there are outgoing messages in the buffer then transfer them to the connections relayQueue
-		if (getRelayQueue().size() > 0)
+		try 
 		{
-			System.out.println("Enqueueing " + getRelayQueue().size() + " messages from the outgoing buffer (relayQueue) to connection [id:" + connection.getId() + "] relayQueue");
-			while(!getRelayQueue().isEmpty())
-				connection.enqueueMessage(getRelayQueue().poll());
-			connection.setInterest(SelectionKey.OP_WRITE);
+			// 1. Create a new connection builder object
+			Connection connection = new Connection.Builder()
+					.id(getTotalConnectionsServed())
+					.connector(this)
+					.build();
+			
+			// 2. Increment the totalConnectionsServed by 1
+			setTotalConnectionsServed(getTotalConnectionsServed()+1);
+			
+			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
+					.connectionId(String.valueOf(connection.getId()))
+					.action("initialise connection")
+					.data(new LogData()
+							.entry("state", String.valueOf(connection.getState().getValue()))
+							.entry("Port", String.valueOf(connection.getConnector().getPort()))
+							.toString())
+					.logInfo());
+		} catch (ConnectionException e) {
+			NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()
+					.connectionId("New")
+					.action("Connection build failed")
+					.data(new LogData()
+							.entry("Port", String.valueOf(this.getPort()))
+							.toString())
+					.logError(),e);
 		}
 	}
 	
@@ -119,7 +140,13 @@ public class CerebralConnector extends Connector
 	@Override
 	public void createPostReadWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().execute(new CerebralReader(incomingConnection, message));
+		getReaderPool().register(new CerebralReader(incomingConnection, message));
+	}
+	
+	@Override
+	public void createPostWriteWorker(Message message, Connection incomingConnection) 
+	{
+		getReaderPool().execute(new CerebralWriter(incomingConnection, message));
 	}
 	
 	/**
@@ -160,6 +187,8 @@ public class CerebralConnector extends Connector
 		
 		private WorkerPool<Writer> writerPool;
 		
+		private SSLContext sslContext;
+		
 		/**
 		 * Not required if building a SYNAPTIC connector. Port number of the server socket within the connector
 		 * 
@@ -196,25 +225,35 @@ public class CerebralConnector extends Connector
 		/**
 		 * Pool of reader worker threads
 		 * 
-		 * @param readerPool
+		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder readerPool(WorkerPool<Reader> readerPool) {
-			this.readerPool = readerPool;
+		public Builder readerPool(WorkerPool<Reader> workerPool) {
+			this.readerPool = workerPool;
 			return this;
 		}
 		
 		/**
 		 * Pool of writer worker threads
 		 * 
-		 * @param writerPool
+		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder writerPool(WorkerPool<Writer> writerPool) {
-			this.writerPool = writerPool;
+		public Builder writerPool(WorkerPool<Writer> workerPool) {
+			this.writerPool = workerPool;
 			return this;
 		}
 		
+		/**
+		 * Set SSLContext 
+		 * 
+		 * @param sslContext
+		 * @return Builder
+		 */
+		public Builder sslContext(SSLContext sslContext) {
+			this.sslContext = sslContext;
+			return this;
+		}
 		
 		/**
 		 * Builds the {@link Connector} instance
@@ -230,10 +269,11 @@ public class CerebralConnector extends Connector
 								name, 
 								bufferSize, 
 								readerPool,
-								writerPool
+								writerPool,
+								sslContext
 								);
 			// 2. Initialize the monitor thread
-			connnector.initializeMonitor(new CerebralMonitor(), 60, 60);
+			connnector.initializeMonitor(new CerebralMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 			// 3. Return the connector
 			return connnector;
 		}
