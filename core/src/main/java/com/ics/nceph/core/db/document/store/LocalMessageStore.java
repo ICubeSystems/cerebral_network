@@ -44,8 +44,6 @@ public class LocalMessageStore extends DocumentStore
 		{
 			try 
 			{
-				// If the document is not in cache, then add the new document to the cache. This should be the case when the document is being created for the very first time
-				document.saveInCache();
 				// Save the document to the local storage
 				mapper.writeValue(Paths.get(document.localRepository() + docName + ".json").toFile(), document);
 			} catch (FileNotFoundException fe) // In case the message directory is missing 
@@ -55,6 +53,9 @@ public class LocalMessageStore extends DocumentStore
 				// Save the document to the local storage
 				mapper.writeValue(Paths.get(document.localRepository() + docName + ".json").toFile(), document);
 			}
+			
+			// If the document is not in cache, then add the new document to the cache. This should be the case when the document is being created for the very first time
+			document.saveInCache();
 			super.save(document, docName, isUpdate);
 		} catch (IOException e) {
 			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()

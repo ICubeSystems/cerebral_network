@@ -14,6 +14,7 @@ import javax.net.ssl.SSLContext;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
@@ -67,7 +68,7 @@ public abstract class Connector
 	private Integer port;
 
 	private String name;
-	
+
 	private ConnectorState state = ConnectorState.PENDING_AUTH;
 
 	private Integer totalConnectionsServed = 0;
@@ -224,12 +225,11 @@ public abstract class Connector
 	 * @param delay
 	 * @return void
 	 */
-	public final void initializeMonitor(ConnectorMonitorThread monitor, long initialDelay, long delay)
+	public final void initializeMonitor(ConnectorMonitorThread<? extends Connector> monitor, int initialDelay, int delay)
 	{
 		// If the service is not configured then initialize
 		if (monitorService == null)
 		{
-			monitor.attachConnector(this);
 			monitorService = Executors.newSingleThreadScheduledExecutor();
 			monitorService.scheduleWithFixedDelay(monitor, initialDelay, delay, TimeUnit.SECONDS);
 		}
@@ -269,7 +269,17 @@ public abstract class Connector
 	{
 		// 1. Check if the connectionLoadBalancer has been properly initialized
 		if (connectionLoadBalancer == null)
+		{
+			//LOG connector logger fatal: LB null
+			NcephLogger.CONNECTOR_LOGGER.fatal(new ConnectionLog.Builder()
+					.action("initialise failed")
+					.data(new LogData()
+							.entry("Port", String.valueOf(getPort()))
+							.toString())
+					.logError());
+			shutdown();
 			throw new ImproperConnectorInstantiationException(new Exception("Connector not initialized properly"), logger);  
+		}
 
 		synchronized (connectionLoadBalancer) 
 		{
@@ -353,7 +363,7 @@ public abstract class Connector
 	{
 		connectorQueuedUpMessageRegister.remove(message);
 	}
-	
+
 	/**
 	 * This method checks for duplicacy of messages received
 	 * 
@@ -407,7 +417,7 @@ public abstract class Connector
 	public synchronized void enqueueMessage(Message message)
 	{
 		// Check if the message has ever been sent
-		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		if ((message.decoder().getType() == 11 || message.decoder().getType() == 3)
 				&& (hasAlreadySent(message) || isAlreadyQueuedUpOnConnection(message) || isAlreadyQueuedUpOnConnector(message)))
 			return;
 
@@ -436,7 +446,7 @@ public abstract class Connector
 	public void setTotalConnectionsServed(Integer totalConnectionsServed) {
 		this.totalConnectionsServed = totalConnectionsServed;
 	}
-	
+
 	public ConcurrentLinkedQueue<Message> getRelayQueue() {
 		return relayQueue;
 	}
@@ -474,5 +484,14 @@ public abstract class Connector
 	{
 		this.state = state;
 	}
-	
+
+	public void shutdown()
+	{
+		monitorService.shutdown();
+		setState(ConnectorState.DECOMISSIONED);
+		getReaderPool().shutdown();
+		getWriterPool().shutdown();
+
+	}
+
 }

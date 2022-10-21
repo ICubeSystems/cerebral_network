@@ -6,8 +6,6 @@ import java.util.Date;
 import org.springframework.stereotype.Component;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMappingException;
-import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
@@ -380,8 +378,11 @@ public class ProofOfPublish extends ProofOfDelivery
 		try 
 		{ // Save in DB
 			ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).save(this);
-		} catch (ResourceNotFoundException | DynamoDBMappingException e) 
-		{throw new DocumentSaveFailedException("Publish message save failed Exception ", e);}
+		} catch (Exception e) 
+		{
+			e.printStackTrace();
+			throw new DocumentSaveFailedException("Publish message save failed Exception ", e);
+		}
 	}
 	
 	public static ProofOfPublish load(Integer producerPort, String docName)
@@ -391,7 +392,7 @@ public class ProofOfPublish extends ProofOfDelivery
 			return DocumentCache.getInstance().getPublishedMessageCache().getDocument(producerPort, docName);
 		} catch (NullPointerException e){return null;}
 	}
-
+	
 	public static MessageCache<ProofOfPublish> getMessageCache(Integer producerPort)
 	{
 		try

@@ -9,9 +9,9 @@ import com.ics.synapse.applicationReceptor.ApplicationReceptor;
  * @version 1.0
  * @since Aug 1, 2022
  */
-public class GiftRefundReceptor extends ApplicationReceptor {
+public class GiftDeliveredReceptor extends ApplicationReceptor {
 
-	public GiftRefundReceptor(EventData eventData) {
+	public GiftDeliveredReceptor(EventData eventData) {
 		super(eventData);
 		// TODO Auto-generated constructor stub
 	}
@@ -19,7 +19,7 @@ public class GiftRefundReceptor extends ApplicationReceptor {
 	@Override
 	public void process() {
 		// TODO Auto-generated method stub
-		System.out.println("Gift item receptor");
+		System.out.println("Gift Delivered Receptor");
 	}
 
 	

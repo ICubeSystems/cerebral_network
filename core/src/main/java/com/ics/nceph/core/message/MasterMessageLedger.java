@@ -34,9 +34,9 @@ public class MasterMessageLedger
 	public void add(Message message) 
 	{
 		// Message register should only store event messages (no other message types should be stored)
-		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		if (message.decoder().getType() == 11 || message.decoder().getType() == 3)
 			add(message.decoder().getSourceId(), message.decoder().geteventType(),message.decoder().getMessageId());
-		else if (message.decoder().getType() == 0x00)
+		else if (message.decoder().getType() == 0)
 		{
 			if (authMessageIdCounter.get(message.decoder().getSourceId()) == null // If there is no entry for the node then create an entry
 					|| authMessageIdCounter.get(message.decoder().getSourceId()) < message.decoder().getMessageId()) // if the entry for the node has a smaller message id then update it with new message id

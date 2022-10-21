@@ -39,7 +39,7 @@ public class MessageLedger
 	public void add(Message message)
 	{
 		// Message register should only store event messages (no other message types should be stored)
-		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		if (message.decoder().getType() == 11 || message.decoder().getType() == 3)
 		{
 			
 		}

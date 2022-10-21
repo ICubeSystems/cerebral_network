@@ -150,7 +150,7 @@
             filePattern="${log-path}/$${date:yyyy-MM}/connection-error-%d{-dd-MMMM-yyyy}-%i.log.gz">
             <ThresholdFilter level="WARN"/>
             <PatternLayout>
-                <pattern>${log-pattern}</pattern>
+                <pattern>${error-log-pattern}</pattern>
             </PatternLayout>
             <Policies>
                 <!-- rollover on startup, daily and when the file reaches 
@@ -212,6 +212,39 @@
             </Policies>
         </RollingFile>
         
+        <RollingFile name="connector-logger"
+            fileName="${log-path}/connector.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/connector-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <PatternLayout>
+                <pattern>${log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
+        <RollingFile name="connector-error-logger"
+            fileName="${log-path}/connector-error.log"
+            filePattern="${log-path}/$${date:yyyy-MM}/connector-error-%d{-dd-MMMM-yyyy}-%i.log.gz">
+            <ThresholdFilter level="WARN"/>
+            <PatternLayout>
+                <pattern>${error-log-pattern}</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 
+                    10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy
+                    size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+        
     </Appenders>
 
     <Loggers>
@@ -230,6 +263,11 @@
 	    <logger name="connection" level="trace" additivity="false">
 	        <appender-ref ref="connection-logger" />
 	        <appender-ref ref="connection-error-logger" />
+	    </logger>
+	    
+	    <logger name="connector" level="trace" additivity="false">
+	        <appender-ref ref="connector-logger" />
+	        <appender-ref ref="connector-error-logger" />
 	    </logger>
 	    
 	    <logger name="dynamoDB" level="trace" additivity="false">

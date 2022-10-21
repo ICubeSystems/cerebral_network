@@ -2,8 +2,9 @@ package com.ics.nceph.core.db.document;
 
 import java.util.Date;
 
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMappingException;
-import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.db.document.store.cache.DocumentCache;
@@ -240,6 +241,16 @@ public class ProofOfRelay extends ProofOfDelivery
 		DocumentCache.getInstance()
 			.getRelayedMessageCache()
 			.put(this);
+		
+		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+				.messageId(getMessageId())
+				.action("Save in cache")
+				.data(new LogData()
+						.entry("Saved", "message saved in relay cache")
+						.entry("Consumer Port", String.valueOf(getConsumerPortNumber()))
+						.entry("Producer Port", String.valueOf(getProducerPortNumber()))
+						.toString())
+				.logInfo());
 	}
 	
 	@Override
@@ -248,6 +259,16 @@ public class ProofOfRelay extends ProofOfDelivery
 		DocumentCache.getInstance()
 			.getRelayedMessageCache()
 			.removeFromCache(this);
+		
+		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+				.messageId(getMessageId())
+				.action("Remove from cache")
+				.data(new LogData()
+						.entry("Removed", "message removed from relay cache")
+						.entry("Consumer Port", String.valueOf(getConsumerPortNumber()))
+						.entry("Producer Port", String.valueOf(getProducerPortNumber()))
+						.toString())
+				.logInfo());
 	}
 	
 	@Override
@@ -262,8 +283,9 @@ public class ProofOfRelay extends ProofOfDelivery
 		{ 
 			// Save in DB
 			ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).save(this);
-		} catch (ResourceNotFoundException | DynamoDBMappingException e) 
+		} catch (Exception e) 
 		{ 
+			e.printStackTrace();
 			throw new DocumentSaveFailedException("Received message save failed Exception ", e); 
 		}
 	}

@@ -58,7 +58,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	protected void beforeExecute(Thread t, Runnable worker) 
 	{
 		Message message = ((Worker)worker).getMessage();
-		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		if (message.decoder().getType() == 11 || message.decoder().getType() == 3)
 		{
 			synchronized (runningMessageIds) {
 				runningMessageIds.add(message.decoder().getMessageId());
@@ -79,7 +79,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		super.afterExecute(worker, t);
 		
 		Message message = ((Worker)worker).getMessage();
-		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		if (message.decoder().getType() == 11 || message.decoder().getType() == 3)
 		{
 			synchronized (runningMessageIds) {
 				runningMessageIds.remove(message.decoder().getMessageId());
@@ -95,7 +95,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	public boolean register(Worker worker)
 	{
 		Message message = worker.getMessage();
-		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) 
+		if ((message.decoder().getType() == 11 || message.decoder().getType() == 3) 
 			&& (runningMessageIds.contains(message.decoder().getMessageId()) || worker.getConnection().getConnector().hasAlreadyReceived(message)))
 			return false;
 		execute(worker);

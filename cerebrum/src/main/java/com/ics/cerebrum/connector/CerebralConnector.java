@@ -264,7 +264,7 @@ public class CerebralConnector extends Connector
 		public CerebralConnector build() throws IOException
 		{
 			// 1. Instantiate new CerebralConnector
-			CerebralConnector connnector = new CerebralConnector(
+			CerebralConnector connector = new CerebralConnector(
 								port, 
 								name, 
 								bufferSize, 
@@ -273,9 +273,11 @@ public class CerebralConnector extends Connector
 								sslContext
 								);
 			// 2. Initialize the monitor thread
-			connnector.initializeMonitor(new CerebralMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
+			CerebralMonitor monitor = new CerebralMonitor();
+			monitor.attachConnector(connector);
+			connector.initializeMonitor(monitor, NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 			// 3. Return the connector
-			return connnector;
+			return connector;
 		}
 	}
 }

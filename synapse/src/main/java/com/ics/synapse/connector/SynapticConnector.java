@@ -416,7 +416,6 @@ public class SynapticConnector extends Connector
 					writerPool,
 					sslContext
 					);
-			
 			// 2. Set the configurations for the connector
 			connector.setConfig(connector.new ConnectionConfiguration(
 					maxConnections, 
@@ -428,7 +427,9 @@ public class SynapticConnector extends Connector
 			connector.start();
 			
 			// 4. Initialize the monitor thread
-			connector.initializeMonitor(new SynapticMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
+			SynapticMonitor monitor = new SynapticMonitor();
+			monitor.attachConnector(connector);
+			connector.initializeMonitor(monitor, NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 
 			// 5. Return the connector
 			return connector;

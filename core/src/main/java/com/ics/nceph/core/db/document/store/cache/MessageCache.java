@@ -1,6 +1,6 @@
 package com.ics.nceph.core.db.document.store.cache;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.ics.nceph.core.db.document.MessageDocument;
 /**
@@ -9,7 +9,7 @@ import com.ics.nceph.core.db.document.MessageDocument;
  * @version 1.0
  * @since Sep 06, 2022
  */
-public class MessageCache<V extends MessageDocument> extends HashMap<String, V>
+public class MessageCache<V extends MessageDocument> extends ConcurrentHashMap<String, V>
 {
 	private static final long serialVersionUID = 4414351612167112964L;
 	

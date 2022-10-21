@@ -1,6 +1,6 @@
 package com.ics.nceph.core.db.document.store.cache;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.ics.nceph.core.db.document.ProofOfRelay;
 
@@ -10,7 +10,7 @@ import com.ics.nceph.core.db.document.ProofOfRelay;
  * @version 1.0
  * @since Sep 06, 2022
  */
-public class RelayedMessageCache extends HashMap<Integer, ApplicationMessageCache<ProofOfRelay>> 
+public class RelayedMessageCache extends ConcurrentHashMap<Integer, ApplicationMessageCache<ProofOfRelay>> 
 {
 	private static final long serialVersionUID = -1805738486763899058L;
 

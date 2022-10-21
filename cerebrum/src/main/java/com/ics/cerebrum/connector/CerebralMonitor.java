@@ -1,36 +1,8 @@
 package com.ics.cerebrum.connector;
 
-import java.nio.channels.SelectionKey;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Map;
-
-import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
-import com.ics.logger.ConnectionLog;
-import com.ics.logger.LogData;
-import com.ics.logger.MessageLog;
-import com.ics.logger.MonitorLog;
-import com.ics.logger.NcephLogger;
-import com.ics.nceph.core.connector.Connector;
-import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
-import com.ics.nceph.core.connector.connection.Connection;
-import com.ics.nceph.core.connector.connection.QueuingContext;
-import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
-import com.ics.nceph.core.connector.exception.ImproperMonitorInstantiationException;
-import com.ics.nceph.core.db.document.MessageDeliveryState;
 import com.ics.nceph.core.db.document.ProofOfPublish;
-import com.ics.nceph.core.db.document.ProofOfRelay;
-import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
-import com.ics.nceph.core.db.document.store.DocumentStore;
-import com.ics.nceph.core.event.exception.EventNotSubscribedException;
-import com.ics.nceph.core.message.AcknowledgeMessage;
-import com.ics.nceph.core.message.EventMessage;
-import com.ics.nceph.core.message.Message;
-import com.ics.nceph.core.message.NetworkRecord;
-import com.ics.nceph.core.message.data.ThreeWayAcknowledgementData;
-import com.ics.nceph.core.message.exception.MessageBuildFailedException;
-import com.ics.util.ByteUtil;
+import com.ics.nceph.core.db.document.store.cache.MessageCache;
 
 /**
  * This is a thread class which is responsible for continuous monitoring of the messages flowing through cerebrum. 
@@ -52,197 +24,34 @@ import com.ics.util.ByteUtil;
  * @version 1.0
  * @since 18-Jan-2022
  */
-public class CerebralMonitor extends ConnectorMonitorThread 
+public class CerebralMonitor extends ConnectorMonitorThread<CerebralConnector>
 {
 	/**
 	 * The DB repositories are manually injected via this constructor from the connectorCulsterInitializer. 
 	 * TODO: This should be done using spring container instead.
-	 * 
-	 * @param publishedMessageRepository
-	 * @param relayedmessageRepository
 	 */
 	public CerebralMonitor() {}
+	
+	@Override
+	public void monitorMessages()
+	{
+		// Get the proof of publish message cache and process them
+		MessageCache<ProofOfPublish> popCache = ProofOfPublish.getMessageCache(getConnector().getPort());
+		if (popCache != null) 
+			popCache.entrySet()
+				.stream()
+				.parallel()
+				.forEach(MonitorRelay.builder()
+							.connector(getConnector())
+							.build());
+	}
 
 	@Override
-	public void monitor() throws ImproperMonitorInstantiationException, ImproperConnectorInstantiationException 
+	public void monitorRelayQueue()
 	{
-		CerebralConnector connector = (CerebralConnector) getConnector();
-		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
-				.monitorPort(connector.getPort())
-				.action("Cerebral monitor start")
-				.logInfo());
-		// 1. Check if there are any messages in the connector's relay queue. Transfer them to connection's relay queue for transmission.
-		if (connector.getRelayQueue().size() > 0 && connector.getActiveConnections().size()>0)
-		{
-			NcephLogger.MONITOR_LOGGER.info(new ConnectionLog.Builder()
-					.action("Transfer relay queue")
-					.data(new LogData()
-							.entry("Relay size", String.valueOf(connector.getRelayQueue().size()))
-							.toString())
-					.logInfo());
-			Connection connection = null;
-			while(!connector.getRelayQueue().isEmpty()) 
-			{
-				connection = connector.getConnection();
-				Message message = connector.getRelayQueue().poll();
-				connection.enqueueMessage(message, QueuingContext.QUEUED_FROM_MONITOR);
-				// remove message from connectorQueuedUpMessageRegister 
-				getConnector().removeConnectorQueuedUpMessage(message);
-				connection.setInterest(SelectionKey.OP_WRITE);
-			}
-		}
-
-		// 2. Check for PODs which are not deleted for more than a specified time
-		ProcessPOR:
-		{
-			// 2.1 get all files from the POD directory
-			// 2.2 if there are no pods then exit ProcessPOD block
-			if (ProofOfPublish.getMessageCache(getConnector().getPort()) == null || ProofOfPublish.getMessageCache(getConnector().getPort()).isEmpty()) 
-				break ProcessPOR;
-
-			// 2.3 Loop over PODs to process
-			for (Map.Entry<String, ProofOfPublish> entry :ProofOfPublish.getMessageCache(getConnector().getPort()).entrySet())
-			{
-				String messageId = entry.getKey();
-				ProofOfPublish pod = entry.getValue();
-				ProofOfRelay por = null;
-				try 
-				{
-					// if file is older than X minutes and whose state is not finished then resend the message to the another node to make its state to finished
-					if(transmissionWindowElapsed(pod)) // Check if the pod was created by the port for which this monitor thread is running
-					{
-						// Get the subscriber connectors for this event
-						ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(pod.getEvent().getEventType());
-						// Loop over the subscriber and check the PORs within the POD
-						for (Connector subscriberConnector : subscribers) 
-						{
-							// Get connection from subscriber's connector
-							Connection connection = subscriberConnector.getConnection();
-							por = ProofOfRelay.load(getConnector().getPort(), subscriberConnector.getPort(), messageId);
-
-							// If there are no active connections in the connector then break.
-							if(connection != null) 
-							{
-								// If POR exists then check state and process accordingly
-								if (por != null)
-								{
-									// if relay transmissionWindow is not elapsed then do nothing and return
-									if (!transmissionWindowElapsed(por))
-										return;
-
-									switch (por.getMessageDeliveryState()) 
-									{
-									case 100:// INITIAL state of POR
-									case 200:// RELAYED state of POR
-										// Build the EventMessage from POD
-										Message eventMessage = new EventMessage.Builder()
-										.type(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType())
-										.event(pod.getEvent())
-										.mid(por.getMessageId())
-										.originatingPort(connector.getPort())
-										.buildAgain();
-
-										enqueueMessage(connection, eventMessage);
-										// Set the RELAY_EVENT attempts
-										por.incrementEventMessageAttempts();
-										por.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
-										DocumentStore.getInstance().update(pod, messageId);
-										break;
-									case 300:// ACKNOWLEDGED state of POR
-									case 400:// ACK_RECIEVED state of POR
-										Message threeWayAckMessage = new AcknowledgeMessage.Builder()
-										.data(new ThreeWayAcknowledgementData.Builder()
-												.threeWayAckNetworkRecord(new NetworkRecord.Builder()
-														.start(new Date().getTime())
-														.build()) //ACK_RECEIVED network record with just the start
-												.writeRecord(pod.getEventMessageWriteRecord()) // WriteRecord of PUBLISH_EVENT
-												.ackNetworkRecord(pod.getAckMessageNetworkRecord()) // NCEPH_EVENT_ACK network record
-												.build())
-										.mid(por.getMessageId())
-										.originatingPort(ByteUtil.convertToByteArray(connector.getPort(), 2))
-										.type(CerebralOutgoingMessageType.RELAY_ACK_RECEIVED.getMessageType())
-										.build();
-
-										enqueueMessage(connection, threeWayAckMessage);
-										// Set the RELAY_EVENT attempts
-										por.incrementThreeWayAckMessageAttempts();
-										por.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED.getState());
-										DocumentStore.getInstance().update(pod, messageId);
-										break;
-									case 500:// FINISHED state of POR
-										pod.finished();
-										break;
-									default:
-										break;
-									}
-								}
-								else // If POR does not exists then create a new POR and relay to the missing subscriber
-								{
-									if(!pod.getSubscribedPorts().contains(subscriberConnector.getPort())) {
-									// Create a new POR and relay the message to this subscriber
-									por = new ProofOfRelay.Builder()
-											.relayedOn(new Date().getTime())
-											.messageId(messageId)
-											.consumerPort(subscriberConnector.getPort())
-											.producerPort(getConnector().getPort())
-											.build();
-
-									// Set the RELAY_EVENT attempts
-									por.incrementEventMessageAttempts();
-									pod.addSubscribedPort(subscriberConnector.getPort());
-									// Save the POD
-									DocumentStore.getInstance().update(por, messageId);
-									DocumentStore.getInstance().update(pod, messageId);
-									// Convert the event to the message object
-									Message eventMessage = new EventMessage.Builder()
-											.type(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType())
-											.event(pod.getEvent())
-											.mid(por.getMessageId())
-											.buildAgain();
-									enqueueMessage(connection, eventMessage);
-									}
-								}
-							} 
-						}
-					}
-				}
-				catch (MessageBuildFailedException e) 
-				{
-					// Log
-					NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
-							.messageId(messageId)
-							.action(por.getMessageDeliveryState() == 100 || por.getMessageDeliveryState() == 200 ? "NCEPH_EVENT build failed":"ACK_RECEIVED build failed")
-							.description("message build failed in monitor")
-							.logError(),e);
-					por.decrementAttempts();
-					//IOException Save the POD
-					try 
-					{
-						DocumentStore.getInstance().update(pod, pod.getMessageId());
-					} 
-					catch (DocumentSaveFailedException e1) 
-					{
-						//Log
-						NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
-								.messageId(String.valueOf(pod.getMessageId()))
-								.action("Pod updation failed")
-								.description(por.getMessageDeliveryState() == 100 || por.getMessageDeliveryState() == 200 ? "Relay":"ThreeWayAck"+" counter decrement failed after MessageBuildFailedException")
-								.logError(), e1);
-					}
-				} 
-				catch (DocumentSaveFailedException e) {} // Logging for this exception is already handled in DocumentStore.update() method
-				catch (EventNotSubscribedException e) {
-					NcephLogger.MONITOR_LOGGER.fatal(new MonitorLog.Builder()
-							.monitorPort(connector.getPort())
-							.action("Subscription Not Subscribed")
-							.logInfo());
-				}
-			}
-		}
-
-		NcephLogger.MONITOR_LOGGER.info(new MonitorLog.Builder()
-				.monitorPort(connector.getPort())
-				.action("Cerebral monitor end")
-				.logInfo());
+		connectorRelayQueueTransfer();
 	}
+
+	@Override
+	public void monitorConnections(){}
 }

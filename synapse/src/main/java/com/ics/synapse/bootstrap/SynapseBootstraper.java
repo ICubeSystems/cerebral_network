@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.ics.logger.NcephLogger;
+import com.ics.menu.SynapticMenu;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
@@ -91,6 +92,8 @@ public class SynapseBootstraper
 		reactorCluster.run();
 		
 		// 4. synaptic menu
+		SynapticMenu.run(connector);
+		
 		
 		while (connector.getActiveConnections().size()==0)
 		{
