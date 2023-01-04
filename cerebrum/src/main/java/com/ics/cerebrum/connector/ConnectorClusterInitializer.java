@@ -58,7 +58,7 @@ public class ConnectorClusterInitializer
 
 	public ConnectorCluster initializeConnectionCluster() throws IOException, ConfigurationException, SSLContextInitializationException
 	{
-		// 1. Instantitiate new ConnectorCluster
+		// 1. Instantiate new ConnectorCluster
 		ConnectorCluster connectorCluster = new ConnectorCluster();
 		
 		SynapticNodesList synapticNodes;
@@ -82,7 +82,10 @@ public class ConnectorClusterInitializer
 							.corePoolSize(synapticNode.getReaderPool().getCorePoolSize())
 							.maximumPoolSize(synapticNode.getReaderPool().getMaximumPoolSize())
 							.keepAliveTime(synapticNode.getReaderPool().getKeepAliveTime())
-							.workQueue(new LinkedBlockingQueue<Runnable>())
+							.workQueue(
+									synapticNode.getReaderPool().getBlockingQueueSize() != -1 
+									? new LinkedBlockingQueue<Runnable>(synapticNode.getReaderPool().getBlockingQueueSize()) 
+									: new LinkedBlockingQueue<>())
 							.rejectedThreadHandler(new RejectedReaderHandler()).build())
 					.writerPool(new WorkerPool.Builder<Writer>()
 							.corePoolSize(synapticNode.getWriterPool().getCorePoolSize())

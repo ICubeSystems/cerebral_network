@@ -1,16 +1,18 @@
 package com.ics.cerebrum.message.type;
 
-import com.ics.cerebrum.receptor.PorDeletedReceptor;
-import com.ics.cerebrum.receptor.StartupReceptor;
 import com.ics.cerebrum.receptor.BootstrapReceptor;
 import com.ics.cerebrum.receptor.CredentialsReceptor;
+import com.ics.cerebrum.receptor.PorDeletedReceptor;
 import com.ics.cerebrum.receptor.PublishedEventReceptor;
-import com.ics.cerebrum.receptor.RelayedEventAcknowledgeReceptor;
 import com.ics.cerebrum.receptor.PublishedEventThreeWayAcknowledgementReceptor;
+import com.ics.cerebrum.receptor.ReadyConfirmedReceptor;
+import com.ics.cerebrum.receptor.RelayedEventAcknowledgeReceptor;
+import com.ics.cerebrum.receptor.StartupReceptor;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.message.type.IncomingMessageType;
-import com.ics.cerebrum.receptor.ReadyConfirmedReceptor;
+import com.ics.nceph.core.receptor.PauseTransmissionReceptor;
 import com.ics.nceph.core.receptor.Receptor;
+import com.ics.nceph.core.receptor.ResumeTransmissionReceptor;
 import com.ics.util.ByteUtil;
 
 /**
@@ -48,12 +50,12 @@ public class CerebralIncomingMessageType extends IncomingMessageType
 	 */
 	public static CerebralIncomingMessageType ACK_RECEIVED = new CerebralIncomingMessageType(5, PublishedEventThreeWayAcknowledgementReceptor.class, "ACK_RECEIVED");
 	/**
-	 * This message type is used to recieve acknowledgement of publish event
+	 * This message type is used to receive acknowledgement of publish event
 	 */
 	public static CerebralIncomingMessageType RELAYED_EVENT_ACK = new CerebralIncomingMessageType(4, RelayedEventAcknowledgeReceptor.class, "RELAYED_EVENT_ACK");
 	
 	/**
-	 * Synaptic node sends a notification that relay event acknowledged successfully and POR is deleted from snaptic side.
+	 * Synaptic node sends a notification that relay event acknowledged successfully and POR is deleted from synaptic side.
 	 */
 	public static CerebralIncomingMessageType POR_DELETED = new CerebralIncomingMessageType(13, PorDeletedReceptor.class, "POR_DELETED");
 	/**
@@ -62,9 +64,31 @@ public class CerebralIncomingMessageType extends IncomingMessageType
 	public static CerebralIncomingMessageType BOOTSTRAP = new CerebralIncomingMessageType(15, BootstrapReceptor.class, "BOOTSTRAP");
 	
 	/**
+	 * This message type is used to tell Cerebrum to pause sending messages
+	 */
+	public static CerebralIncomingMessageType PAUSE_TRANSMISSION = new CerebralIncomingMessageType(17, PauseTransmissionReceptor.class, "PAUSETRANSMISSION");
+	
+	/**
+	 * This message type is used to tell Cerebrum to resume sending messages
+	 */
+	public static CerebralIncomingMessageType RESUME_TRANSMISSION = new CerebralIncomingMessageType(18, ResumeTransmissionReceptor.class, "RESUMETRANSMISSION");
+	
+	
+	/**
 	 * 
 	 */
-	public static CerebralIncomingMessageType[] types = new CerebralIncomingMessageType[] {BOOTSTRAP, PUBLISH_EVENT, STARTUP, CREDENTIALS, READY_CONFIRMED, PUBLISH_EVENT,ACK_RECEIVED,RELAYED_EVENT_ACK,POR_DELETED};
+	public static CerebralIncomingMessageType[] types = new CerebralIncomingMessageType[] {
+															BOOTSTRAP, 
+															PUBLISH_EVENT, 
+															STARTUP, 
+															CREDENTIALS, 
+															READY_CONFIRMED, 
+															PUBLISH_EVENT,
+															ACK_RECEIVED,
+															RELAYED_EVENT_ACK,
+															POR_DELETED,
+															PAUSE_TRANSMISSION,
+															RESUME_TRANSMISSION};
 
 	/**
 	 * Returns the MessageType instance by the type supplied

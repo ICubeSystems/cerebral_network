@@ -19,9 +19,9 @@ public class BootstrapData extends MessageData implements Serializable {
 	
 	public BootstrapData() {}
 	
-	public BootstrapData(String macAddress) {
+	public BootstrapData(String secretKey) {
 		super();
-		this.secretKey = macAddress;
+		this.secretKey = secretKey;
 	}
 
 	public String getSecretKey() {
@@ -41,11 +41,11 @@ public class BootstrapData extends MessageData implements Serializable {
 		/**
 		 * MAC address of the synaptic node, required for node resolution at cerebrum
 		 * 
-		 * @param macAddress
+		 * @param secretKey
 		 * @return
 		 */
-		public Builder secretKey(String macAddress) {
-			this.secretKey = macAddress;
+		public Builder secretKey(String secretKey) {
+			this.secretKey = secretKey;
 			return this;
 		}
 		

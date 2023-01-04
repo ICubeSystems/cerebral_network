@@ -83,7 +83,7 @@ public class ConfigReceptor extends Receptor
 				// Initialize cache
 				SynapseCacheInitializer.run();
 				// Initialize connections after control connection authentication.
-				connector.initiateConnections();
+				connector.initiateConnections(configData.getNodeId());
 				connector.setState(ConnectorState.READY);
 				return;
 			}

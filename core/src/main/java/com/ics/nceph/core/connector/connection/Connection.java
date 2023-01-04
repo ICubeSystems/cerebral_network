@@ -39,7 +39,7 @@ import com.ics.nceph.core.ssl.exception.SSLHandshakeException;
  * @version 1.0
  * @since 22-Dec-2021
  */
-public class Connection implements Comparable<Connection> 
+public class Connection implements Comparable<Connection>
 {
 	private Integer id;
 	
@@ -52,6 +52,8 @@ public class Connection implements Comparable<Connection>
 	private SelectionKey key;
 	
 	private int relayTimeout;
+	
+	private int nodeId;
 	
 	Metric metric;
 	
@@ -215,6 +217,9 @@ public class Connection implements Comparable<Connection>
 		
 		// Remove the connection from LB to re-adjust the counters
 		removeFromLoadBalancer();
+		
+		// remove from nodewise map if teardown is called on cerebrum side
+		getConnector().removeConnection(this);
 		
 		// Check if there are any messages waiting to be relayed. Transfer them to the connectors outgoing buffer
 		if (relayQueue != null && relayQueue.size() > 0)
@@ -507,7 +512,7 @@ public class Connection implements Comparable<Connection>
 	public void enqueueMessage(Message message, QueuingContext context)
 	{
 		// DUPLICACY CHECK: Check if the message has already been sent.  
-		if ((message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) // Message type should be PUBLISH_EVENT or RELAY_EVENT, only then check for duplicacy
+		if ((message.decoder().getType() == 11 || message.decoder().getType() == 3) // Message type should be PUBLISH_EVENT or RELAY_EVENT, only then check for duplicacy
 				&& (context.duplicacyCheckEnabled() && getConnector().hasAlreadySent(message) // Check if the message has already been sent. If the message is being queued by the monitor then do not check for duplicacy.
 				|| getConnector().isAlreadyQueuedUpOnConnection(message) || getConnector().isAlreadyQueuedUpOnConnector(message))) // Check if the message is not already in the relay queue of the connector or any of its connections
 			return;
@@ -584,20 +589,31 @@ public class Connection implements Comparable<Connection>
 	{
 		String callerContext = Thread.currentThread().getStackTrace()[2].getFileName();
 		
-		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03) // RELAY_EVENT  || PUBLISH_EVENT
+		if (message.decoder().getType() == 11 || message.decoder().getType() == 3) // RELAY_EVENT  || PUBLISH_EVENT
 			return "MessageReader.java".equals(callerContext) ? getMetric().incomingEventMessageCounter.incrementAndGet() : getMetric().outgoingEventMessageCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
 		
-		if (message.decoder().getType() == 0x09 || message.decoder().getType() == 0x04) // RELAYED_EVENT_ACK || NCEPH_EVENT_ACK
+		if (message.decoder().getType() == 9 || message.decoder().getType() == 4) // RELAYED_EVENT_ACK || NCEPH_EVENT_ACK
 			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessageAckCounter.incrementAndGet() : getMetric().outgoingMessageAckCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
 		
-		if (message.decoder().getType() == 0x0C || message.decoder().getType() == 0x05) // RELAY_ACK_RECEIVED || ACK_RECEIVED
+		if (message.decoder().getType() == 12 || message.decoder().getType() == 5) // RELAY_ACK_RECEIVED || ACK_RECEIVED
 			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessage3WayAckCounter.incrementAndGet() : getMetric().outgoingMessage3WayAckCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
 		
-		if (message.decoder().getType() == 0x0A || message.decoder().getType() == 0x0D) // DELETE_POD || POR_DELETED
+		if (message.decoder().getType() == 10 || message.decoder().getType() == 13) // DELETE_POD || POR_DELETED
 			return "MessageReader.java".equals(callerContext) ? getMetric().incomingMessageDoneCounter.incrementAndGet() : getMetric().outgoingMessageDoneCounter.incrementAndGet(); // Received (incoming) : Sent (outgoing)
 		
 		return -1;
 	}
+
+	
+	public int getNodeId() {
+		return nodeId;
+	}
+
+	public void setNodeId(int nodeId) {
+		this.nodeId = nodeId;
+	}
+
+
 
 	/**
 	 * 
@@ -768,7 +784,6 @@ public class Connection implements Comparable<Connection>
 		public AtomicInteger getOutgoingMessageDoneCounter() {
 			return outgoingMessageDoneCounter;
 		}
-		
-		
 	}
+
 }

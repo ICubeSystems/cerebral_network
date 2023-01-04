@@ -1,5 +1,6 @@
 package com.ics.cerebrum.menu;
 
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Scanner;
 import java.util.Set;
@@ -10,6 +11,11 @@ import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.ProofOfRelay;
+import com.ics.nceph.core.db.document.store.cache.ApplicationMessageCache;
+import com.ics.nceph.core.db.document.store.cache.DocumentCache;
+import com.ics.nceph.core.db.document.store.cache.MessageCache;
 import com.ics.nceph.core.message.MessageLedger;
 
 /**
@@ -64,39 +70,63 @@ public class CerebralMenu
 							CerebralConnector connector = (CerebralConnector)ConnectorCluster.activeConnectors.get(choice);
 
 							System.out.println("\n Connector Status 1");
-							System.out.printf("| %6s | %20s | %24s | %14s | %21s | %24s | %16s | \n",
+							System.out.printf("| %6s | %20s | %24s | %14s | %21s | %24s | %16s | %19s | \n",
 									"PORT",
 									"Active_Connections",
 									"Total_Connections_Served",
 									"Active_Workers",
 									"Total_Workers_Created",
 									"Total_Successful_Workers",
-									"Relay_Queue_Size");
-							System.out.printf("| %6d | %20d | %24d | %14d | %21s | %24s | %16s | \n",
+									"Relay_Queue_Size",
+									"Rejected_Queue_Size");
+							System.out.printf("| %6d | %20d | %24d | %14d | %21s | %24s | %16s | %19s | \n",
 									connector.getPort(),
 									connector.getActiveConnections().size(),
 									connector.getTotalConnectionsServed(),
 									connector.getReaderPool().getActiveWorkers().intValue()+ connector.getWriterPool().getActiveWorkers().intValue(),
 									connector.getReaderPool().getTotalWorkersCreated().intValue()+ connector.getWriterPool().getTotalWorkersCreated().intValue(),
 									connector.getReaderPool().getTotalSuccessfulWorkers().intValue()+ connector.getWriterPool().getTotalSuccessfulWorkers().intValue(),
-									connector.getRelayQueue().size()
+									connector.getRelayQueue().size(),
+									connector.getReaderPool().getRejectedWorkerQueue().size()
 									);
 							System.out.println("\n Connector Status 2");
-							System.out.printf("| %6s | %20s | %20s | %30s | %30s | \n",
+							System.out.printf("| %6s | %20s | %20s | %30s | %30s | %20s | \n",
 									"PORT",
 									"Incoming_Register",
 									"Outgoing_Register",
 									"Connector_Queued_Up_Register",
-									"Connection_Queued_Up_Register"
+									"Connection_Queued_Up_Register",
+									"Publish Cache size"
 									);
 
-							System.out.printf("| %6d | %20d | %20d | %30d | %30s | \n",
+							System.out.printf("| %6d | %20d | %20d | %30d | %30s | %20d \n",
 									connector.getPort(),
 									connector.getIncomingMessageRegister().size(),
 									connector.getOutgoingMessageRegister().size(),
 									connector.getConnectorQueuedUpMessageRegister().size(),
-									connector.getConnectionQueuedUpMessageRegister().size()
+									connector.getConnectionQueuedUpMessageRegister().size(),
+									ProofOfPublish.getMessageCache(connector.getPort()) != null ? ProofOfPublish.getMessageCache(connector.getPort()).size() : 0
 									);
+									
+							ApplicationMessageCache<ProofOfRelay> relayCache = DocumentCache.getInstance().getRelayedMessageCache().get(connector.getPort());
+									if(relayCache != null) {
+									System.out.println("\n Relay Cache ");
+									System.out.printf("| %12s | %10s | \n",
+											"Port Number",
+											"Count"
+											);
+									
+									for (Map.Entry<Integer, MessageCache<ProofOfRelay>> entry : relayCache.entrySet())
+									{
+//										System.out.println(entry.getKey()+"--"+entry.getValue());
+										System.out.printf("| %12d | %10d | \n",
+												entry.getKey(),
+												entry.getValue().size()
+												);
+									}
+									}
+							
+							
 							System.out.println("\nConnections Status");
 							System.out.printf("| %13s | %18s | %16s | %21s | %31s | %15s | %10s | \n",
 									"Connection_id",

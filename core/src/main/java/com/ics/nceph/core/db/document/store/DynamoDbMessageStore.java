@@ -13,38 +13,28 @@ import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
  */
 public class DynamoDbMessageStore extends DocumentStore
 {
-	/**
-	 * Create a new ProofOfPublish / ProofOfAuthentication document or save the updates in the local document store
-	 * 
-	 * @param pod
-	 * @param docName
-	 * @return void
-	 */
-	private void saveUpdate(MessageDocument document, String docName, boolean isUpdate) throws DocumentSaveFailedException
+	@Override
+	public void save(MessageDocument document, String docName) throws DocumentSaveFailedException
 	{
-		// If the document is not in cache, then add the new document to the cache. This should be the case when the document is being created for the very first time
-		document.saveInCache();
 		try
 		{
 			// Save in DynamoDB
 			document.saveInDB();
+			
+			// If the document is not in cache, then add the new document to the cache. This should be the case when the document is being created for the very first time
+			document.saveInCache();
+			
 			// Post save work 
-			super.save(document, docName, isUpdate);
+			super.save(document, docName, false);
 		}catch (DocumentSaveFailedException e)
 		{
 			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
 					.messageId(docName)
-					.action(isUpdate ? (document.getClass().getSimpleName() + " updation failed") : (document.getClass().getSimpleName() + " creation failed"))
-					.description("Error while updating the " + document.getClass().getSimpleName())
+					.action((document.getClass().getSimpleName() + " creation failed"))
+					.description("Error while saving the " + document.getClass().getSimpleName())
 					.logError(),e);
 			throw e;
 		}
-	}
-
-	@Override
-	public void save(MessageDocument document, String docName) throws DocumentSaveFailedException
-	{
-		saveUpdate(document, docName, false);
 	}
 
 	/**
@@ -56,8 +46,21 @@ public class DynamoDbMessageStore extends DocumentStore
 	@Override
 	public void update(MessageDocument document, String docName) throws DocumentSaveFailedException
 	{
-		// Save the document
-		saveUpdate(document, docName, true);
+		try
+		{
+			// Save in DynamoDB
+			document.saveInDB();
+			// Post save work 
+			super.save(document, docName, true);
+		}catch (DocumentSaveFailedException e)
+		{
+			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+					.messageId(docName)
+					.action((document.getClass().getSimpleName() + " creation failed"))
+					.description("Error while updating the " + document.getClass().getSimpleName())
+					.logError(),e);
+			throw e;
+		}
 	}
 
 	@Override

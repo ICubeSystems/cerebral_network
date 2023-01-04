@@ -1,3 +1,0 @@
-2022-01-22 15:34:02,234 INFO o.s.b.StartupInfoLogger [main] Starting Synapse using Java 17.0.1 on DESKTOP-4VE4VIE with PID 7364 (C:\codebase\nceph-network\synapse\target\classes started by anura in C:\codebase\nceph-network\synapse)
-2022-01-22 15:34:02,237 INFO o.s.b.SpringApplication [main] No active profile set, falling back to default profiles: default
-2022-01-22 15:34:03,701 INFO o.s.b.StartupInfoLogger [main] Started Synapse in 1.636 seconds (JVM running for 2.06)

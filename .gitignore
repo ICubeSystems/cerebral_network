@@ -56,3 +56,4 @@ message_folders_deletion2.sh
 *.gz
 *.gz
 synapse/src/main/java/com/ics/synapse/MessageTest.java
+*.json

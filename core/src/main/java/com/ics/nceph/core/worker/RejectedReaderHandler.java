@@ -1,31 +1,45 @@
 package com.ics.nceph.core.worker;
 
-import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
+
+import com.ics.logger.BackpressureLog;
+import com.ics.logger.LogData;
+import com.ics.logger.NcephLogger;
 
 /**
  * A handler for {@link Reader} task that cannot be executed by a {@link WorkerPool}.
  * 
- * @author Anurag Arya
+ * @author Anurag Arya, Anshul Arya
  * @version 1.0
  * @since 23-Dec-2021
  */
-public class RejectedReaderHandler implements RejectedExecutionHandler 
+public class RejectedReaderHandler extends RejectedWorkerHandler<Reader>
 {
 	@Override
-	 /**
-     * Method that may be invoked by a {@link ThreadPoolExecutor} when {@link ThreadPoolExecutor#execute execute} cannot accept a task.  
-     * This may occur when no more threads or queue slots are available because their bounds would be exceeded, or upon shutdown of the Executor.
-     *
-     * <p>In the absence of other alternatives, the method may throw an unchecked {@link RejectedExecutionException}, which will be propagated to the caller of {@code execute}.
-     *
-     * @param worker - the runnable task requested to be executed
-     * @param workerPool - the executor attempting to execute this task
-     * @throws RejectedExecutionException if there is no remedy
-     */
 	public void rejectedExecution(Runnable worker, ThreadPoolExecutor workerPool) 
 	{
-		// TODO Handle the rejection here - may be we can re try to execute the thread in any other connection or wait for some time and then try to ecexute again in the same workerPool. 
-		// Leaving this implementation for later.
+		super.rejectedExecution(worker, workerPool);
+		
+		// Check backpressure enabled or not
+		if (!getPool().isBackPressureInitiated())
+		{
+			// Set backpressure to true
+			getPool().setBackPressureInitiated(true,(Worker)worker);
+			
+			// Send pause message to producer
+			getConnection().getConnector().signalPauseTransmission(connection);
+			
+			// Log
+			NcephLogger.BACKPRESSURE_LOGGER.info(new BackpressureLog.Builder()
+					.nodeId(String.valueOf(connection.getNodeId()))
+					.action("Signal Pause transmission")
+					.data(new LogData()
+							.entry("Port", String.valueOf(connection.getConnector().getPort()))
+							.entry("ConnectionId", String.valueOf(connection.getId()))
+							.toString())
+					.logInfo());
+		}
+		
+		getPool().getRejectedWorkerQueue().add(worker);
 	}
 }

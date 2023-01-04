@@ -8,23 +8,35 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.AbstractSelectableChannel;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.PriorityBlockingQueue;
 
 import javax.net.ssl.SSLContext;
 
+import com.ics.cerebrum.message.type.CerebralIncomingMessageType;
+import com.ics.cerebrum.message.type.CerebralOutgoingMessageType;
 import com.ics.cerebrum.worker.CerebralReader;
 import com.ics.cerebrum.worker.CerebralWriter;
 import com.ics.logger.BootstraperLog;
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
 import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.PauseTransmissionMessage;
+import com.ics.nceph.core.message.ResumeTransmissionMessage;
+import com.ics.nceph.core.message.data.BackpressureData;
+import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.nceph.core.reactor.Reactor;
+import com.ics.nceph.core.receptor.PauseTransmissionReceptor;
+import com.ics.nceph.core.receptor.ResumeTransmissionReceptor;
 import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
@@ -42,6 +54,11 @@ public class CerebralConnector extends Connector
 	
 	private ServerSocketChannel serverChannel;
 	
+	/**
+	 * Concurrent map of synaptic nodes connected to this connector and their active connections
+	 */
+	private ConcurrentHashMap<Integer, PriorityBlockingQueue<Connection>> nodeWiseConnections;
+	
 	CerebralConnector(
 			Integer port, 
 			String name, 
@@ -51,6 +68,7 @@ public class CerebralConnector extends Connector
 			SSLContext sslContext) throws IOException 
 	{
 		super (port, name, readerPool, writerPool, sslContext);
+		this.nodeWiseConnections = new ConcurrentHashMap<Integer, PriorityBlockingQueue<Connection>>();
 		this.bufferSize = bufferSize;
 		initializeCerebralConnector();
 	}
@@ -87,6 +105,29 @@ public class CerebralConnector extends Connector
 											.toString())
 									.logInfo());
 		getServerChannel().register(reactor.getSelector(), SelectionKey.OP_ACCEPT, this);
+	}
+	
+	/**
+	 * This method removes the destroyed connection from nodeWiseConnections, this method will be called after teardown of the connection.
+	 */
+	@Override
+	public void removeConnection(Connection connection)
+	{
+		// Get all connections for the node from the nodeWiseConnections
+		PriorityBlockingQueue<Connection> connectionQueue = nodeWiseConnections.get(connection.getNodeId());
+		
+		if(connectionQueue != null) {
+			// Remove connection
+			connectionQueue.remove(connection);
+			// Log
+			NcephLogger.CONNECTOR_LOGGER.info(new ConnectionLog.Builder()
+					.action("nodeWiseConnections: REMOVE")
+					.connectionId(connection.getId().toString())
+					.data(new LogData()
+							.entry("nodeId", String.valueOf(connection.getNodeId()))
+							.toString())
+					.logInfo());
+		}
 	}
 	
 	/**
@@ -167,6 +208,98 @@ public class CerebralConnector extends Connector
 		return bufferSize;
 	}
 	
+	/**
+	 * Get set of connections in node  
+	 */
+	public ConcurrentHashMap<Integer, PriorityBlockingQueue<Connection>> getNodeWiseConnectionsMap() {
+		return nodeWiseConnections;
+	}
+
+	/**
+	 * This method is called from {@link PauseTransmissionReceptor} when the synaptic sends a backpressure: {@link CerebralIncomingMessageType#PAUSE_TRANSMISSION PAUSE_TRANSMISSION} message to cerebrum. 
+	 * Cerebrum removes all the active connections of that node from its load balance, this will pause any further transmission to that node. 
+	 */
+	@Override
+	public void pauseTransmission(Integer nodeId) 
+	{
+		// Remove all connections of application from connectionLoadBalancer
+		nodeWiseConnections.get(nodeId).forEach(conn->{
+			getConnectionLoadBalancer().remove(conn);
+		});
+	}
+
+	/**
+	 * This method is called from {@link ResumeTransmissionReceptor} when the synaptic sends a backpressure: {@link CerebralIncomingMessageType#RESUME_TRANSMISSION RESUME_TRANSMISSION} message to cerebrum. 
+	 * Cerebrum add all the active connections of that node to its load balance, this will resume further transmission to that node. All the queued up messages (if any) will be sent now.
+	 */
+	@Override
+	public void resumeTransmission(Integer nodeId) 
+	{
+		// Add all connections of application to connectionLoadBalancer
+		nodeWiseConnections.get(nodeId).forEach(conn->{
+			getConnectionLoadBalancer().add(conn);
+		});
+	}
+	
+	/**
+	 * Signal all synaptic nodes belonging to this application (port) to pause the transmission of messages by sending {@link CerebralOutgoingMessageType#PAUSE_TRANSMISSION PAUSE_TRANSMISSION} message.
+	 */
+	@Override
+	public void signalPauseTransmission(Connection connection) 
+	{
+		// TODO Auto-generated method stub
+		for(PriorityBlockingQueue<Connection> connectionQueue : getNodeWiseConnectionsMap().values()) 
+		{
+			BackpressureData data = new BackpressureData.Builder().build();
+			Connection nodeConnection = connectionQueue.peek();
+			try 
+			{
+				// Send stop message to producer
+				PauseTransmissionMessage message = new PauseTransmissionMessage.Builder()
+														.data(data)
+														.sourceId(nodeConnection.getNodeId())
+														.originatingPort(nodeConnection.getConnector().getPort())
+														.build();
+				nodeConnection.enqueueMessage(message, QueuingContext.QUEUED_FROM_CONNECTOR);
+				nodeConnection.setInterest(SelectionKey.OP_WRITE);
+			} catch (MessageBuildFailedException e) {
+				// Log
+				NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+						.messageId(connection.getNodeId()+"-0")
+						.action("PAUSE_TRANSMISSION build failed")
+						.logError(),e);
+			}
+		}
+	}
+	
+	/**
+	 * Signal Synapse to resume the transmission of messages by sending {@link CerebralOutgoingMessageType#RESUME_TRANSMISSION RESUME_TRANSMISSION} message.
+	 */
+	@Override
+	public void signalResumeTransmission(Connection connection) 
+	{
+		for(PriorityBlockingQueue<Connection> connectionQueue : getNodeWiseConnectionsMap().values()) 
+		{
+			BackpressureData data = new BackpressureData.Builder().build();
+			Connection nodeConnection = connectionQueue.peek();
+			try {
+				// Send stop message to producer
+				ResumeTransmissionMessage message = new ResumeTransmissionMessage.Builder()
+														.data(data)
+														.sourceId(nodeConnection.getNodeId())
+														.originatingPort(nodeConnection.getConnector().getPort())
+														.build();
+				nodeConnection.enqueueMessage(message, QueuingContext.QUEUED_FROM_CONNECTOR);
+				nodeConnection.setInterest(SelectionKey.OP_WRITE);
+			} catch (MessageBuildFailedException e) {
+				// Log
+				NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+						.messageId(connection.getNodeId()+"-0")
+						.action("RESUME_TRANSMISSION build failed")
+						.logError(),e);
+			}
+		}
+	}
 	
 	/**
 	 * Builder inner class for {@link Connector}
@@ -264,7 +397,7 @@ public class CerebralConnector extends Connector
 		public CerebralConnector build() throws IOException
 		{
 			// 1. Instantiate new CerebralConnector
-			CerebralConnector connnector = new CerebralConnector(
+			CerebralConnector connector = new CerebralConnector(
 								port, 
 								name, 
 								bufferSize, 
@@ -273,9 +406,14 @@ public class CerebralConnector extends Connector
 								sslContext
 								);
 			// 2. Initialize the monitor thread
-			connnector.initializeMonitor(new CerebralMonitor(), NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
+			CerebralMonitor monitor = new CerebralMonitor();
+			monitor.attachConnector(connector);
+			connector.initializeMonitor(monitor, NcephConstants.MONITOR_INTERVAL, NcephConstants.MONITOR_INTERVAL);
 			// 3. Return the connector
-			return connnector;
+			return connector;
 		}
 	}
+
+	
+
 }

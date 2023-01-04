@@ -14,11 +14,13 @@ public class NcephLogger
 	
 	public static final Logger MESSAGE_LOGGER = LogManager.getLogger("message");
 	
+	public static final Logger CONNECTOR_LOGGER = LogManager.getLogger("connector");
+	
 	public static final Logger CONNECTION_LOGGER = LogManager.getLogger("connection");
 	
 	public static final Logger GENERAL_LOGGER = LogManager.getLogger("general");
 	
 	public static final Logger MONITOR_LOGGER = LogManager.getLogger("monitor");
 	
-	public static final Logger DYNAMODB_LOGGER = LogManager.getLogger("dynamoDB");
+	public static final Logger BACKPRESSURE_LOGGER = LogManager.getLogger("backpressure");
 }

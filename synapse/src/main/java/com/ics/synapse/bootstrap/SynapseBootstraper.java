@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import com.ics.logger.NcephLogger;
+import com.ics.menu.SynapticMenu;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
@@ -37,7 +38,7 @@ public class SynapseBootstraper
 			
 	private Integer cerebrumPort = Integer.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("cerebrum.port"));
 	
-	private String cerebrumHostPath = Configuration.APPLICATION_PROPERTIES.getConfig("cerebrum.host.path");;
+	private String cerebrumHostPath = Configuration.APPLICATION_PROPERTIES.getConfig("cerebrum.host.path");
 	
 	/**
 	 * Constructor used by the <b>Spring container</b> to create a {@link SynapseBootstraper} object. This object is managed by the <b>Spring container</b> and is singleton scoped. 
@@ -65,17 +66,22 @@ public class SynapseBootstraper
 				.port(cerebrumPort) // Should pick from local project configuration where the synapse is installed
 				.hostPath(cerebrumHostPath)
 				.readerPool(new WorkerPool.Builder<Reader>()
-						.corePoolSize(10)
-						.maximumPoolSize(100)
-						.keepAliveTime(60)
-						.workQueue(new LinkedBlockingQueue<Runnable>())
+						.corePoolSize(Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("readerPool.corePoolSize"))
+						.maximumPoolSize(Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("readerPool.maximumPoolSize"))
+						.keepAliveTime(Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("readerPool.keepAliveTime"))
+						.workQueue(
+								Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("readerPool.blockingQueueSize") != -1
+								? new LinkedBlockingQueue<Runnable>(Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("readerPool.blockingQueueSize"))
+								: new LinkedBlockingQueue<Runnable>()
+								)
 						.rejectedThreadHandler(new RejectedReaderHandler())
 						.build())
 				.writerPool(new WorkerPool.Builder<Writer>()
-						.corePoolSize(10)
-						.maximumPoolSize(100)
-						.keepAliveTime(60)
+						.corePoolSize(Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("writerPool.corePoolSize"))
+						.maximumPoolSize(Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("writerPool.maximumPoolSize"))
+						.keepAliveTime(Configuration.APPLICATION_PROPERTIES.getConfigAsInteger("writerPool.keepAliveTime"))
 						.workQueue(new LinkedBlockingQueue<Runnable>())
+						
 						.rejectedThreadHandler(new RejectedWriterHandler())
 						.build())
 				.sslContext(NcephSSLContext.getSSLContext())
@@ -91,6 +97,8 @@ public class SynapseBootstraper
 		reactorCluster.run();
 		
 		// 4. synaptic menu
+		SynapticMenu.run(connector);
+		
 		
 		while (connector.getActiveConnections().size()==0)
 		{

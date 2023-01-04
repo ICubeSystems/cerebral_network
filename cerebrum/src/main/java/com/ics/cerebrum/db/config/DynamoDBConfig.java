@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Configuration;
 
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 
@@ -41,15 +40,11 @@ public class DynamoDBConfig
 	@Bean
 	public AmazonDynamoDB amazonDynamoDB() 
 	{
-			AmazonDynamoDB builder = AmazonDynamoDBClientBuilder
+			
+			return AmazonDynamoDBClientBuilder
 					.standard()
-					.withEndpointConfiguration(new EndpointConfiguration(amazonDynamoDBEndpoint, region))
-					.withCredentials(
-							new AWSStaticCredentialsProvider(
-									new BasicAWSCredentials(amazonAWSAccessKey, amazonAWSSecretKey)
-									)
-							)
+					.withRegion(region)
+					.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(amazonAWSAccessKey, amazonAWSSecretKey)))
 					.build();
-			return builder;
 	}
 }

@@ -65,10 +65,11 @@ public class StartupReceptor extends Receptor
 							.startupNetworkRecord(poa.getStartupNetworkRecord()) // 3.3.3 Set STARTUP network record
 							.build()) // 3.4 Set authenticationMessage data
 					.build();
-
-			// 3 Enqueue AUTHENTICATION for sending
+			// 3 set application node id to connection
+			getIncomingConnection().setNodeId(getMessage().decoder().getSourceId());
+			// 4 Enqueue AUTHENTICATION for sending
 			getIncomingConnection().enqueueMessage(authenticationMessage, QueuingContext.QUEUED_FROM_RECEPTOR);
-			// 4 Set the interest of the connection to write
+			// 5 Set the interest of the connection to write
 			getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
 		}catch(DocumentSaveFailedException | MessageBuildFailedException e) 
 		{

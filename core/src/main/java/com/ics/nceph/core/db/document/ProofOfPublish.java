@@ -6,12 +6,11 @@ import java.util.Date;
 import org.springframework.stereotype.Component;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMappingException;
-import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
 import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.db.document.store.cache.DocumentCache;
 import com.ics.nceph.core.db.document.store.cache.MessageCache;
 import com.ics.nceph.core.db.repository.PublishedMessageRepository;
@@ -245,9 +244,20 @@ public class ProofOfPublish extends ProofOfDelivery
 		outOfSync("addCreatedPors: "+port);
 	}
 	
-	public void finished() {
-		if(getMessageDeliveryState() == MessageDeliveryState.FULLY_RELAYED.getState())
-			removeFromCache();
+	public void finished() 
+	{
+		//If the message has been fully relayed to all the intended subscriber then set the state and remove it from the cerebral cache
+		if(getRelayCount() == getSubscriberCount() && getMessageDeliveryState() == MessageDeliveryState.FINISHED.getState()) 
+		{
+			setMessageDeliveryState( MessageDeliveryState.FULLY_RELAYED.getState() );
+			try
+			{
+				// Update document
+				DocumentStore.getInstance().update(this, getMessageId());
+				// Remove document from cache.
+				removeFromCache();
+			} catch (DocumentSaveFailedException e){}
+		}
 	}
 	/**
 	 * 
@@ -366,6 +376,9 @@ public class ProofOfPublish extends ProofOfDelivery
 		DocumentCache.getInstance()
 			.getPublishedMessageCache()
 			.removeFromCache(getProducerPortNumber(), this);
+		if(Boolean.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("messages.removeLocalCompletedMessages"))) {
+			DocumentStore.getInstance().delete(getMessageId(), this);
+		}
 	}
 
 	@Override
@@ -380,8 +393,11 @@ public class ProofOfPublish extends ProofOfDelivery
 		try 
 		{ // Save in DB
 			ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).save(this);
-		} catch (ResourceNotFoundException | DynamoDBMappingException e) 
-		{throw new DocumentSaveFailedException("Publish message save failed Exception ", e);}
+		} catch (Exception e) 
+		{
+			e.printStackTrace();
+			throw new DocumentSaveFailedException("Publish message save failed Exception ", e);
+		}
 	}
 	
 	public static ProofOfPublish load(Integer producerPort, String docName)
@@ -391,7 +407,7 @@ public class ProofOfPublish extends ProofOfDelivery
 			return DocumentCache.getInstance().getPublishedMessageCache().getDocument(producerPort, docName);
 		} catch (NullPointerException e){return null;}
 	}
-
+	
 	public static MessageCache<ProofOfPublish> getMessageCache(Integer producerPort)
 	{
 		try
@@ -399,4 +415,11 @@ public class ProofOfPublish extends ProofOfDelivery
 			return DocumentCache.getInstance().getPublishedMessageCache().getMessageCache(producerPort);
 		} catch (NullPointerException e){return null;}
 	}
+	
+	@Override
+	public void setMessageDeliveryState(Integer messageDeliveryState)
+	{
+		super.setMessageDeliveryState(messageDeliveryState);
+	}
+	
 }

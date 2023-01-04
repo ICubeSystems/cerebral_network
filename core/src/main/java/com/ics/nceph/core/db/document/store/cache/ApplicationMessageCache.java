@@ -1,6 +1,6 @@
 package com.ics.nceph.core.db.document.store.cache;
 
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.ics.nceph.core.db.document.MessageDocument;
 
@@ -10,12 +10,12 @@ import com.ics.nceph.core.db.document.MessageDocument;
  * @version 1.0
  * @since Sep 27, 2022
  */
-public class ApplicationMessageCache<T extends MessageDocument> extends HashMap<Integer, MessageCache<T>> 
+public class ApplicationMessageCache<T extends MessageDocument> extends ConcurrentHashMap<Integer, MessageCache<T>> 
 {
 	private static final long serialVersionUID = -3961453832872181115L;
 	
 	public void put(Integer key, T messageDocument) 
-	{
+	{	
 		MessageCache<T> messageCache = get(key);
 		if(messageCache == null) 
 			messageCache = new MessageCache<>();

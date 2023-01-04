@@ -1,3 +1,0 @@
-2022-01-21 20:58:21,900 INFO o.s.t.c.s.AbstractTestContextBootstrapper [main] Neither @ContextConfiguration nor @ContextHierarchy found for test class [com.ics.nceph.EncephelonTests], using SpringBootContextLoader
-2022-01-21 20:58:21,910 INFO o.s.t.c.s.AbstractContextLoader [main] Could not detect default resource locations for test class [com.ics.nceph.EncephelonTests]: no resource found for suffixes {-context.xml, Context.groovy}.
-2022-01-21 20:58:21,911 INFO o.s.t.c.s.AnnotationConfigContextLoaderUtils [main] Could not detect default configuration classes for test class [com.ics.nceph.EncephelonTests]: EncephelonTests does not declare any static, non-private, non-final, nested classes annotated with @Configuration.

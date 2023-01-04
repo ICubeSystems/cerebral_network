@@ -50,7 +50,7 @@ public class LocalStoreCacheInitializer extends SynapseCacheInitializer
 			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")+entry.getKey()+"/",ProofOfPublish.class, entry.getValue().getOutgoingMessageRegister());
 			// LOG
 			// LOG
-			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")+entry.getKey()+"/",ProofOfRelay.class, entry.getValue().getIncomingMessageRegister());
+			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location"),ProofOfRelay.class, entry.getValue().getIncomingMessageRegister());
 			// LOG
 		}
 	}
@@ -64,7 +64,7 @@ public class LocalStoreCacheInitializer extends SynapseCacheInitializer
 			{
 				for (File file : messageDirectory) {
 					if (file.isDirectory()) { 
-						generateCacheAndMessageLedger(localPath+file.getName(),document,ledger); // Calls same method again.
+						generateCacheAndMessageLedger(localPath+file.getName() + "/" ,document,ledger); // Calls same method again.
 					}
 					else 
 					{

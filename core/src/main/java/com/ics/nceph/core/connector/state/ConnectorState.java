@@ -27,4 +27,8 @@ public class ConnectorState
 	public static final ConnectorState READY = new ConnectorState(200);
 	
 	public static final ConnectorState AUTH_FAILED = new ConnectorState(300);
+	
+	public static final ConnectorState DECOMISSIONED = new ConnectorState(400);
+	
+	public static final ConnectorState BACKPRESSURE_INITIATED = new ConnectorState(500);
 }

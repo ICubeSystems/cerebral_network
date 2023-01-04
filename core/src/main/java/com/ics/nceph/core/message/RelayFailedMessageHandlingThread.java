@@ -32,7 +32,7 @@ public class RelayFailedMessageHandlingThread extends Thread
 	public void run() 
 	{
 		//LOG: Running RelayFailedMessageHandlingThread for message [id: xxxx]
-		System.out.println("RelayFailedMessageHandlingThread..............");
+		//System.out.println("RelayFailedMessageHandlingThread..............");
 		// Wait for set time and then change the interest of the connection to OP_WRITE
 		try 
 		{

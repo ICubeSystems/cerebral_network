@@ -1,6 +1,7 @@
 package com.ics.synapse.message;
 
 import com.ics.nceph.core.message.Message;
+import com.ics.nceph.core.message.ReservedMessageId;
 import com.ics.nceph.core.message.data.MessageData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
 import com.ics.util.ByteUtil;
@@ -62,16 +63,10 @@ public class BootstrapMessage extends Message
 			return this;
 		}
 		
-		public Builder mid(String mid) 
-		{
-			String[] idArray = mid.split("-",2);
-			this.messageId = ByteUtil.convertToByteArray(Integer.valueOf(idArray[1]), 6);
-			this.sourceId = ByteUtil.convertToByteArray(Integer.valueOf(idArray[0]), 2);
-			return this;
-		}
-		
 		public BootstrapMessage build()
 		{
+			sourceId = ByteUtil.convertToByteArray(0, 2);
+			messageId = ByteUtil.convertToByteArray(ReservedMessageId.CONTROL_CONNECTION_ID, 6); // bootstrap message will have a fixed message id per synaptic connector
 			eventType = Integer.valueOf(0).byteValue(); 
 			return new BootstrapMessage(type, eventType, data, messageId, sourceId, originatingPort);
 		}

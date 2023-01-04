@@ -88,11 +88,16 @@ import com.ics.util.ByteUtil;
  *  		<li><b>10: DELETE_POD</b> - Acknowledge the receipt of the PUBLISH_EVENT message on the Cerebrum</li>
  *  		<li><b>11: RELAY_EVENT</b> - Relay of PUBLISH_EVENT message to the subscriber synaptic nodes</li>
  *  		<li><b>12: RELAY_ACK_RECEIVED</b> - Acknowledge the event source regarding the receipt of the relayed event by the subscriber synaptic nodes</li>
- *  		<li><b>16: CONFIG</b> - Cerebrum node send CONFIG message to Synapse with followintg data:
+ *  		<li><b>16: CONFIG</b> - Cerebrum node send CONFIG message to Synapse with following data:
  *  				<ul>
  *  					<li>NodeId of MAC address from name_records.json file</li>
  *  					<li>List of ApplicationReceptors for the event types subscribed by the node</li>
  *  				</ul>
+ *  	</ul>
+ *  	<b>Backpressure message </b> - Messages generated via consumer to notify producer to pause/resume sending messages:
+ *  	<ul>
+ *  		<li><b>17: PAUSE_TRANSMISSION</b> - Tell the producer to pause sending messages </li>
+ *  		<li><b>18: RESUME_TRANSMISSION</b> - Tell the producer to resume sending messages </li>
  *  	</ul>
  *  </li>
  *  <li><b>Node Id</b> - 2 byte. Unique identifier of the node where the message is originating from. 
@@ -107,11 +112,11 @@ import com.ics.util.ByteUtil;
  * @author Anurag Arya
  * @version 1.0
  * @since 31-Dec-2021
- * @implNote To filter meessage logs use : ^((?!1-75).)*\R
+ * @implNote To filter message logs use : ^((?!1-75).)*\R
  */
 public class Message 
 {
-	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstraping process of the node.
+	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstrapping process of the node.
 	private IORecord readRecord;
 	
 	private IORecord writeRecord;
@@ -203,7 +208,7 @@ public class Message
 		this.data = data;
 		
 		// Generate the message id from the message counter. This will be unique for the node.
-		this.messageId = (messageId != null) ? messageId : ByteUtil.convertToByteArray(IdStore.getInstance().getId((decoder().getType() == 0x0B || decoder().getType() == 0x03) ? 100 : 200), this.messageId.length);
+		this.messageId = (messageId != null) ? messageId : ByteUtil.convertToByteArray(IdStore.getInstance().getId((decoder().getType() == 11 || decoder().getType() == 3) ? 100 : 200), this.messageId.length);
 		
 		// Set the Id of the source node where this message is originating from. 
 		this.sourceId = (sourceId != null) ? sourceId : ByteUtil.convertToByteArray(ConfigStore.getInstance().getNodeId(), this.sourceId.length);
