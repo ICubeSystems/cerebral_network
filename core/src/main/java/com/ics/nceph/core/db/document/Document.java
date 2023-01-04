@@ -10,7 +10,7 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
  * @author Chandan Verma
  * @since 18-Aug-2022
  */
-@DynamoDBTable(tableName = "Message")
+@DynamoDBTable(tableName = "message_uat")
 public class Document 
 {
 	@Id

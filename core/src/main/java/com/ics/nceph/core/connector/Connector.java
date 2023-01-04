@@ -34,7 +34,7 @@ import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 
 /**
- * <p><b>Encephelon Network</b> has 2 incomingMessageType of nodes:<br>
+ * <p><b>Encephalon Network</b> has 2 incomingMessageType of nodes:<br>
  * <ol>
  * 	<li> EventData relay server: Central node/ server which receives the events and then relays them to appropriate subscriber nodes in the network</li>
  * 	<li> Micro-service/ application node: The events on the application occur on these nodes, and then these nodes publish these events to the network</li>
@@ -64,7 +64,7 @@ public abstract class Connector
 	private static final Logger logger = LogManager.getLogger("nceph-core-logger");
 
 	private ConnectorType type;
-
+	
 	private Integer port;
 
 	private String name;
@@ -78,7 +78,7 @@ public abstract class Connector
 	private WorkerPool<Writer> writerPool;
 
 	private SSLContext sslContext;
-
+	
 	// Queue of messages which needs to be relayed by the connector
 	private ConcurrentLinkedQueue<Message> relayQueue;
 
@@ -153,6 +153,11 @@ public abstract class Connector
 	 * @return AbstractSelectableChannel
 	 */
 	public abstract AbstractSelectableChannel obtainSocketChannel() throws IOException;
+	
+	/**
+	 * Contact method to be implemented by the implementation classes to remove the connection
+	 */
+	public abstract void removeConnection(Connection connection);
 
 	/**
 	 * Contact method to be implemented by the implementation classes to accept the socket connection
@@ -182,6 +187,32 @@ public abstract class Connector
 	 */
 	public abstract void createPostWriteWorker(Message message, Connection incomingConnection);
 
+	/**
+	 * Contact method to be implemented by the implementation classes and called when connector received PAUSE_TRANSMISSION message.
+	 * @param nodeId
+	 * @return void
+	 */
+	public abstract void pauseTransmission(Integer nodeId);
+	
+	/**
+	 * Contact method to be implemented by the implementation classes and called when connector received RESUME_TRANSMISSION message.
+	 * @param nodeId
+	 * @return void
+	 */
+	public abstract void resumeTransmission(Integer nodeId);
+	/**
+	 * Contact method to be implemented by the implementation classes to send PAUSE_TRANSMISSION message.
+	 * @param connection
+	 * @return void
+	 */
+	public abstract void signalPauseTransmission(Connection connection);
+	
+	/**
+	 * Contact method to be implemented by the implementation classes to send RESUME_TRANSMISSION message.
+	 * @param connection
+	 * @return void
+	 */
+	public abstract void signalResumeTransmission(Connection connection);
 	/**
 	 * Constructor used to construct base connector
 	 * 
@@ -258,6 +289,7 @@ public abstract class Connector
 	public String getName() {
 		return name;
 	}
+	
 
 	/**
 	 * This method returns the {@link Connection} instance with the least number of activeRequests
@@ -484,7 +516,7 @@ public abstract class Connector
 	{
 		this.state = state;
 	}
-
+	
 	public void shutdown()
 	{
 		monitorService.shutdown();

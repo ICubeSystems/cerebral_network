@@ -2,11 +2,14 @@ package com.ics.nceph.core.db.document;
 
 import java.util.Date;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.db.document.store.cache.DocumentCache;
 import com.ics.nceph.core.db.document.store.cache.MessageCache;
 import com.ics.nceph.core.db.repository.ReceivedMessageRepository;
@@ -105,11 +108,11 @@ public class ProofOfRelay extends ProofOfDelivery
 		setCreatedOn(createdOn);
 		setMessageId(messageId);
 		setEvent(event);
-		setMessageDeliveryState(MessageDeliveryState.INITIAL.getState());
 		this.consumerNodeId = nodeId;
 		this.consumerPortNumber = consumerPort;
 		this.setProducerPortNumber(producerPort);
 		this.setProducerNodeId(producerNodeId);
+		setMessageDeliveryState(MessageDeliveryState.INITIAL.getState());
 		getChangeLog().add("New");
 	}
 	
@@ -259,7 +262,9 @@ public class ProofOfRelay extends ProofOfDelivery
 		DocumentCache.getInstance()
 			.getRelayedMessageCache()
 			.removeFromCache(this);
-		
+		if(Boolean.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("messages.removeLocalCompletedMessages"))) {
+			DocumentStore.getInstance().delete(getMessageId(), this);
+		}
 		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 				.messageId(getMessageId())
 				.action("Remove from cache")
@@ -271,6 +276,7 @@ public class ProofOfRelay extends ProofOfDelivery
 				.logInfo());
 	}
 	
+	@Transactional
 	@Override
 	public void saveInDB() throws DocumentSaveFailedException
 	{
@@ -305,4 +311,11 @@ public class ProofOfRelay extends ProofOfDelivery
 			return DocumentCache.getInstance().getRelayedMessageCache().getMessageCache(producerPort, consumerPort);
 		} catch (Exception e){return null;}
 	}
+	
+	@Override
+	public void setMessageDeliveryState(Integer messageDeliveryState)
+	{
+		super.setMessageDeliveryState(messageDeliveryState);
+	}
+	
 }

@@ -2,7 +2,9 @@ package com.ics.cerebrum.receptor;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.concurrent.PriorityBlockingQueue;
 
+import com.ics.cerebrum.connector.CerebralConnector;
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
@@ -47,6 +49,7 @@ public class ReadyConfirmedReceptor extends Receptor
 	@Override
 	public void process() 
 	{
+		CerebralConnector connector = (CerebralConnector)getIncomingConnection().getConnector();
 		// 2. Load POA in the local DocumentStore
 		ProofOfAuthentication poa = ProofOfAuthentication.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		if (poa == null)
@@ -80,8 +83,20 @@ public class ReadyConfirmedReceptor extends Receptor
 			getIncomingConnection().setState(ConnectionState.READY);
 			// 3.1 Add the connection object to load balancer for read/ write allocations
 			getIncomingConnection().addToLoadBalancer();
-			getIncomingConnection().getConnector().getActiveConnections().put(getIncomingConnection().getId(), getIncomingConnection());
-
+			// 3.2 Add the connection to the activeConnections list
+			connector.getActiveConnections().put(getIncomingConnection().getId(), getIncomingConnection());
+			
+			// 4 Manage node wise connections mapping for this connector
+			PriorityBlockingQueue<Connection> connections = connector.getNodeWiseConnectionsMap().get(getMessage().decoder().getSourceId());
+			// 4.1 If first connection from this node then create a new PriorityBlockingQueue for connections from this node
+			if(connections == null)
+			{
+				connections = new PriorityBlockingQueue<Connection>();
+				connector.getNodeWiseConnectionsMap().put(getMessage().decoder().getSourceId(), connections);
+			}
+			//4.2 Add the connection to the PriorityBlockingQueue for this node
+			connections.add(getIncomingConnection());
+			
 			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
 					.connectionId(String.valueOf(getIncomingConnection().getId()))
 					.action("Ready connection")

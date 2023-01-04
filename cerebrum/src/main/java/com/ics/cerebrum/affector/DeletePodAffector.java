@@ -45,5 +45,6 @@ public class DeletePodAffector extends Affector
 		try {
 			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
 		} catch (DocumentSaveFailedException e) {}
+		pod.finished();
 	}
 }

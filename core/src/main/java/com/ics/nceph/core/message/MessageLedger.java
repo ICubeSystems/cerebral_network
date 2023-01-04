@@ -28,7 +28,7 @@ public class MessageLedger
 	public MessageLedger()
 	{
 		this.ledger = new ConcurrentHashMap<Integer, Set<Long>>();
-		messageCounter = 1;
+		messageCounter = ReservedMessageId.EVENT_MESSAGE_ID;
 	}
 	
 	/**

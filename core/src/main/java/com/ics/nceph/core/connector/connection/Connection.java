@@ -53,6 +53,8 @@ public class Connection implements Comparable<Connection>
 	
 	private int relayTimeout;
 	
+	private int nodeId;
+	
 	Metric metric;
 	
 	/**
@@ -215,6 +217,9 @@ public class Connection implements Comparable<Connection>
 		
 		// Remove the connection from LB to re-adjust the counters
 		removeFromLoadBalancer();
+		
+		// remove from nodewise map if teardown is called on cerebrum side
+		getConnector().removeConnection(this);
 		
 		// Check if there are any messages waiting to be relayed. Transfer them to the connectors outgoing buffer
 		if (relayQueue != null && relayQueue.size() > 0)
@@ -598,6 +603,17 @@ public class Connection implements Comparable<Connection>
 		
 		return -1;
 	}
+
+	
+	public int getNodeId() {
+		return nodeId;
+	}
+
+	public void setNodeId(int nodeId) {
+		this.nodeId = nodeId;
+	}
+
+
 
 	/**
 	 * 

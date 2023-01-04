@@ -36,4 +36,5 @@ public interface PublishedMessageRepository extends CrudRepository<ProofOfPublis
 	 * @since Sep 28, 2022
 	 */
 	DocumentList<ProofOfPublish> findAllByPartitionKeyAndMessageDeliveryStateLessThan(String partitionKey, Integer messageDeliveryState);
+	
 }

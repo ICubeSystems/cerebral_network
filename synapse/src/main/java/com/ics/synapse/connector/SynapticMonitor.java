@@ -12,7 +12,9 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.exception.AuthenticationFailedException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
+import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.db.document.ProofOfPublish;
+import com.ics.nceph.core.db.document.store.ConfigStore;
 import com.ics.nceph.core.db.document.store.cache.MessageCache;
 
 /**
@@ -46,11 +48,13 @@ public class SynapticMonitor extends ConnectorMonitorThread<SynapticConnector>
 	@Override
 	public void monitorConnections()
 	{
+		if(getConnector().getState() != ConnectorState.BACKPRESSURE_INITIATED) {
 		// 1. Loop through all the active connections within the connector
 		teardownIdleConnections();
 		
 		// 2. Create new connection if activeConnections has lesser number of connections than config.minConnections
 		manageConnectionPool();
+		}
 	}
 	
 	@Override
@@ -138,7 +142,7 @@ public class SynapticMonitor extends ConnectorMonitorThread<SynapticConnector>
 			try 
 			{
 				for(int i=0; i < connectionDeficit;i++)
-					getConnector().connect();
+					getConnector().connect(ConfigStore.getInstance().getNodeId());
 			} catch (ConnectionInitializationException | ConnectionException | AuthenticationFailedException e) {
 				//Log
 				NcephLogger.CONNECTION_LOGGER.error(new ConnectionLog.Builder()

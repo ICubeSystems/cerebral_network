@@ -22,5 +22,5 @@ public class NcephLogger
 	
 	public static final Logger MONITOR_LOGGER = LogManager.getLogger("monitor");
 	
-	public static final Logger DYNAMODB_LOGGER = LogManager.getLogger("dynamoDB");
+	public static final Logger BACKPRESSURE_LOGGER = LogManager.getLogger("backpressure");
 }

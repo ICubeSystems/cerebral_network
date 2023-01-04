@@ -30,4 +30,9 @@ public class WorkerPool
 	 * Maximum time that the idle threads will wait for new tasks before terminating
 	 */
 	private int keepAliveTime;
+	
+	/**
+	 * Pool's Blocking queue size
+	 */
+	private int blockingQueueSize;
 }

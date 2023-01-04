@@ -13,6 +13,7 @@ import javax.net.ssl.SSLContext;
 import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.logger.ConnectionLog;
 import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.Configuration;
@@ -22,12 +23,16 @@ import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.connection.exception.AuthenticationFailedException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.connection.exception.ConnectionInitializationException;
+import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.db.document.ProofOfAuthentication;
 import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
 import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.NetworkRecord;
+import com.ics.nceph.core.message.PauseTransmissionMessage;
+import com.ics.nceph.core.message.ResumeTransmissionMessage;
 import com.ics.nceph.core.message.StartupMessage;
+import com.ics.nceph.core.message.data.BackpressureData;
 import com.ics.nceph.core.message.data.BootstrapData;
 import com.ics.nceph.core.message.data.StartupData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
@@ -52,6 +57,8 @@ public class SynapticConnector extends Connector
 {
 	ConnectionConfiguration config;
 
+	Integer sourceId;
+
 	private String cerebrumHostPath; 
 
 	SynapticConnector(String hostPath, Integer port, String name, WorkerPool<Reader> readerPool, WorkerPool<Writer> writerPool, SSLContext sslContext) 
@@ -59,13 +66,19 @@ public class SynapticConnector extends Connector
 		super(port, name, readerPool, writerPool, sslContext);
 		this.cerebrumHostPath = hostPath;
 	}
-	
+
 	@Override
 	public AbstractSelectableChannel obtainSocketChannel() throws IOException 
 	{
 		return SocketChannel.open();
 	}
-	
+
+	@Override
+	public void removeConnection(Connection connection)
+	{
+
+
+	}
 	/**
 	 * This method starts the synaptic connector. Following steps are taken to start the connector:<br>
 	 * <ol>
@@ -93,7 +106,7 @@ public class SynapticConnector extends Connector
 							.entry("Port", String.valueOf(controlConnection.getConnector().getPort()))
 							.toString())
 					.logInfo());
-			
+
 			// 2. Initiate the bootstrapping of the synapse by sending the BOOTSTRAP message to cerebrum
 			bootstrapSynapse(controlConnection);
 		} catch (IOException | ConnectionInitializationException | ConnectionException e) {//@TODO: ControlConnectionFailedException
@@ -103,18 +116,18 @@ public class SynapticConnector extends Connector
 					.logError(),e);
 		}
 	}
-	
+
 	/**
 	 * @throws AuthenticationFailedException 
 	 * @throws ConnectionException 
 	 * @throws ConnectionInitializationException 
 	 * 
 	 */
-	public void initiateConnections() throws ConnectionInitializationException, ConnectionException, AuthenticationFailedException 
+	public void initiateConnections(Integer nodeId) throws ConnectionInitializationException, ConnectionException, AuthenticationFailedException 
 	{
 		// 1. Create live connections/ sockets as per the set minConnections
 		for (int i = 0; i < config.minConnections; i++)
-			connect();
+			connect(nodeId);
 	}
 
 	/**
@@ -127,19 +140,19 @@ public class SynapticConnector extends Connector
 	 * @return void
 	 * @throws AuthenticationFailedException 
 	 */
-	public void connect() throws ConnectionInitializationException, ConnectionException, AuthenticationFailedException
+	public void connect(Integer nodeId) throws ConnectionInitializationException, ConnectionException, AuthenticationFailedException
 	{
 		// Validation Check: max number of allowed connections are reached
 		if (getActiveConnections().size() >= config.maxConnections)
 			throw new ConnectionException(new Exception("Maximum number of connections reached - " + config.maxConnections));
-		
+
 		// 1. Create a new connection builder object
 		Connection connection = new Connection.Builder()
 				.id(getTotalConnectionsServed())
 				.connector(this)
 				.cerebralConnectorAddress(new InetSocketAddress(cerebrumHostPath, getPort())) // Connection is for SYNAPTIC connector, hence the address and port number of the CEREBRAL connector
 				.build();
-		
+		connection.setNodeId(nodeId);
 		// 2. Increment the totalConnectionsServed by 1
 		setTotalConnectionsServed(getTotalConnectionsServed() + 1);
 
@@ -171,11 +184,11 @@ public class SynapticConnector extends Connector
 			try {
 				connection.teardown();
 			} catch (IOException e1) {throw new AuthenticationFailedException("Connection authentication failed, attempted teardown also failed", e);}
-			
+
 			throw new AuthenticationFailedException("Connection authentication failed", e);
 		}
 	}
-	
+
 	/**
 	 * 
 	 * @param controlConnection
@@ -186,18 +199,17 @@ public class SynapticConnector extends Connector
 	{
 		// Build BOOTSTRAP message
 		Message bootstrapMessage = new BootstrapMessage.Builder()
-										.data(new BootstrapData.Builder()
-												.secretKey(Configuration.APPLICATION_PROPERTIES.getConfig("secret.key"))
-												.build())
-										.mid(getPort() + "-0") // bootstrap message will have a fixed message id per synaptic connector
-										.originatingPort(getPort())
-										.build();
+				.data(new BootstrapData.Builder()
+						.secretKey(Configuration.APPLICATION_PROPERTIES.getConfig("secret.key"))
+						.build())
+				.originatingPort(getPort())
+				.build();
 		// Enqueue the message on the connection to be sent to the Cerebrum
 		controlConnection.enqueueMessage(bootstrapMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
 		//Set the interest of the connection to write
 		controlConnection.setInterest(SelectionKey.OP_WRITE);
 	}
-	
+
 	/**
 	 * 
 	 * This method authenticate the connection
@@ -212,13 +224,13 @@ public class SynapticConnector extends Connector
 		{
 			// 1. Create the STARTUP event 
 			StartupData startupData = new StartupData.Builder().build();
-			
+
 			// 2. Create the STARTUP message 
 			Message startupMessage = new StartupMessage.Builder()
-										.data(startupData)
-										.originatingPort(getPort())
-										.build();
-			
+					.data(startupData)
+					.originatingPort(getPort())
+					.build();
+
 			// 3. Create a ProofOfAuthentication object and save it to the local DocumentStore
 			ProofOfAuthentication poa = new ProofOfAuthentication.Builder()
 					.messageId(startupMessage.decoder().getId()) // 3.1 Set message Id
@@ -231,7 +243,7 @@ public class SynapticConnector extends Connector
 					.build());
 			// 3.2 Save the POA in the local DocumentStore
 			DocumentStore.getInstance().save(poa, startupMessage.decoder().getId());
-			
+
 			// 4. Enqueue the message on the connection to be sent to the Cerebrum
 			connection.enqueueMessage(startupMessage, QueuingContext.QUEUED_FROM_CONNECTOR);
 			// 4.1 Set the interest of the connection to write
@@ -265,6 +277,96 @@ public class SynapticConnector extends Connector
 
 	private void setConfig(ConnectionConfiguration config) {
 		this.config = config;
+	}
+
+
+	/**
+	 * Get the name of the connector's node
+	 * 
+	 * @return Integer
+	 */
+	public Integer getSourceId() {
+		return sourceId;
+	}
+
+	/**
+	 * Set the name of the connector's node
+	 * 
+	 * @return Void
+	 */
+	public void setSourceId(Integer sourceId) {
+		this.sourceId = sourceId;
+	}
+
+	@Override
+	public void pauseTransmission(Integer nodeId) 
+	{
+		// Remove all connections from connector's load balancer
+		getConnectionLoadBalancer().clear();
+		// Set connector state to BACKPRESSURE_INITIATED. This will stop synaptic monitor to create new connections.
+		setState(ConnectorState.BACKPRESSURE_INITIATED);
+	}
+
+	@Override
+	public void resumeTransmission(Integer nodeId) 
+	{
+		// Add connections to connector's load balancer
+		for(Connection connection : getActiveConnections().values()) {
+			getConnectionLoadBalancer().add(connection);
+		}
+		// Set connector state to READY
+		setState(ConnectorState.READY);
+	}
+
+	/**
+	 * Signal cerebrum to pause the transmission of messages by sending {@link SynapticOutgoingMessageType#PAUSE_TRANSMISSION PAUSE_TRANSMISSION} message.
+	 */
+	@Override
+	public void signalPauseTransmission(Connection connection) 
+	{
+		BackpressureData data = new BackpressureData.Builder().build(); // remove
+
+		try 
+		{
+			// Send stop message to Cerebrum
+			PauseTransmissionMessage message = new PauseTransmissionMessage.Builder()
+					.data(data) //remove
+					.sourceId(connection.getNodeId())
+					.originatingPort(connection.getConnector().getPort())
+					.build();
+			connection.enqueueMessage(message, QueuingContext.QUEUED_FROM_CONNECTOR);
+			connection.setInterest(SelectionKey.OP_WRITE);
+		} catch (MessageBuildFailedException e) {
+			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+					.messageId(connection.getNodeId()+"-0")// TODO change the messageID
+					.action("PAUSE_TRANSMISSION build failed")
+					.logError(),e);
+		}
+	}
+
+	/**
+	 *  * Signal cerebrum to resume the transmission of messages by sending {@link SynapticOutgoingMessageType#RESUME_TRANSMISSION RESUME_TRANSMISSION} message.
+	 */
+	@Override
+	public void signalResumeTransmission(Connection connection) {
+		BackpressureData data = new BackpressureData.Builder().build();
+
+		try {
+			// Send stop message to Cerebrum
+			ResumeTransmissionMessage message = new ResumeTransmissionMessage.Builder()
+					.data(data)
+					.sourceId(connection.getNodeId())
+					.originatingPort(connection.getConnector().getPort())
+					.build();
+			connection.enqueueMessage(message, QueuingContext.QUEUED_FROM_CONNECTOR);
+			connection.setInterest(SelectionKey.OP_WRITE);
+
+		} catch (MessageBuildFailedException e) {
+			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+					.messageId(connection.getNodeId()+"-0")
+					.action("RESUME_TRANSMISSION build failed")
+					.logError(),e);
+		}
 	}
 
 	/**
@@ -422,10 +524,10 @@ public class SynapticConnector extends Connector
 					minConnections, 
 					maxConcurrentRequest, 
 					maxConnectionIdleTime));
-			
+
 			// 3. Start the connector
 			connector.start();
-			
+
 			// 4. Initialize the monitor thread
 			SynapticMonitor monitor = new SynapticMonitor();
 			monitor.attachConnector(connector);
@@ -473,4 +575,12 @@ public class SynapticConnector extends Connector
 			this.maxConnectionIdleTime = maxConnectionIdleTime;
 		}
 	}
+
+
+
+
+
+
+
+
 }

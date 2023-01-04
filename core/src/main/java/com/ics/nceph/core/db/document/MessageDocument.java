@@ -2,6 +2,8 @@ package com.ics.nceph.core.db.document;
 
 import java.util.ArrayList;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
@@ -52,6 +54,7 @@ public abstract class MessageDocument extends Document
 	 * Contract method used to save document in DB
 	 * @throws DocumentSaveFailedException
 	 */
+	@Transactional
 	public abstract void saveInDB() throws DocumentSaveFailedException;
 	
 	private long createdOn;

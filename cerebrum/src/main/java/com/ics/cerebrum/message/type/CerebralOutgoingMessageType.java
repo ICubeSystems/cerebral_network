@@ -9,6 +9,8 @@ import com.ics.cerebrum.affector.ReadyAffector;
 import com.ics.cerebrum.affector.RelayEventThreeWayAcknowledgementAffector;
 import com.ics.cerebrum.affector.RelayedEventAffector;
 import com.ics.nceph.core.affector.Affector;
+import com.ics.nceph.core.affector.PauseTransmissionAffector;
+import com.ics.nceph.core.affector.ResumeTransmissionAffector;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.message.type.OutgoingMessageType;
 import com.ics.util.ByteUtil;
@@ -27,12 +29,12 @@ public class CerebralOutgoingMessageType extends OutgoingMessageType
 	public static CerebralOutgoingMessageType RELAY_EVENT = new CerebralOutgoingMessageType(11, RelayedEventAffector.class, "RELAY_EVENT");
 	
 	/**
-	 * This message type is used to recieve acknowledgement of publish event
+	 * This message type is used to receive acknowledgement of publish event
 	 */
 	public static CerebralOutgoingMessageType NCEPH_EVENT_ACK = new CerebralOutgoingMessageType(9, EventAcknowledgementAffector.class, "NCEPH_EVENT_ACK");
 	
 	/**
-	 * This message type is used to recieve acknowledgement of publish event
+	 * This message type is used to receive acknowledgement of publish event
 	 */
 	public static CerebralOutgoingMessageType DELETE_POD = new CerebralOutgoingMessageType(10, DeletePodAffector.class, "DELETE_POD");
 	
@@ -62,6 +64,16 @@ public class CerebralOutgoingMessageType extends OutgoingMessageType
 	public static CerebralOutgoingMessageType CONFIG = new CerebralOutgoingMessageType(16, ConfigAffector.class, "CONFIG");
 	
 	/**
+	 * This message type is used to tell Synapse to pause sending messages
+	 */
+	public static CerebralOutgoingMessageType PAUSE_TRANSMISSION = new CerebralOutgoingMessageType(17, PauseTransmissionAffector.class, "PAUSETRANSMISSION");
+	
+	/**
+	 * This message type is used to tell Synapse to resume sending messages
+	 */
+	public static CerebralOutgoingMessageType RESUME_TRANSMISSION = new CerebralOutgoingMessageType(18, ResumeTransmissionAffector.class, "RESUMETRANSMISSION");
+	
+	/**
 	 * 
 	 */
 	public static CerebralOutgoingMessageType[] types = new CerebralOutgoingMessageType[] {
@@ -72,7 +84,9 @@ public class CerebralOutgoingMessageType extends OutgoingMessageType
 															RELAY_EVENT,
 															NCEPH_EVENT_ACK,
 															DELETE_POD,
-															RELAY_ACK_RECEIVED
+															RELAY_ACK_RECEIVED,
+															PAUSE_TRANSMISSION,
+															RESUME_TRANSMISSION
 															};  
 	
 	/**

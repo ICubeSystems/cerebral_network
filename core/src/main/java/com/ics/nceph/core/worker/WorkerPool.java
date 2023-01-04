@@ -5,13 +5,25 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.ics.logger.BackpressureLog;
+import com.ics.logger.LogData;
+import com.ics.logger.NcephLogger;
+import com.ics.nceph.core.connector.Connector;
+import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.message.Message;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 /**
  * 
  * @author Anurag Arya
@@ -21,6 +33,8 @@ import com.ics.nceph.core.message.Message;
  */
 public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 {
+	private AtomicLong totalWorkers;
+	
 	Set<Long> runningMessageIds;
 	
 	private AtomicLong activeWorkers;
@@ -28,6 +42,11 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	private AtomicLong totalWorkersCreated;
 	
 	private AtomicLong totalSuccessfulWorkers;
+	
+	private boolean backPressureInitiated;
+	
+	private BlockingQueue<Runnable> rejectedWorkerQueue;
+	
 	/**
      * Creates a new {@code WorkerPool} with the given initial parameters and the {@linkplain Executors#defaultThreadFactory default thread factory}.
      *
@@ -47,7 +66,10 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	public WorkerPool(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,	BlockingQueue<Runnable> workQueue, RejectedExecutionHandler handler) 
 	{
 		super(corePoolSize, maximumPoolSize, keepAliveTime, unit, (BlockingQueue<Runnable>) workQueue, handler);
+		this.rejectedWorkerQueue = new LinkedBlockingQueue<>();
+		this.backPressureInitiated = false;
 		this.activeWorkers = new AtomicLong(0);
+		this.totalWorkers = new AtomicLong(0);
 		this.totalSuccessfulWorkers = new AtomicLong(0);
 		this.totalWorkersCreated = new AtomicLong(0);
 		this.runningMessageIds = Collections.synchronizedSet(new HashSet<Long>());
@@ -87,9 +109,46 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		}
 		// 1. Decrement activeWorkers
 		activeWorkers.decrementAndGet();
+		totalWorkers.decrementAndGet();
+		
 		// 2. Increment totalSuccessfulWorkers if the throwable is null
 		if (t==null)
 			totalSuccessfulWorkers.incrementAndGet();
+		
+		// Check if backpressure is initiated and worker pool have space to execute new threads
+		if (getActiveWorkers().get() < getCorePoolSize())
+		{
+			// if rejected worker queue have any threads then execute them first
+			if(rejectedWorkerQueue.size() > 0) 
+			{
+				//System.out.println(getActiveWorkers() + " " + getMaximumPoolSize() + " Rejected Task: " + rejectedWorkerQueue);
+				synchronized (rejectedWorkerQueue) 
+				{
+					for (int i = 0; i < getMaximumPoolSize()-getActiveWorkers().intValue() && !rejectedWorkerQueue.isEmpty(); i++) 
+						register((Worker)rejectedWorkerQueue.poll());
+				}
+			}
+			
+			// if pool have space and no rejected workers in rejected worker queue then send resume message to producer
+			if(rejectedWorkerQueue.isEmpty() && backPressureInitiated ) 
+			{
+				//Set backpressure to false
+				setBackPressureInitiated(false, (Worker)worker);
+				// get connection from worker
+				Connection connection = ((Worker)worker).connection;
+				//Log
+				NcephLogger.BACKPRESSURE_LOGGER.info(new BackpressureLog.Builder()
+						.nodeId(String.valueOf(connection.getNodeId()))
+						.action("Signal Resume transmission")
+						.data(new LogData()
+								.entry("Port", String.valueOf(connection.getConnector().getPort()))
+								.entry("ConnectionId", String.valueOf(connection.getId()))
+								.toString())
+						.logInfo());
+				// Send resume message to producer
+				connection.getConnector().signalResumeTransmission(connection);
+			}
+		}
 	}
 	
 	public boolean register(Worker worker)
@@ -99,21 +158,20 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 			&& (runningMessageIds.contains(message.decoder().getMessageId()) || worker.getConnection().getConnector().hasAlreadyReceived(message)))
 			return false;
 		execute(worker);
+		totalWorkers.incrementAndGet();
 		return true;
 	}
 	
-	public AtomicLong getActiveWorkers() {
-		return activeWorkers;
+	public void setBackPressureInitiated(boolean backPressureInitiated, Worker worker)
+	{
+		this.backPressureInitiated = backPressureInitiated;
+		Connector connector = worker.getConnection().getConnector();
+		if(backPressureInitiated) 
+			connector.setState(ConnectorState.BACKPRESSURE_INITIATED);
+		else
+			connector.setState(ConnectorState.READY);
 	}
 
-	public AtomicLong getTotalWorkersCreated() {
-		return totalWorkersCreated;
-	}
-
-	public AtomicLong getTotalSuccessfulWorkers() {
-		return totalSuccessfulWorkers;
-	}
-	
 	/**
 	 * 
 	 * @author Anshul

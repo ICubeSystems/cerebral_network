@@ -32,6 +32,11 @@ public class Configuration
 		return property;
 	}
 	
+	public Integer getConfigAsInteger(String configName) 
+	{
+	    String property = propertyFile.getProperty(configName);
+		return Integer.valueOf(property);
+	}
 	
 	public static Configuration APPLICATION_PROPERTIES = new Configuration("application.properties");
 }

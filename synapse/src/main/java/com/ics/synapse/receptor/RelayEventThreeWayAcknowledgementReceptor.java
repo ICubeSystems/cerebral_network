@@ -95,7 +95,6 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 				por.setMessageDeliveryState(MessageDeliveryState.FINISHED.getState());
 				DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 				por.removeFromCache();
-				
 			}
 		} 
 		catch (DocumentSaveFailedException e) {}

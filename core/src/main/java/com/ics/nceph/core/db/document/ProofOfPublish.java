@@ -10,6 +10,7 @@ import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
 import com.ics.nceph.core.db.document.exception.DocumentSaveFailedException;
+import com.ics.nceph.core.db.document.store.DocumentStore;
 import com.ics.nceph.core.db.document.store.cache.DocumentCache;
 import com.ics.nceph.core.db.document.store.cache.MessageCache;
 import com.ics.nceph.core.db.repository.PublishedMessageRepository;
@@ -243,9 +244,20 @@ public class ProofOfPublish extends ProofOfDelivery
 		outOfSync("addCreatedPors: "+port);
 	}
 	
-	public void finished() {
-		if(getMessageDeliveryState() == MessageDeliveryState.FULLY_RELAYED.getState())
-			removeFromCache();
+	public void finished() 
+	{
+		//If the message has been fully relayed to all the intended subscriber then set the state and remove it from the cerebral cache
+		if(getRelayCount() == getSubscriberCount() && getMessageDeliveryState() == MessageDeliveryState.FINISHED.getState()) 
+		{
+			setMessageDeliveryState( MessageDeliveryState.FULLY_RELAYED.getState() );
+			try
+			{
+				// Update document
+				DocumentStore.getInstance().update(this, getMessageId());
+				// Remove document from cache.
+				removeFromCache();
+			} catch (DocumentSaveFailedException e){}
+		}
 	}
 	/**
 	 * 
@@ -364,6 +376,9 @@ public class ProofOfPublish extends ProofOfDelivery
 		DocumentCache.getInstance()
 			.getPublishedMessageCache()
 			.removeFromCache(getProducerPortNumber(), this);
+		if(Boolean.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("messages.removeLocalCompletedMessages"))) {
+			DocumentStore.getInstance().delete(getMessageId(), this);
+		}
 	}
 
 	@Override
@@ -400,4 +415,11 @@ public class ProofOfPublish extends ProofOfDelivery
 			return DocumentCache.getInstance().getPublishedMessageCache().getMessageCache(producerPort);
 		} catch (NullPointerException e){return null;}
 	}
+	
+	@Override
+	public void setMessageDeliveryState(Integer messageDeliveryState)
+	{
+		super.setMessageDeliveryState(messageDeliveryState);
+	}
+	
 }

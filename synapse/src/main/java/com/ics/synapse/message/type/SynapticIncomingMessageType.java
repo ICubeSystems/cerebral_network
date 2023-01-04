@@ -2,7 +2,9 @@ package com.ics.synapse.message.type;
 
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.message.type.IncomingMessageType;
+import com.ics.nceph.core.receptor.PauseTransmissionReceptor;
 import com.ics.nceph.core.receptor.Receptor;
+import com.ics.nceph.core.receptor.ResumeTransmissionReceptor;
 import com.ics.synapse.receptor.AuthErrorReceptor;
 import com.ics.synapse.receptor.AuthenticationReceptor;
 import com.ics.synapse.receptor.ConfigReceptor;
@@ -60,13 +62,34 @@ public class SynapticIncomingMessageType extends IncomingMessageType
 	 */
 	public static SynapticIncomingMessageType DELETE_POD = new SynapticIncomingMessageType(10, DeletePodReceptor.class, "DELETE_POD");
 	/**
-	 * This message type is used to recieve acknowledgement of publish event
+	 * This message type is used to receive acknowledgement of publish event
 	 */
 	public static SynapticIncomingMessageType CONFIG = new SynapticIncomingMessageType(16, ConfigReceptor.class, "CONFIG");
+	
+	/**
+	 * This message type is used to tell Synapse to pause sending messages
+	 */
+	public static SynapticIncomingMessageType PAUSE_TRANSMISSION = new SynapticIncomingMessageType(17, PauseTransmissionReceptor.class, "PAUSETRANSMISSION");
+	
+	/**
+	 * This message type is used to tell Synapse to resume sending messages
+	 */
+	public static SynapticIncomingMessageType RESUME_TRANSMISSION = new SynapticIncomingMessageType(18, ResumeTransmissionReceptor.class, "RESUMETRANSMISSION");
+	
+	
 	/**
 	 * 
 	 */
-	public static SynapticIncomingMessageType[] types = new SynapticIncomingMessageType[] {CONFIG,NCEPH_EVENT_ACK,DELETE_POD,RELAY_ACK_RECEIVED, RELAY_EVENT, AUTHENTICATE, READY, ERROR};
+	public static SynapticIncomingMessageType[] types = new SynapticIncomingMessageType[] {
+															CONFIG,
+															NCEPH_EVENT_ACK,
+															DELETE_POD,
+															RELAY_ACK_RECEIVED,
+															RELAY_EVENT, 
+															AUTHENTICATE, 
+															READY, ERROR, 
+															PAUSE_TRANSMISSION, 
+															RESUME_TRANSMISSION};
 	
 	/**
 	 * Returns the MessageType instance by the type supplied

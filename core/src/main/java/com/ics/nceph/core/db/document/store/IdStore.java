@@ -16,6 +16,7 @@ import com.ics.id.IdCounter;
 import com.ics.id.exception.IdGenerationFailedException;
 import com.ics.logger.BootstraperLog;
 import com.ics.logger.NcephLogger;
+import com.ics.nceph.core.message.ReservedMessageId;
 
 /**
  * 
@@ -76,7 +77,7 @@ public class IdStore
 	public long getId(Integer objectType) throws IdGenerationFailedException
 	{
 		// 1. Initialize id to 1
-		long id = 1;
+		long id = ReservedMessageId.EVENT_MESSAGE_ID;
 		try
 		{
 			// 2. If the sequence counter exists then increment and set the id
@@ -84,7 +85,7 @@ public class IdStore
 		}catch (NullPointerException e)
 		{
 			// 3. If the sequence counter does not exists, then create new sequence counter for this objectType
-			idCache.getSequenceCounters().put(objectType, new AtomicLong(1));
+			idCache.getSequenceCounters().put(objectType, new AtomicLong(ReservedMessageId.EVENT_MESSAGE_ID));
 		}
 		// 4. Sync the id cache with the file
 		save();
@@ -94,6 +95,9 @@ public class IdStore
 
 	public void compareAndSet(long counterValue, Integer objectType) throws IdGenerationFailedException 
 	{
+		// For new synaptic nodes
+		if(counterValue == 0)
+			return;
 		try
 		{
 			// 1. If the sequence counter exists then increment and set the id

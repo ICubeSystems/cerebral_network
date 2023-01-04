@@ -1,16 +1,18 @@
 package com.ics.synapse.message.type;
 
 import com.ics.nceph.core.affector.Affector;
+import com.ics.nceph.core.affector.PauseTransmissionAffector;
+import com.ics.nceph.core.affector.ResumeTransmissionAffector;
 import com.ics.nceph.core.message.exception.InvalidMessageTypeException;
 import com.ics.nceph.core.message.type.OutgoingMessageType;
 import com.ics.synapse.affector.BootstrapAffector;
 import com.ics.synapse.affector.CredentialsAffector;
 import com.ics.synapse.affector.DeletePorAffector;
 import com.ics.synapse.affector.PublishedEventAffector;
+import com.ics.synapse.affector.PublishedEventThreeWayAcknowledgementAffector;
 import com.ics.synapse.affector.ReadyConfirmedAffector;
 import com.ics.synapse.affector.RelayEventAcknowledgementAffector;
 import com.ics.synapse.affector.StartupAffector;
-import com.ics.synapse.affector.PublishedEventThreeWayAcknowledgementAffector;
 import com.ics.util.ByteUtil;
 
 /**
@@ -63,10 +65,32 @@ public class SynapticOutgoingMessageType extends OutgoingMessageType
 	 * 
 	 */
 	public static SynapticOutgoingMessageType BOOTSTRAP = new SynapticOutgoingMessageType(15, BootstrapAffector.class, "BOOTSTRAP");
+	
+	/**
+	 * This message type is used to tell Cerebrum to pause sending messages
+	 */
+	public static SynapticOutgoingMessageType PAUSE_TRANSMISSION = new SynapticOutgoingMessageType(17, PauseTransmissionAffector.class, "PAUSETRANSMISSION");
+	
+	/**
+	 * This message type is used to tell Cerebrum to resume sending messages
+	 */
+	public static SynapticOutgoingMessageType RESUME_TRANSMISSION = new SynapticOutgoingMessageType(18, ResumeTransmissionAffector.class, "RESUMETRANSMISSION");
+	
+	
 	/**
 	 * 
 	 */ 
-	public static SynapticOutgoingMessageType[] types = new SynapticOutgoingMessageType[] {BOOTSTRAP, PUBLISH_EVENT, STARTUP, CREDENTIALS, READY_CONFIRM, ACK_RECEIVED, RELAYED_EVENT_ACK, POR_DELETED};
+	public static SynapticOutgoingMessageType[] types = new SynapticOutgoingMessageType[] {
+															BOOTSTRAP, 
+															PUBLISH_EVENT, 
+															STARTUP, 
+															CREDENTIALS, 
+															READY_CONFIRM, 
+															ACK_RECEIVED, 
+															RELAYED_EVENT_ACK, 
+															POR_DELETED, 
+															PAUSE_TRANSMISSION, 
+															RESUME_TRANSMISSION};
 
 
 	/**
