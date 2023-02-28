@@ -20,12 +20,18 @@ public class GiftItem extends Event
 	
 	public GiftItem(String giftCode, String recipientName, String senderName, BigDecimal amount, BigDecimal balance) 
 	{
-		setType(1);
 		this.giftCode = giftCode;
 		this.recipientName = recipientName;
 		this.senderName = senderName;
 		this.amount = amount;
 		this.balance = balance;
+	}
+	
+	@Override
+	public Integer getType()
+	{
+		// TODO Auto-generated method stub
+		return 1;
 	}
 	
 	public String getGiftCode() {

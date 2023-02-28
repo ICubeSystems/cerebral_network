@@ -69,7 +69,7 @@ public class MessageLedger
 	 */
 	public synchronized void remove(Message message)
 	{
-		if (message.decoder().getType() == 0x0B || message.decoder().getType() == 0x03)
+		if (message.decoder().getType() == 11 || message.decoder().getType() == 3)
 		{
 			try {
 				EventData eventData = (EventData) message.decoder().getData(EventData.class);

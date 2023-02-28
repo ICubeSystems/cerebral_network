@@ -56,7 +56,7 @@ public class DynamoDbMessageStore extends DocumentStore
 		{
 			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
 					.messageId(docName)
-					.action((document.getClass().getSimpleName() + " creation failed"))
+					.action((document.getClass().getSimpleName() + " updation failed"))
 					.description("Error while updating the " + document.getClass().getSimpleName())
 					.logError(),e);
 			throw e;

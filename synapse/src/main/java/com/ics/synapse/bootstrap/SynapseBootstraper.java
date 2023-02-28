@@ -96,8 +96,8 @@ public class SynapseBootstraper
 		// 3. Run the reactors
 		reactorCluster.run();
 		
-		// 4. synaptic menu
-		SynapticMenu.run(connector);
+//		// 4. synaptic menu
+//		SynapticMenu.run(connector);
 		
 		
 		while (connector.getActiveConnections().size()==0)

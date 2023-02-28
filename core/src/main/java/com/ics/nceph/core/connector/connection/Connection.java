@@ -248,7 +248,14 @@ public class Connection implements Comparable<Connection>
 		} catch (NullPointerException e)
 		{
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			NcephLogger.CONNECTION_LOGGER.warn(new ConnectionLog.Builder()
+					.connectionId(String.valueOf(getId()))
+					.action("Key already cancelled")
+					.description(e.getMessage())
+					.data(new LogData()
+							.entry("port", String.valueOf(getConnector().getPort()))
+							.toString())
+					.logError(),e);
 		}
 		
 		// Close the socket if it is not already closed

@@ -21,11 +21,17 @@ public class GiftRedeem extends Event
 	
 	public GiftRedeem(String giftCode, String recipientName, String senderName, String redeemOn)
 	{
-		setType(2);
 		this.giftCode = giftCode;
 		this.recipientName = recipientName;
 		this.senderName = senderName;
 		this.redeemOn = redeemOn;
+	}
+	
+	@Override
+	public Integer getType()
+	{
+		// TODO Auto-generated method stub
+		return 2;
 	}
 	
 	public String getGiftCode()

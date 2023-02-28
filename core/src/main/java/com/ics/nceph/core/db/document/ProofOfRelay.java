@@ -2,8 +2,6 @@ package com.ics.nceph.core.db.document;
 
 import java.util.Date;
 
-import org.springframework.transaction.annotation.Transactional;
-
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
@@ -275,8 +273,6 @@ public class ProofOfRelay extends ProofOfDelivery
 						.toString())
 				.logInfo());
 	}
-	
-	@Transactional
 	@Override
 	public void saveInDB() throws DocumentSaveFailedException
 	{

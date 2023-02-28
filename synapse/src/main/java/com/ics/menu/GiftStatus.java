@@ -22,12 +22,18 @@ public class GiftStatus extends Event
 	private String sendOnMobile;
 
 	public GiftStatus(String giftCode,String recipientName,String senderName,String sendOnEmail,String sendOnMobile) {
-		setType(5);
 		this.giftCode = giftCode;
 		this.recipientName = recipientName;
 		this.senderName = senderName;
 		this.sendOnEmail = sendOnEmail;
 		this.sendOnMobile = sendOnMobile;
+	}
+	
+	@Override
+	public Integer getType()
+	{
+		// TODO Auto-generated method stub
+		return 5;
 	}
 	
 	public String getGiftCode()

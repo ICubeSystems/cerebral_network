@@ -28,7 +28,6 @@ public class GiftDelivered extends Event
 
 	public GiftDelivered(String giftCode, String recipientName,String senderName, BigDecimal amount, BigDecimal balance,String deliveredOn)
 	{
-		setType(4);
 		this.giftCode = giftCode;
 		this.recipientName = recipientName;
 		this.senderName = senderName;
@@ -36,7 +35,12 @@ public class GiftDelivered extends Event
 		this.balance = balance;
 		this.deliveredOn = deliveredOn;
 	}
-
+	@Override
+	public Integer getType()
+	{
+		// TODO Auto-generated method stub
+		return 4;
+	}
 
 	public String getGiftCode() {
 		return giftCode;
@@ -119,5 +123,7 @@ public class GiftDelivered extends Event
 			return new GiftDelivered(giftCode,recipientName, senderName,amount,balance,deliveredOn);
 		}
 	}
+
+	
 
 }

@@ -28,7 +28,6 @@ public class GiftRefund extends Event
 	
 	public GiftRefund(String giftCode, String recipientName,String senderName,BigDecimal amount,BigDecimal balance,String refundOn)
 	{
-		setType(3);
 		this.giftCode = giftCode;
 		this.senderName = senderName;
 		this.recipientName = recipientName;
@@ -37,6 +36,12 @@ public class GiftRefund extends Event
 		this.refundOn = refundOn;
 	}
 	
+	@Override
+	public Integer getType()
+	{
+		// TODO Auto-generated method stub
+		return 3;
+	}
 	
 	public String getGiftCode()
 	{
