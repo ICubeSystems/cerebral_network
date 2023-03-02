@@ -385,7 +385,7 @@ public class ProofOfPublish extends ProofOfDelivery
 	public void saveInDB() throws DocumentSaveFailedException 
 	{
 		// Generate key and set
-		setKey(new Key.Builder()
+		setKey(Key.<String, String>builder()
 							.partitionKey("P:" + String.valueOf(getProducerPortNumber()))
 							.sortKey(getMessageId())
 							.build());

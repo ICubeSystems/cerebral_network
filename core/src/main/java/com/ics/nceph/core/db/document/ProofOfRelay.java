@@ -277,7 +277,7 @@ public class ProofOfRelay extends ProofOfDelivery
 	public void saveInDB() throws DocumentSaveFailedException
 	{
 		// 1. Generate key and set
-		setKey(new Key.Builder()
+		setKey(Key.<String, String>builder()
 						.partitionKey("R:" + String.valueOf(getConsumerPortNumber()))
 						.sortKey(getMessageId())
 						.build());
