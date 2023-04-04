@@ -1,5 +1,7 @@
 package com.ics.nceph.core.worker;
 
+import java.nio.channels.SocketChannel;
+
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.reactor.Reactor;
@@ -20,7 +22,7 @@ import com.ics.nceph.core.reactor.Reactor;
  * @version 1.0
  * @since 22-Dec-2021
  */
-public abstract class Worker extends Thread 
+public abstract class Worker extends Thread implements Comparable<Worker>
 {
 	Message message;
 	
@@ -51,5 +53,14 @@ public abstract class Worker extends Thread
 	public void run() 
 	{
 		execute();
+	}
+	@Override
+	public int compareTo(Worker worker)
+	{
+		if(getMessage().decoder().getMessageId() > worker.getMessage().decoder().getMessageId())
+			return 1;
+		else if(getMessage().decoder().getMessageId() == worker.getMessage().decoder().getMessageId())
+			return 0;
+		return -1;
 	}
 }

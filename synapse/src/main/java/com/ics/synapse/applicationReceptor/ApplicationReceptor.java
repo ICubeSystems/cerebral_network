@@ -1,7 +1,13 @@
 package com.ics.synapse.applicationReceptor;
 
 import java.lang.reflect.InvocationTargetException;
+import java.text.SimpleDateFormat;
 
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
 import com.ics.logger.GeneralLog;
 import com.ics.logger.LogData;
 import com.ics.logger.NcephLogger;
@@ -25,6 +31,13 @@ public abstract class ApplicationReceptor
 {
 	EventData eventData;
 
+	protected final ObjectMapper mapper = new ObjectMapper()
+			.setConstructorDetector(ConstructorDetector.USE_DELEGATING)
+			.enable(SerializationFeature.INDENT_OUTPUT)
+			.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm a z"))
+			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+			.setSerializationInclusion(Include.NON_NULL);
+	
 	/**
 	 * Abstract method to be implemented by all the Application Receptor classes
 	 * 

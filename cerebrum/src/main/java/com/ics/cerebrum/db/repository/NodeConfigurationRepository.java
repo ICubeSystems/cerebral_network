@@ -19,7 +19,7 @@ import com.ics.nceph.core.db.document.Key;
 
 @Repository
 @EnableScan
-public interface NodeConfigurationRepository extends CrudRepository<NodeConfiguration, Key> 
+public interface NodeConfigurationRepository extends CrudRepository<NodeConfiguration, Key<String, String>> 
 {
 	List<NodeConfiguration> findAllByPartitionKey(String partitionKey);
 	

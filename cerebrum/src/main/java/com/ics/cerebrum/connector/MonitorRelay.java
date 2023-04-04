@@ -44,9 +44,9 @@ public class MonitorRelay extends MonitorTask
 	private CerebralConnector connector;
 	
 	@Override
-	public void accept(Entry<String, ProofOfPublish> t)
+	public void accept(Entry<String, ProofOfPublish> pod)
 	{
-		processPods(t);
+		processPods(pod);
 	}
 	
 	/**
@@ -101,7 +101,7 @@ public class MonitorRelay extends MonitorTask
 								// Set the RELAY_EVENT attempts
 								por.incrementEventMessageAttempts();
 								por.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
-								DocumentStore.getInstance().update(pod, messageId);
+								DocumentStore.getInstance().update(por, messageId);
 								break;
 							case 300:// ACKNOWLEDGED state of POR
 							case 400:// ACK_RECIEVED state of POR
@@ -126,11 +126,12 @@ public class MonitorRelay extends MonitorTask
 								// Set the RELAY_EVENT attempts
 								por.incrementThreeWayAckMessageAttempts();
 								por.setMessageDeliveryState(MessageDeliveryState.ACK_RECIEVED.getState());
-								DocumentStore.getInstance().update(pod, messageId);
+								DocumentStore.getInstance().update(por, messageId);
 								break;
 							case 500:// FINISHED state of POR
+								DocumentStore.getInstance().update(por, messageId);
+								por.removeFromCache();
 								pod.finished();
-								break;
 							default:
 								break;
 							}
@@ -141,21 +142,24 @@ public class MonitorRelay extends MonitorTask
 							por = new ProofOfRelay.Builder()
 									.relayedOn(new Date().getTime())
 									.messageId(messageId)
+									.event(pod.getEvent())
 									.consumerPort(subscriberConnector.getPort())
 									.producerPort(connector.getPort())
+									.producerNodeId(pod.getProducerNodeId())
 									.build();
 
 							// Set the RELAY_EVENT attempts
 							por.incrementEventMessageAttempts();
 							pod.addSubscribedPort(subscriberConnector.getPort());
 							// Save the POD
-							DocumentStore.getInstance().update(por, messageId);
+							DocumentStore.getInstance().save(por, messageId);
 							DocumentStore.getInstance().update(pod, messageId);
 							// Convert the event to the message object
 							Message eventMessage = new EventMessage.Builder()
 									.type(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType())
 									.event(pod.getEvent())
 									.mid(por.getMessageId())
+									.originatingPort(connector.getPort())
 									.buildAgain();
 							enqueueMessage(connection, eventMessage);
 						}
@@ -195,5 +199,4 @@ public class MonitorRelay extends MonitorTask
 					.logInfo());
 		}
 	}
-	
 }

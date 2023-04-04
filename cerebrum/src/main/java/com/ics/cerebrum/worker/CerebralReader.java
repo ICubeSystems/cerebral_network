@@ -15,7 +15,7 @@ import com.ics.nceph.core.worker.Reader;
  * @version 1.0
  * @since 22-Dec-2021
  */
-public class CerebralReader extends Reader 
+public class CerebralReader extends Reader
 {
 	public CerebralReader(Connection connection, Message message)
 	{

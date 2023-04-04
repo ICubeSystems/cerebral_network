@@ -15,7 +15,7 @@ import com.ics.synapse.message.type.SynapticOutgoingMessageType;
  * @version 1.0
  * @since 22-Dec-2021
  */
-public class SynapticWriter extends Writer 
+public class SynapticWriter extends Writer
 {
 	public SynapticWriter(Connection connection ,Message message)
 	{

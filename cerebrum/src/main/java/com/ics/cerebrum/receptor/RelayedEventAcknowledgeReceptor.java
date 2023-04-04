@@ -49,20 +49,6 @@ public class RelayedEventAcknowledgeReceptor extends AcknowledgementReceptor
 					.logInfo());
 			return;
 		}
-		
-
-		// 1.1 Make sure that WriteRecord is written in the POR. If not then try to load again after 1000 ms. 
-		// This happens when the RelayedEventAffector executes after RelayedEventAcknowledgeReceptor	
-		while(por.getEventMessageWriteRecord()==null) 
-		{
-			try 
-			{
-				//Sleep
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {}
-			// 1.2 Load the POD again
-			por = ProofOfRelay.load(getMessage().decoder().getOriginatingPort(), getIncomingConnection().getConnector().getPort(), getMessage().decoder().getId());
-		}
 
 		try
 		{

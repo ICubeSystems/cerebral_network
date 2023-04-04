@@ -15,4 +15,9 @@ public class DocumentSaveFailedException extends DatabaseException
 	{
 		super(message, cause);
 	}
+	
+	public DocumentSaveFailedException(String message) 
+	{
+		super(message);
+	}
 }

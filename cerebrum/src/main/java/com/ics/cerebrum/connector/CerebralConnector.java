@@ -34,6 +34,7 @@ import com.ics.nceph.core.message.PauseTransmissionMessage;
 import com.ics.nceph.core.message.ResumeTransmissionMessage;
 import com.ics.nceph.core.message.data.BackpressureData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
+import com.ics.nceph.core.message.type.MessageClassification;
 import com.ics.nceph.core.reactor.Reactor;
 import com.ics.nceph.core.receptor.PauseTransmissionReceptor;
 import com.ics.nceph.core.receptor.ResumeTransmissionReceptor;
@@ -51,28 +52,30 @@ import com.ics.nceph.core.worker.Writer;
 public class CerebralConnector extends Connector
 {
 	private Integer bufferSize;
-	
+
 	private ServerSocketChannel serverChannel;
-	
+
 	/**
 	 * Concurrent map of synaptic nodes connected to this connector and their active connections
 	 */
 	private ConcurrentHashMap<Integer, PriorityBlockingQueue<Connection>> nodeWiseConnections;
-	
+
 	CerebralConnector(
 			Integer port, 
 			String name, 
 			Integer bufferSize, 
-			WorkerPool<Reader> readerPool, 
-			WorkerPool<Writer> writerPool,
+			WorkerPool<Reader> publishReaderPool, 
+			WorkerPool<Writer> publishWriterPool,
+			WorkerPool<Reader> relayReaderPool, 
+			WorkerPool<Writer> relayWriterPool,
 			SSLContext sslContext) throws IOException 
 	{
-		super (port, name, readerPool, writerPool, sslContext);
+		super (port, name, publishReaderPool, publishWriterPool, relayReaderPool , relayWriterPool , sslContext);
 		this.nodeWiseConnections = new ConcurrentHashMap<Integer, PriorityBlockingQueue<Connection>>();
 		this.bufferSize = bufferSize;
 		initializeCerebralConnector();
 	}
-	
+
 	private void initializeCerebralConnector() throws IOException
 	{
 		// TODO exception handling in creation of server socket - create a new exception for server socket creation
@@ -87,7 +90,7 @@ public class CerebralConnector extends Connector
 		// Set connector state to ready
 		this.setState(ConnectorState.READY);
 	}
-	
+
 	/**
 	 * This method assigns a {@link Reactor} instance which will listen to the {@link SelectionKey#OP_ACCEPT} operation for this {@link Connector} instance. 
 	 * 
@@ -99,14 +102,14 @@ public class CerebralConnector extends Connector
 	{
 		// Register the ServerSocketChannel of the Connector with the Selector of the supplied Reactor
 		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
-									.id(String.valueOf(reactor.getReactorId()))
-									.action("Assigning selector")
-									.data(new LogData().entry("Port", String.valueOf(getPort()))
-											.toString())
-									.logInfo());
+				.id(String.valueOf(reactor.getReactorId()))
+				.action("Assigning selector")
+				.data(new LogData().entry("Port", String.valueOf(getPort()))
+						.toString())
+				.logInfo());
 		getServerChannel().register(reactor.getSelector(), SelectionKey.OP_ACCEPT, this);
 	}
-	
+
 	/**
 	 * This method removes the destroyed connection from nodeWiseConnections, this method will be called after teardown of the connection.
 	 */
@@ -115,7 +118,7 @@ public class CerebralConnector extends Connector
 	{
 		// Get all connections for the node from the nodeWiseConnections
 		PriorityBlockingQueue<Connection> connectionQueue = nodeWiseConnections.get(connection.getNodeId());
-		
+
 		if(connectionQueue != null) {
 			// Remove connection
 			connectionQueue.remove(connection);
@@ -129,7 +132,7 @@ public class CerebralConnector extends Connector
 					.logInfo());
 		}
 	}
-	
+
 	/**
 	 * This method accepts a {@link SocketChannel} from the {@link ServerSocketChannel} when their is an incoming connection request from any service/ application on this connector
 	 * 
@@ -149,10 +152,10 @@ public class CerebralConnector extends Connector
 					.id(getTotalConnectionsServed())
 					.connector(this)
 					.build();
-			
+
 			// 2. Increment the totalConnectionsServed by 1
 			setTotalConnectionsServed(getTotalConnectionsServed()+1);
-			
+
 			NcephLogger.CONNECTION_LOGGER.info(new ConnectionLog.Builder()
 					.connectionId(String.valueOf(connection.getId()))
 					.action("initialise connection")
@@ -171,25 +174,33 @@ public class CerebralConnector extends Connector
 					.logError(),e);
 		}
 	}
-	
+
 	@Override
 	public AbstractSelectableChannel obtainSocketChannel() 
 	{
 		return getServerChannel();
 	}
-	
+
 	@Override
 	public void createPostReadWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().register(new CerebralReader(incomingConnection, message));
+		// If the message classification is relay then register the message with RelayReaderPool
+		if(CerebralIncomingMessageType.getclassificationByType(message.getType()) == MessageClassification.RELAY)
+			getRelayReaderPool().register(new CerebralReader(incomingConnection, message));
+		else // Else register the message with PublishReaderPool
+			getPublishReaderPool().register(new CerebralReader(incomingConnection, message));
 	}
-	
+
 	@Override
 	public void createPostWriteWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().execute(new CerebralWriter(incomingConnection, message));
+		// If the message classification is relay then register the message with RelayWriterPool
+		if(CerebralOutgoingMessageType.getclassificationByType(message.getType()) == MessageClassification.RELAY)
+			getRelayWriterPool().register(new CerebralWriter(incomingConnection, message));
+		else // Else register the message with PublishWriterPool
+			getPublishWriterPool().register(new CerebralWriter(incomingConnection, message));
 	}
-	
+
 	/**
 	 * Get the {@link ServerSocketChannel} of the connector 
 	 * 
@@ -198,7 +209,7 @@ public class CerebralConnector extends Connector
 	public ServerSocketChannel getServerChannel() {
 		return serverChannel;
 	}
-	
+
 	/**
 	 * Get the buffer size of the {@link ServerSocketChannel}
 	 * 
@@ -207,7 +218,7 @@ public class CerebralConnector extends Connector
 	public Integer getBufferSize() {
 		return bufferSize;
 	}
-	
+
 	/**
 	 * Get set of connections in node  
 	 */
@@ -240,7 +251,7 @@ public class CerebralConnector extends Connector
 			getConnectionLoadBalancer().add(conn);
 		});
 	}
-	
+
 	/**
 	 * Signal all synaptic nodes belonging to this application (port) to pause the transmission of messages by sending {@link CerebralOutgoingMessageType#PAUSE_TRANSMISSION PAUSE_TRANSMISSION} message.
 	 */
@@ -256,10 +267,10 @@ public class CerebralConnector extends Connector
 			{
 				// Send stop message to producer
 				PauseTransmissionMessage message = new PauseTransmissionMessage.Builder()
-														.data(data)
-														.sourceId(nodeConnection.getNodeId())
-														.originatingPort(nodeConnection.getConnector().getPort())
-														.build();
+						.data(data)
+						.sourceId(nodeConnection.getNodeId())
+						.originatingPort(nodeConnection.getConnector().getPort())
+						.build();
 				nodeConnection.enqueueMessage(message, QueuingContext.QUEUED_FROM_CONNECTOR);
 				nodeConnection.setInterest(SelectionKey.OP_WRITE);
 			} catch (MessageBuildFailedException e) {
@@ -271,7 +282,7 @@ public class CerebralConnector extends Connector
 			}
 		}
 	}
-	
+
 	/**
 	 * Signal Synapse to resume the transmission of messages by sending {@link CerebralOutgoingMessageType#RESUME_TRANSMISSION RESUME_TRANSMISSION} message.
 	 */
@@ -285,10 +296,10 @@ public class CerebralConnector extends Connector
 			try {
 				// Send stop message to producer
 				ResumeTransmissionMessage message = new ResumeTransmissionMessage.Builder()
-														.data(data)
-														.sourceId(nodeConnection.getNodeId())
-														.originatingPort(nodeConnection.getConnector().getPort())
-														.build();
+						.data(data)
+						.sourceId(nodeConnection.getNodeId())
+						.originatingPort(nodeConnection.getConnector().getPort())
+						.build();
 				nodeConnection.enqueueMessage(message, QueuingContext.QUEUED_FROM_CONNECTOR);
 				nodeConnection.setInterest(SelectionKey.OP_WRITE);
 			} catch (MessageBuildFailedException e) {
@@ -300,7 +311,7 @@ public class CerebralConnector extends Connector
 			}
 		}
 	}
-	
+
 	/**
 	 * Builder inner class for {@link Connector}
 	 *  
@@ -311,17 +322,21 @@ public class CerebralConnector extends Connector
 	public static class Builder
 	{
 		private Integer port = null;
-		
+
 		private String name;
-		
+
 		private Integer bufferSize;
-		
-		private WorkerPool<Reader> readerPool;
-		
-		private WorkerPool<Writer> writerPool;
-		
+
+		private WorkerPool<Reader> publishReaderPool;
+
+		private WorkerPool<Writer> publishWriterPool;
+
+		private WorkerPool<Reader> relayReaderPool;
+
+		private WorkerPool<Writer> relayWriterPool;
+
 		private SSLContext sslContext;
-		
+
 		/**
 		 * Not required if building a SYNAPTIC connector. Port number of the server socket within the connector
 		 * 
@@ -332,7 +347,7 @@ public class CerebralConnector extends Connector
 			this.port = port;
 			return this;
 		}
-		
+
 		/**
 		 * Name of the connector
 		 * 
@@ -343,7 +358,7 @@ public class CerebralConnector extends Connector
 			this.name = name;
 			return this;
 		}
-		
+
 		/**
 		 * 
 		 * 
@@ -354,29 +369,51 @@ public class CerebralConnector extends Connector
 			this.bufferSize = bufferSize;
 			return this;
 		}
-		
+
 		/**
-		 * Pool of reader worker threads
+		 * Pool of reader worker threads for publish messages
 		 * 
 		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder readerPool(WorkerPool<Reader> workerPool) {
-			this.readerPool = workerPool;
+		public Builder publishReaderPool(WorkerPool<Reader> workerPool) {
+			this.publishReaderPool = workerPool;
 			return this;
 		}
-		
+
 		/**
-		 * Pool of writer worker threads
+		 * Pool of writer worker threads for publish messages
 		 * 
 		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder writerPool(WorkerPool<Writer> workerPool) {
-			this.writerPool = workerPool;
+		public Builder publishWriterPool(WorkerPool<Writer> workerPool) {
+			this.publishWriterPool = workerPool;
 			return this;
 		}
 		
+		/**
+		 * Pool of reader worker threads for relay messages
+		 * 
+		 * @param workerPool
+		 * @return Builder
+		 */
+		public Builder relayReaderPool(WorkerPool<Reader> workerPool) {
+			this.relayReaderPool = workerPool;
+			return this;
+		}
+
+		/**
+		 * Pool of writer worker threads for publish messages
+		 * 
+		 * @param workerPool
+		 * @return Builder
+		 */
+		public Builder relayWriterPool(WorkerPool<Writer> workerPool) {
+			this.relayWriterPool = workerPool;
+			return this;
+		}
+
 		/**
 		 * Set SSLContext 
 		 * 
@@ -387,7 +424,7 @@ public class CerebralConnector extends Connector
 			this.sslContext = sslContext;
 			return this;
 		}
-		
+
 		/**
 		 * Builds the {@link Connector} instance
 		 * 
@@ -398,13 +435,15 @@ public class CerebralConnector extends Connector
 		{
 			// 1. Instantiate new CerebralConnector
 			CerebralConnector connector = new CerebralConnector(
-								port, 
-								name, 
-								bufferSize, 
-								readerPool,
-								writerPool,
-								sslContext
-								);
+					port, 
+					name, 
+					bufferSize, 
+					publishReaderPool,
+					publishWriterPool,
+					relayReaderPool,
+					relayWriterPool,
+					sslContext
+					);
 			// 2. Initialize the monitor thread
 			CerebralMonitor monitor = new CerebralMonitor();
 			monitor.attachConnector(connector);
@@ -414,6 +453,6 @@ public class CerebralConnector extends Connector
 		}
 	}
 
-	
+
 
 }

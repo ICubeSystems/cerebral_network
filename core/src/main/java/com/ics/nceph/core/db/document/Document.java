@@ -2,16 +2,16 @@ package com.ics.nceph.core.db.document;
 
 import org.springframework.data.annotation.Id;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBIgnore;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBRangeKey;
-import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 /**
  * 
- * @author Chandan Verma
+ * @author Anshul
  * @since 18-Aug-2022
  */
-@DynamoDBTable(tableName = "message_uat")
+@DynamoDBDocument
 public class Document 
 {
 	@Id

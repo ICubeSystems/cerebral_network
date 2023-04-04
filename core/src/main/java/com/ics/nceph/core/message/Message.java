@@ -114,7 +114,7 @@ import com.ics.util.ByteUtil;
  * @since 31-Dec-2021
  * @implNote To filter message logs use : ^((?!1-75).)*\R
  */
-public class Message 
+public class Message
 {
 	// @TODO: Pick this value from a configuration file on the node. This will be verified by the nceph server during the bootstrapping process of the node.
 	private IORecord readRecord;

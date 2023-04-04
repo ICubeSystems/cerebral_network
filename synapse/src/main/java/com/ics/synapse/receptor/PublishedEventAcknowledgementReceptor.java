@@ -44,9 +44,9 @@ import com.ics.synapse.message.type.SynapticOutgoingMessageType;
  * @version 1.0
  * @since 29-Mar-2022
  */
-public class EventAcknowledgementReceptor extends AcknowledgementReceptor 
+public class PublishedEventAcknowledgementReceptor extends AcknowledgementReceptor 
 {
-	public EventAcknowledgementReceptor(Message message, Connection incomingConnection) 
+	public PublishedEventAcknowledgementReceptor(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 	}
@@ -68,18 +68,6 @@ public class EventAcknowledgementReceptor extends AcknowledgementReceptor
 					.action("404 - POD not found")
 					.logInfo());
 			return;
-		}
-		// 1.1 Make sure that WriteRecord is written in the POD. If not then try to load again after 1000 ms. 
-		// This happens when the PublishEventAffector executes after EventAcknowledgementReceptor
-		while(pod.getEventMessageWriteRecord()==null) 
-		{
-			try 
-			{
-				//Sleep
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {e.printStackTrace();}
-			// 1.2 Load the POD again
-			pod = ProofOfPublish.load(getMessage().decoder().getOriginatingPort(), getMessage().decoder().getId());
 		}
 		try 
 		{

@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.ics.menu.eventThreads.EventThread;
 import com.ics.nceph.core.connector.connection.Connection;
+import com.ics.nceph.core.db.document.ProofOfPublish;
 import com.ics.nceph.core.message.MessageLedger;
 import com.ics.synapse.connector.SynapticConnector;
 import com.ics.synapse.ncephEvent.EventType;
@@ -46,12 +47,12 @@ public class SynapticMenu
 						System.out.println(count + ".) Back");
 						eventChoice = input.nextInt();
 						try {
-							System.out.println("Selected event is "+EventType.types[eventChoice-1].getGiftClass().getSimpleName());
+							System.out.println("Selected event is "+EventType.getEventType(eventChoice).getGiftClass().getSimpleName());
 							System.out.print("How many messages do you want to publish: ");
 							numberOfEvents = input.nextInt();
 							EventThread thread = new EventThread.Builder()
 									.numberOfEvents(Integer.valueOf(numberOfEvents))
-									.implementationClass(EventType.types[eventChoice-1].getCallingclass())
+									.implementationClass(EventType.getEventType(eventChoice).getCallingclass())
 									.build();
 							thread.run();
 								
@@ -81,29 +82,34 @@ public class SynapticMenu
 		    					connector.getPort(),
 		    					connector.getActiveConnections().size(),
 		    					connector.getTotalConnectionsServed(),
-		    					connector.getReaderPool().getActiveWorkers().intValue()+ connector.getWriterPool().getActiveWorkers().intValue(),
-		    					connector.getReaderPool().getTotalWorkersCreated().intValue()+ connector.getWriterPool().getTotalWorkersCreated().intValue(),
-		    					connector.getReaderPool().getTotalSuccessfulWorkers().intValue()+ connector.getWriterPool().getTotalSuccessfulWorkers().intValue(),
+		    					connector.getRelayReaderPool().getActiveWorkers().intValue()+ connector.getRelayWriterPool().getActiveWorkers().intValue()
+								+ connector.getPublishReaderPool().getActiveWorkers().intValue()+ connector.getPublishWriterPool().getActiveWorkers().intValue(),
+								connector.getRelayReaderPool().getTotalWorkersCreated().intValue()+ connector.getRelayWriterPool().getTotalWorkersCreated().intValue()
+								+ connector.getPublishReaderPool().getTotalWorkersCreated().intValue()+ connector.getPublishWriterPool().getTotalWorkersCreated().intValue(),
+								connector.getRelayReaderPool().getTotalSuccessfulWorkers().intValue()+ connector.getRelayWriterPool().getTotalSuccessfulWorkers().intValue()
+								+ connector.getPublishReaderPool().getTotalSuccessfulWorkers().intValue()+ connector.getPublishWriterPool().getTotalSuccessfulWorkers().intValue(),
 		    					connector.getRelayQueue().size()
 		    					);
 		    			System.out.println(" _________________________________________________________________________________________________________________________________________________");
 		    			// 3.2 This table shows connector's registers status
 		    			System.out.println("\nConnector Status 2");
 		    			System.out.println(" ________________________________________________________________________________________________________________________");
-		    			System.out.printf("| %6s | %20s | %20s | %30s | %30s | \n",
+		    			System.out.printf("| %6s | %20s | %20s | %30s | %30s | %20s | \n",
 		    					"PORT",
 		    					"Incoming_Register",
 		    					"Outgoing_Register",
 		    					"Connector_Queued_Up_Register",
-		    					"Connection_Queued_Up_Register"
+		    					"Connection_Queued_Up_Register",
+		    					"Publish Cache size"
 		    					);
 		    			System.out.println(" ------------------------------------------------------------------------------------------------------------------------");
-		    			System.out.printf("| %6d | %20d | %20d | %30d | %30s | \n",
+		    			System.out.printf("| %6d | %20d | %20d | %30d | %30s | %20s | \n",
 		    					connector.getPort(),
 		    					connector.getIncomingMessageRegister().size(),
 		    					connector.getOutgoingMessageRegister().size(),
 		    					connector.getConnectorQueuedUpMessageRegister().size(),
-		    					connector.getConnectionQueuedUpMessageRegister().size()
+		    					connector.getConnectionQueuedUpMessageRegister().size(),
+		    					ProofOfPublish.getMessageCache(connector.getPort()) != null ? ProofOfPublish.getMessageCache(connector.getPort()).size() : 0
 		    					);
 		    			System.out.println(" ________________________________________________________________________________________________________________________");
 		    			// 3.3 This table shows connector's connections status

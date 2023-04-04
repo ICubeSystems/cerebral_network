@@ -1,7 +1,6 @@
 package com.ics.nceph.core.db.repository;
 
-import org.socialsignin.spring.data.dynamodb.repository.EnableScan;
-import org.springframework.data.repository.CrudRepository;
+import org.socialsignin.spring.data.dynamodb.repository.DynamoDBCrudRepository;
 import org.springframework.stereotype.Repository;
 
 import com.ics.nceph.core.db.document.DocumentList;
@@ -15,8 +14,7 @@ import com.ics.nceph.core.db.document.ProofOfPublish;
  * @since 5-Aug-2022
  */
 @Repository
-@EnableScan
-public interface PublishedMessageRepository extends CrudRepository<ProofOfPublish, Key> 
+public interface PublishedMessageRepository extends DynamoDBCrudRepository<ProofOfPublish, Key<String, String>> 
 {
 	/**
 	 * Used to get list of {@link ProofOfPublish} type documents using partitionKey
@@ -26,15 +24,15 @@ public interface PublishedMessageRepository extends CrudRepository<ProofOfPublis
 	 * @since Sep 28, 2022
 	 */
 	DocumentList<ProofOfPublish> findAllByPartitionKey(String partitionKey);
-	
+
 	/**
-	 * Used to get list of {@link ProofOfPublish} type documents using partitionKey and messageDeliveryState
-	 * @param partitionKey
+	 * Used to get list of {@link ProofOfPublish} type documents using action and message delivery state
+	 * @param action
 	 * @param messageDeliveryState
 	 * @return
 	 * @version 1.0
 	 * @since Sep 28, 2022
 	 */
-	DocumentList<ProofOfPublish> findAllByPartitionKeyAndMessageDeliveryStateLessThan(String partitionKey, Integer messageDeliveryState);
-	
+	DocumentList<ProofOfPublish> findAllByActionAndMessageDeliveryStateLessThan(String action, Integer messageDeliveryState);
+
 }

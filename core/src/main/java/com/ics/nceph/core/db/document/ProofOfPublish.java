@@ -3,9 +3,11 @@ package com.ics.nceph.core.db.document;
 import java.util.ArrayList;
 import java.util.Date;
 
-import org.springframework.stereotype.Component;
-
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
+import com.ics.logger.LogData;
+import com.ics.logger.MessageLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorMonitorThread;
@@ -161,7 +163,7 @@ import lombok.Getter;
  */
 @Getter
 @DynamoDBDocument
-@Component
+@DynamoDBTable(tableName = "message_uat")
 public class ProofOfPublish extends ProofOfDelivery
 {
 	public static final String NAME = "POP";
@@ -192,6 +194,7 @@ public class ProofOfPublish extends ProofOfDelivery
 		setProducerPortNumber(producerPortNumber);
 		setProducerNodeId(producerNodeId);
 		setEvent(event);
+		setAction("P:"+producerPortNumber);
 		setMessageDeliveryState(MessageDeliveryState.INITIAL.getState());
 		this.relayCount = 0;
 		this.subscribedPorts = new ArrayList<Integer>();
@@ -211,7 +214,7 @@ public class ProofOfPublish extends ProofOfDelivery
 		outOfSync("SubscriberCount");
 	}
 
-	
+
 	public void setRelayCount(Integer relayCount)
 	{
 		this.relayCount = relayCount;
@@ -243,7 +246,7 @@ public class ProofOfPublish extends ProofOfDelivery
 		subscribedPorts.add(port);
 		outOfSync("addCreatedPors: "+port);
 	}
-	
+
 	public void finished() 
 	{
 		//If the message has been fully relayed to all the intended subscriber then set the state and remove it from the cerebral cache
@@ -361,35 +364,52 @@ public class ProofOfPublish extends ProofOfDelivery
 		return Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")
 				+ String.valueOf(getProducerPortNumber()) + "/";
 	}
-	
+
 	@Override
 	public void saveInCache()
 	{
 		DocumentCache.getInstance()
-			.getPublishedMessageCache()
-			.put(getProducerPortNumber(), this);
+		.getPublishedMessageCache()
+		.put(getProducerPortNumber(), this);
+		//log
+		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+				.messageId(getMessageId())
+				.action("Save in cache: " + getClass().getName())
+				.data(new LogData()
+						.entry("Saved", "message saved in publish cache")
+						.entry("Producer Port", String.valueOf(getProducerPortNumber()))
+						.toString())
+				.logInfo());
 	}
 
 	@Override
 	public void removeFromCache()
 	{
 		DocumentCache.getInstance()
-			.getPublishedMessageCache()
-			.removeFromCache(getProducerPortNumber(), this);
+		.getPublishedMessageCache()
+		.removeFromCache(getProducerPortNumber(), this);
 		if(Boolean.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("messages.removeLocalCompletedMessages"))) {
 			DocumentStore.getInstance().delete(getMessageId(), this);
 		}
+		//log
+		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+				.messageId(getMessageId())
+				.action("Remove from cache: " + getClass().getName())
+				.data(
+						new LogData()
+						.entry("Calling class: " , getClass().getName())
+						.toString())
+				.logInfo());
 	}
 
 	@Override
-	public void saveInDB() throws DocumentSaveFailedException 
+	public synchronized void saveInDB() throws DocumentSaveFailedException 
 	{
 		// Generate key and set
 		setKey(Key.<String, String>builder()
-							.partitionKey("P:" + String.valueOf(getProducerPortNumber()))
-							.sortKey(getMessageId())
-							.build());
-
+				.partitionKey("P:" + String.valueOf(getProducerPortNumber()))
+				.sortKey(getMessageId())
+				.build());
 		try 
 		{ // Save in DB
 			ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).save(this);
@@ -399,7 +419,7 @@ public class ProofOfPublish extends ProofOfDelivery
 			throw new DocumentSaveFailedException("Publish message save failed Exception ", e);
 		}
 	}
-	
+
 	public static ProofOfPublish load(Integer producerPort, String docName)
 	{
 		try
@@ -407,7 +427,7 @@ public class ProofOfPublish extends ProofOfDelivery
 			return DocumentCache.getInstance().getPublishedMessageCache().getDocument(producerPort, docName);
 		} catch (NullPointerException e){return null;}
 	}
-	
+
 	public static MessageCache<ProofOfPublish> getMessageCache(Integer producerPort)
 	{
 		try
@@ -415,11 +435,11 @@ public class ProofOfPublish extends ProofOfDelivery
 			return DocumentCache.getInstance().getPublishedMessageCache().getMessageCache(producerPort);
 		} catch (NullPointerException e){return null;}
 	}
-	
+
 	@Override
 	public void setMessageDeliveryState(Integer messageDeliveryState)
 	{
 		super.setMessageDeliveryState(messageDeliveryState);
 	}
-	
+
 }

@@ -47,8 +47,7 @@ public class RelayedEventAffector extends Affector
 		por.setEventMessageWriteRecord(getMessage().getWriteRecord());
 
 		// Update POR state only if it is not yet RELAYED (this is done for the case where receptor executes prior to affector)
-		if(por.getMessageDeliveryState() < MessageDeliveryState.DELIVERED.getState())
-			por.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
+		por.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
 
 		// Save the POD
 		try {

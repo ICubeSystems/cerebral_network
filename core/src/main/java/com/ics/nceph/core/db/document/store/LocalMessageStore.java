@@ -30,10 +30,9 @@ public class LocalMessageStore extends DocumentStore
 			.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm a z"))
 			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
 			.setSerializationInclusion(Include.NON_NULL);
-	
+
 	/**
 	 * Create a new ProofOfPublish / ProofOfAuthentication document or save the updates in the local document store
-	 * 
 	 * @param pod
 	 * @param docName
 	 * @return void
@@ -53,9 +52,7 @@ public class LocalMessageStore extends DocumentStore
 				// Save the document to the local storage
 				mapper.writeValue(Paths.get(document.localRepository() + docName + ".json").toFile(), document);
 			}
-			
-			// If the document is not in cache, then add the new document to the cache. This should be the case when the document is being created for the very first time
-			document.saveInCache();
+
 			super.save(document, docName, isUpdate);
 		} catch (IOException e) {
 			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
@@ -66,13 +63,15 @@ public class LocalMessageStore extends DocumentStore
 			throw new DocumentSaveFailedException(docName+".json file write failed", e);
 		}
 	}
-	
+
 	@Override
 	public void save(MessageDocument document, String docName) throws DocumentSaveFailedException
 	{
 		saveUpdate(document, docName, false);
+		// If the document is not in cache, then add the new document to the cache. This should be the case when the document is being created for the very first time
+		document.saveInCache();
 	}
-	
+
 	/**
 	 * 
 	 * @param document
@@ -97,7 +96,7 @@ public class LocalMessageStore extends DocumentStore
 				.description(docName + ".json not found")
 				.logError());
 	}
-	
+
 	/**
 	 * 
 	 * @param docName
@@ -113,7 +112,7 @@ public class LocalMessageStore extends DocumentStore
 		{
 			//			cache.remove(docName, document);
 			//Log
-			
+
 			NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 					.messageId(docName)
 					.action(document.getClass().getSimpleName() + " deleted")

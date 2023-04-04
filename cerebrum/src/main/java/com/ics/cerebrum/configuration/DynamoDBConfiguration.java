@@ -50,6 +50,4 @@ public class DynamoDBConfiguration implements CerebralConfiguration
 			throw new ConfigurationException(e);
 		}
 	}
-	
-	
 }

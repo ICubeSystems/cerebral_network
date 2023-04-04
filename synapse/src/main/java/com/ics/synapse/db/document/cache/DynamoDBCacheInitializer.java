@@ -3,6 +3,9 @@ package com.ics.synapse.db.document.cache;
 import java.util.ArrayList;
 import java.util.Map;
 
+import com.ics.logger.BootstraperLog;
+import com.ics.logger.LogData;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.db.document.ProofOfDelivery;
@@ -20,6 +23,10 @@ import com.ics.util.ApplicationContextUtils;
  */
 class DynamoDBCacheInitializer extends SynapseCacheInitializer
 {	
+	private Integer port;
+	
+	private long start;
+	
 	DynamoDBCacheInitializer() throws CacheInitializationException
 	{
 		initialize();
@@ -27,28 +34,64 @@ class DynamoDBCacheInitializer extends SynapseCacheInitializer
 	
 	void initialize() throws CacheInitializationException 
 	{
+		System.out.println("Generating Cache");
 		if (SynapseCacheInitializer.intializer != null)
 			throw new CacheInitializationException("Cache already intialized");
 		for (Map.Entry<Integer, Connector> entry : ConnectorCluster.activeConnectors.entrySet())
 		{
-			generateTransitMessageCache(ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).findAllByPartitionKeyAndMessageDeliveryStateLessThan("P:"+entry.getKey(), 500));
-			generateTransitMessageCache(ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).findAllByPartitionKeyStartingWithAndProducerPortNumberAndMessageDeliveryStateLessThan("R:",entry.getKey(), 500));
-			fillMasterLedger(ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).findAllByPartitionKey("P:"+entry.getKey()), entry.getValue().getOutgoingMessageRegister());
-			fillMasterLedger(ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).findAllByPartitionKey("R:"+entry.getKey()), entry.getValue().getIncomingMessageRegister());
+			port = entry.getKey();
+			start = System.currentTimeMillis();
+			generateTransitMessageCache(ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).findAllByActionAndMessageDeliveryStateLessThan("P:"+entry.getKey(), 500),"Published Cache");
+			start = System.currentTimeMillis();
+			generateTransitMessageCache(ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).findAllByActionAndMessageDeliveryStateLessThan("R:"+entry.getKey(), 500),"Relayed Cache");
+			start = System.currentTimeMillis();
+			fillMasterLedger(ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).findAllByPartitionKey("P:"+entry.getKey()), entry.getValue().getOutgoingMessageRegister(), "Outgoing message ledger");
+			start = System.currentTimeMillis();
+			fillMasterLedger(ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).findAllByPartitionKey("R:"+entry.getKey()), entry.getValue().getIncomingMessageRegister(), "Incoming message ledger");
 		}
+		System.out.println("Cache generated");
 	}
 	
-	private void generateTransitMessageCache(ArrayList<? extends ProofOfDelivery> documents)
+	private void generateTransitMessageCache(ArrayList<? extends ProofOfDelivery> documents, String cacheName)
 	{
+		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+				.action(cacheName)
+				.data(new LogData()
+						.entry("count", String.valueOf(documents.size()))
+						.entry("port", String.valueOf(port))
+						.toString())
+				.description("Commencing Cache Building")
+				.logInfo());
 		documents.forEach(doc -> {
 			doc.saveInCache();
 		});
+		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+				.action(cacheName)
+				.description(cacheName + " Building Completed")
+				.logInfo());
+		System.out.println(cacheName + " of size " + documents.size() + " build successfully in " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 	}
 
-	private void fillMasterLedger(ArrayList<? extends ProofOfDelivery> documents, MasterMessageLedger ledger)
+	private void fillMasterLedger(ArrayList<? extends ProofOfDelivery> documents, MasterMessageLedger ledger, String ledgerName)
 	{
+		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+				.action(ledgerName)
+				.data("count" + documents.size())
+				.description("Commencing Cache Building")
+				.data(new LogData()
+						.entry("count", String.valueOf(documents.size()))
+						.entry("port", String.valueOf(port))
+						.toString())
+				.logInfo());
+		
 		documents.forEach(doc -> {
 			ledger.add(doc.getProducerNodeId(), doc.getEventType(), doc.getMid());
 		});
+		
+		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+				.action(ledgerName)
+				.description(ledgerName + " Building Completed")
+				.logInfo());
+		System.out.println(ledgerName + " of size " + documents.size() + " build successfully in " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 	}
 }

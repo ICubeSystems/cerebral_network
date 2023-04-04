@@ -6,9 +6,9 @@ public class IncomingMessageType extends MessageType
 {
 	private Class<? extends Receptor> processorClass;
 	
-	public IncomingMessageType(int type, Class<? extends Receptor> processorClass, String typeName) 
+	public IncomingMessageType(int type, Class<? extends Receptor> processorClass, String typeName, MessageClassification classification) 
 	{
-		super(type, processorClass.getSimpleName(), typeName);
+		super(type, processorClass.getSimpleName(), typeName, classification);
 		this.processorClass = processorClass;
 	}
 	

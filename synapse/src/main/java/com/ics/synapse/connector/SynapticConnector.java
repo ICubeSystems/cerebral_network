@@ -18,6 +18,7 @@ import com.ics.logger.NcephLogger;
 import com.ics.nceph.NcephConstants;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
+import com.ics.nceph.core.connector.ConnectorCluster;
 import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.connector.connection.QueuingContext;
 import com.ics.nceph.core.connector.connection.exception.AuthenticationFailedException;
@@ -36,12 +37,14 @@ import com.ics.nceph.core.message.data.BackpressureData;
 import com.ics.nceph.core.message.data.BootstrapData;
 import com.ics.nceph.core.message.data.StartupData;
 import com.ics.nceph.core.message.exception.MessageBuildFailedException;
+import com.ics.nceph.core.message.type.MessageClassification;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
 import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
 import com.ics.synapse.message.BootstrapMessage;
+import com.ics.synapse.message.type.SynapticIncomingMessageType;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
 import com.ics.synapse.worker.SynapticReader;
 import com.ics.synapse.worker.SynapticWriter;
@@ -61,9 +64,17 @@ public class SynapticConnector extends Connector
 
 	private String cerebrumHostPath; 
 
-	SynapticConnector(String hostPath, Integer port, String name, WorkerPool<Reader> readerPool, WorkerPool<Writer> writerPool, SSLContext sslContext) 
+	SynapticConnector(
+			String hostPath,
+			Integer port,
+			String name,
+			WorkerPool<Reader> publishReaderPool, 
+			WorkerPool<Writer> publishWriterPool,
+			WorkerPool<Reader> relayReaderPool, 
+			WorkerPool<Writer> relayWriterPool,
+			SSLContext sslContext) 
 	{
-		super(port, name, readerPool, writerPool, sslContext);
+		super(port, name, publishReaderPool, publishWriterPool, relayReaderPool, relayWriterPool,  sslContext);
 		this.cerebrumHostPath = hostPath;
 	}
 
@@ -106,7 +117,9 @@ public class SynapticConnector extends Connector
 							.entry("Port", String.valueOf(controlConnection.getConnector().getPort()))
 							.toString())
 					.logInfo());
-
+			// Add the connector to the cluster. On the synapse there will only be 1 connector in the cluster. Added for consistency.
+			ConnectorCluster connectorCluster = new ConnectorCluster();
+			connectorCluster.add(this);
 			// 2. Initiate the bootstrapping of the synapse by sending the BOOTSTRAP message to cerebrum
 			bootstrapSynapse(controlConnection);
 		} catch (IOException | ConnectionInitializationException | ConnectionException e) {//@TODO: ControlConnectionFailedException
@@ -132,7 +145,6 @@ public class SynapticConnector extends Connector
 
 	/**
 	 * This method connects the SYNAPTIC node to the CEREBRAL node. 
-	 * 
 	 * @throws IOException
 	 * @throws ImproperReactorClusterInstantiationException
 	 * @throws ReactorNotAvailableException
@@ -262,13 +274,21 @@ public class SynapticConnector extends Connector
 	@Override
 	public void createPostReadWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().register(new SynapticReader(incomingConnection, message));
+		// If the message classification is relay then register the message with RelayReaderPool
+		if(SynapticIncomingMessageType.getclassificationByType(message.getType()) == MessageClassification.RELAY)
+			getRelayReaderPool().register(new SynapticReader(incomingConnection, message));
+		else // Else register the message with PublishReaderPool
+			getPublishReaderPool().register(new SynapticReader(incomingConnection, message));
 	}
 
 	@Override
 	public void createPostWriteWorker(Message message, Connection incomingConnection) 
 	{
-		getReaderPool().execute(new SynapticWriter(incomingConnection, message));
+		// If the message classification is relay then register the message with RelayWriterPool
+		if(SynapticOutgoingMessageType.getclassificationByType(message.getType()) == MessageClassification.RELAY)
+			getRelayWriterPool().register(new SynapticWriter(incomingConnection, message));
+		else // Else register the message with PublishWriterPool
+			getPublishWriterPool().register(new SynapticWriter(incomingConnection, message));
 	}
 
 	public ConnectionConfiguration getConfig() {
@@ -407,9 +427,13 @@ public class SynapticConnector extends Connector
 
 		private String name;
 
-		private WorkerPool<Reader> readerPool;
+		private WorkerPool<Reader> publishReaderPool;
 
-		private WorkerPool<Writer> writerPool;
+		private WorkerPool<Writer> publishWriterPool;
+
+		private WorkerPool<Reader> relayReaderPool;
+
+		private WorkerPool<Writer> relayWriterPool;
 
 
 		/**
@@ -446,24 +470,46 @@ public class SynapticConnector extends Connector
 		}
 
 		/**
-		 * Pool of reader worker threads
+		 * Pool of reader worker threads for publish messages
 		 * 
-		 * @param readerPool
+		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder readerPool(WorkerPool<Reader> readerPool) {
-			this.readerPool = readerPool;
+		public Builder publishReaderPool(WorkerPool<Reader> workerPool) {
+			this.publishReaderPool = workerPool;
 			return this;
 		}
 
 		/**
-		 * Pool of writer worker threads
+		 * Pool of writer worker threads for publish messages
 		 * 
-		 * @param writerPool
+		 * @param workerPool
 		 * @return Builder
 		 */
-		public Builder writerPool(WorkerPool<Writer> writerPool) {
-			this.writerPool = writerPool;
+		public Builder publishWriterPool(WorkerPool<Writer> workerPool) {
+			this.publishWriterPool = workerPool;
+			return this;
+		}
+		
+		/**
+		 * Pool of reader worker threads for relay messages
+		 * 
+		 * @param workerPool
+		 * @return Builder
+		 */
+		public Builder relayReaderPool(WorkerPool<Reader> workerPool) {
+			this.relayReaderPool = workerPool;
+			return this;
+		}
+
+		/**
+		 * Pool of writer worker threads for publish messages
+		 * 
+		 * @param workerPool
+		 * @return Builder
+		 */
+		public Builder relayWriterPool(WorkerPool<Writer> workerPool) {
+			this.relayWriterPool = workerPool;
 			return this;
 		}
 
@@ -514,8 +560,10 @@ public class SynapticConnector extends Connector
 					hostPath,
 					port, 
 					name, 
-					readerPool, 
-					writerPool,
+					publishReaderPool,
+					publishWriterPool,
+					relayReaderPool,
+					relayWriterPool,
 					sslContext
 					);
 			// 2. Set the configurations for the connector

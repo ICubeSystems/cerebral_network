@@ -50,8 +50,8 @@ public class PorDeletedReceptor extends PodReceptor
 		por.setAppReceptorFailed(false);
 		try {
 			DocumentStore.getInstance().update(por, getMessage().decoder().getId());
+			por.removeFromCache();
+			pod.finished();
 		} catch (DocumentSaveFailedException e) {}
-		por.removeFromCache();
-		pod.finished();
 	}
 }

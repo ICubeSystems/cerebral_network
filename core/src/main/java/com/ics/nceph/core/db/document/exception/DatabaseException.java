@@ -14,6 +14,11 @@ public class DatabaseException extends IOException
 	
 	private static final long serialVersionUID = 8870093268921144544L;
 
+	public DatabaseException(String message) 
+	{
+		super(message);
+	}
+	
 	public DatabaseException(String message, Throwable cause) 
 	{
 		super(message, cause);

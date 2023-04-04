@@ -21,10 +21,10 @@ import com.ics.nceph.core.message.Message;
  * @version 1.0
  * @since 30-Mar-2022
  */
-public class EventAcknowledgementAffector extends Affector 
+public class PublishedEventAcknowledgementAffector extends Affector 
 {
 
-	public EventAcknowledgementAffector(Message message, Connection incomingConnection) 
+	public PublishedEventAcknowledgementAffector(Message message, Connection incomingConnection) 
 	{
 		super(message, incomingConnection);
 	}

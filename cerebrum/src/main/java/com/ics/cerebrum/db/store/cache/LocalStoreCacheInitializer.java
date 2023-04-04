@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
+import com.ics.logger.BootstraperLog;
+import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
@@ -35,6 +37,8 @@ public class LocalStoreCacheInitializer extends CerebrumCacheInitializer
 			.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
 			.setSerializationInclusion(Include.NON_NULL);
 
+	private long start;
+	
 	LocalStoreCacheInitializer() throws CacheInitializationException
 	{
 		initialize();
@@ -46,16 +50,34 @@ public class LocalStoreCacheInitializer extends CerebrumCacheInitializer
 			throw new CacheInitializationException("Cache already intialized");
 		for (Map.Entry<Integer, Connector> entry : ConnectorCluster.activeConnectors.entrySet())
 		{
+			//LOG
+			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+					.action("Building cache")
+					.description("Start filling published cache and incoming message register")
+					.logInfo());
+			start = System.currentTimeMillis();
+			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")+entry.getKey()+"/",ProofOfPublish.class, entry.getValue().getIncomingMessageRegister(), "Published cache and incoming message register", 600);
+			//LOG
+			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+					.action("Success")
+					.description("published cache and incoming message register filled successfully")
+					.logInfo());
 			// LOG
-			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")+entry.getKey()+"/",ProofOfPublish.class, entry.getValue().getIncomingMessageRegister());
-			// LOG
-			// LOG
-			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")+entry.getKey()+"/",ProofOfRelay.class, entry.getValue().getOutgoingMessageRegister());
-			// LOG
+			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+					.action("Building cache")
+					.description("Start filling relayed cache and outgoing message register")
+					.logInfo());
+			start = System.currentTimeMillis();
+			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")+entry.getKey()+"/",ProofOfRelay.class, entry.getValue().getOutgoingMessageRegister(), "Received cache and outgoing message register", 500);
+			//LOG
+			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
+					.action("Success")
+					.description("relayed cache and outgoing message register filled successfully")
+					.logInfo());
 		}
 	}
 	
-	private void generateCacheAndMessageLedger(String localPath, Class<? extends MessageDocument> document, MasterMessageLedger ledger) throws CacheInitializationException
+	private void generateCacheAndMessageLedger(String localPath, Class<? extends MessageDocument> document, MasterMessageLedger ledger, String cacheName, int cacheCondition) throws CacheInitializationException
 	{
 		try
 		{
@@ -64,13 +86,13 @@ public class LocalStoreCacheInitializer extends CerebrumCacheInitializer
 			{
 				for (File file : messageDirectory) {
 					if (file.isDirectory()) { 
-						generateCacheAndMessageLedger(localPath+file.getName(),document,ledger); // Calls same method again.
+						generateCacheAndMessageLedger(localPath+file.getName(), document, ledger, cacheName, cacheCondition); // Calls same method again.
 					}
 					else 
 					{
 						ProofOfDelivery doc;
 						doc = (ProofOfDelivery)mapper.readValue(file, document);
-						if(doc.getMessageDeliveryState() < 500)
+						if(doc.getMessageDeliveryState() < cacheCondition)
 							doc.saveInCache();
 						ledger.add(doc.getProducerNodeId(), doc.getEventType(), doc.getMid());
 					}
@@ -80,5 +102,6 @@ public class LocalStoreCacheInitializer extends CerebrumCacheInitializer
 		{
 			throw new CacheInitializationException("IO exception in build cache from local store", e);
 		}
+		System.out.println(cacheName + " build successfully in " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 	}
 }

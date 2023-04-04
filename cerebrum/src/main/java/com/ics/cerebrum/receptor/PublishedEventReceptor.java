@@ -115,24 +115,33 @@ public class PublishedEventReceptor extends EventReceptor
 				// 2.5 Set POD State to DELIVERED
 				pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
 
-				// Save the POD in document store
-				DocumentStore.getInstance().save(pod, getMessage().decoder().getId());
-
-				// Put the message in the connectors incomingMessageStore
+				// 2.6 Put the message in the connectors incomingMessageStore
 				getIncomingConnection().getConnector().storeIncomingMessage(getMessage());
+
+				// 2.7 Get the subscriber connectors for this event
+				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventType());
+				// 2.8 Set the subscriber count
+				pod.setSubscriberCount(subscribers.size());
+				
+				//CRASH HANDLING: If cerebrum terminates/ crashes before this point then publish monitor in synapse will re-transmit the publish message and it will execute the if as the POD has not been saved as of yet
+				
+				// 2.9 Save the POD in document store. Once the document is saved, repeat transmission of this message from the synapse would not come inside this if. 
+				DocumentStore.getInstance().save(pod, getMessage().decoder().getId());
+				
+				/*
+				 * CRASH HANDLING: If cerebrum terminates/ crashes after this point then 
+				 * - relay to subscribers will be handled by relay monitor
+				 * - ACK message (NCEPH_EVENT_ACK) back to the sender will be sent when publish monitor in synapse will re transmit the publish message (it will execute in the else below as the POD will exist in the cerebrum)
+				 */
 				
 				// 3. Send the ACK message (NCEPH_EVENT_ACK) back to the sender notifying that the event has been accepted and the transmission is in progress. 
 				sendAcknowledgement(pod);
+
+				//CRASH HANDLING: If cerebrum terminates/ crashes after this point then the relay monitor will take care of the relay messages 
 				
 				// 4. BEGIN RELAY: Change the type of the message to RELAY_EVENT
 				getMessage().setType(CerebralOutgoingMessageType.RELAY_EVENT.getMessageType());
 				
-				// 4.1 Get the subscriber connectors for this event
-				ArrayList<Connector> subscribers = ConnectorCluster.getSubscribedConnectors(getEvent().getEventType());
-				
-				pod.setSubscriberCount(subscribers.size());
-				
-
 				// 5. Loop over subscriber connectors
 				for (Connector connector : subscribers) 
 				{
@@ -151,7 +160,6 @@ public class PublishedEventReceptor extends EventReceptor
 
 						// Save the POR
 						DocumentStore.getInstance().save(por, getMessage().decoder().getId());
-						
 						// After creating Por set subscriber port in pod's createdPors set
 						pod.addSubscribedPort(connector.getPort());
 						
@@ -192,21 +200,22 @@ public class PublishedEventReceptor extends EventReceptor
 			{
 				// duplicate message handling - TBD
 				// If ACK_RECEIVED message is not received then send the NCEPH_EVENT_ACK
-				// If ACK_RECEIVED message is received then send DELETE_POD [DO NOT NEED TO CATER TO THIS - this receptor will never be called if the ACK_RECEIVED message is received]
 				if (pod.getMessageDeliveryState() < MessageDeliveryState.ACK_RECIEVED.getState())
 					sendAcknowledgement(pod);
 				else
 					System.out.println("duplicate message found" + getMessage().decoder().getId());
 			}
 		} 
-		catch (DocumentSaveFailedException e){} 
-		catch (MessageBuildFailedException e) 
+		catch (MessageBuildFailedException | DocumentSaveFailedException e) 
 		{
 			// Log
-			NcephLogger.MESSAGE_LOGGER.fatal(new MessageLog.Builder()
+			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())
-					.action("NCEPH_EVENT_ACK build failed")
+					.action("RELAYED_EVENT_ACK build failed")
+					.description("Due to: " + e.getMessage())
 					.logError(),e);
+			// remove the message in the connector's incomingMessageStore
+			getIncomingConnection().getConnector().removeIncomingMessage(getMessage());
 			// decrement acknowledgement attempts in the pod		
 			pod.decrementAcknowledgementMessageAttempts();
 			// Save the POD

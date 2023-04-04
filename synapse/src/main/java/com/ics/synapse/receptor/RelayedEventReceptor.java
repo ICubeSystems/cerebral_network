@@ -1,8 +1,10 @@
+
 package com.ics.synapse.receptor;
 
 import java.nio.channels.SelectionKey;
 import java.util.Date;
 
+import com.ics.env.Environment;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
@@ -52,6 +54,11 @@ public class RelayedEventReceptor extends EventReceptor
 		{
 			if (por == null) // If the ProofOfRelay for the received message is not in the local storage then create a new ProofOfRelay object for this message
 			{
+				// TODO: Query the dynamoDB to see if the message was fully delivered previously [TBD]
+				// Check if the message was ever received by the connector. This case may arise if the POD has been successfully deleted and for some unknown reason the message is resent by the synapse after that.
+				if (getIncomingConnection().getConnector().hasAlreadyReceived(getMessage()))
+					return;
+				
 				// Build ProofOfRelay object for this message
 				por = new ProofOfRelay.Builder()
 						.event(getEvent())
@@ -75,15 +82,20 @@ public class RelayedEventReceptor extends EventReceptor
 				por.incrementAcknowledgementMessageAttempts();
 				// 2.6 Set MessageDeliveryState State to RELAYED
 				por.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
-				// 2.7 Save the POR in local storage
-				DocumentStore.getInstance().save(por, getMessage().decoder().getId());
-				
-				// Put the message in the connectors incomingMessageStore
+				// 2.7 Put the message in the connectors incomingMessageStore
 				getIncomingConnection().getConnector().storeIncomingMessage(getMessage());
 				
+				//CRASH HANDLING: If synapse terminates/ crashes before this point then relay monitor in cerebrum will re-transmit the relay message and it will execute the if as the POR has not been saved as of yet
+				
+				// 2.8 Save the POR in local storage
+				DocumentStore.getInstance().save(por, getMessage().decoder().getId());
+				
+				//CRASH HANDLING: If synapse terminates/ crashes after this point then Execution of the application receptor will handled by relay monitor, cerebrum will re transmit relay message (it will execute in the else below as the POR will exist in the synapse)
+				 
 				//3. Initiate application receptor 
 				//In case of error in execute(), we do not break the flow. Instead the POR is updated and the execution data is send to cerebrum in the acknowledgement message.
 				initiateApplicationReceptor(por);
+				//CRASH HANDLING: If synapse terminates/ crashes after this point then ACK message (RELAYED_EVENT_ACK) back to the sender will be sent when relay monitor in cerebrum will re transmit the relay message (it will execute in the else below as the POR will exist in the synapse)
 				
 				// 4. send acknowledgement back to cerebrum
 				sendAcknowledgement(por);
@@ -102,21 +114,22 @@ public class RelayedEventReceptor extends EventReceptor
 					System.out.println("duplicate found " + getMessage().decoder().getId());
 			}
 		}
-		catch (DocumentSaveFailedException e) {}
-		catch (MessageBuildFailedException e1) 
-		{
-			// Log
+		catch (DocumentSaveFailedException | MessageBuildFailedException e) {
 			NcephLogger.MESSAGE_LOGGER.error(new MessageLog.Builder()
 					.messageId(getMessage().decoder().getId())
 					.action("RELAYED_EVENT_ACK build failed")
-					.logError(),e1);
+					.description("Due to: " + e.getMessage())
+					.logError(),e);
+			// remove the message in the connector's incomingMessageStore
+			getIncomingConnection().getConnector().removeIncomingMessage(getMessage());
 			// decrement acknowledgement attempts in the POR		
 			por.decrementAcknowledgementMessageAttempts();
+			
 			// Save the POD
 			try 
 			{
-				DocumentStore.getInstance().update(por, getMessage().decoder().getId());
-			} catch (DocumentSaveFailedException e){}
+				DocumentStore.getInstance().save(por, getMessage().decoder().getId());//TODO - check if this should be save instead of update
+			} catch (DocumentSaveFailedException e1){}
 			return;
 		}
 	}
@@ -144,7 +157,7 @@ public class RelayedEventReceptor extends EventReceptor
 			por.setAppReceptorFailed(true);
 			// LOG
 		}
-		DocumentStore.getInstance().save(por, getMessage().decoder().getId());
+		DocumentStore.getInstance().update(por, getMessage().decoder().getId());
 	}
 	
 	private void sendAcknowledgement(ProofOfRelay por) throws MessageBuildFailedException 

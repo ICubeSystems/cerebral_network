@@ -11,11 +11,11 @@
 	</parent>
 	<groupId>com.ics</groupId>
 	<artifactId>cerebrum</artifactId>
-	<version>0.0.1</version>
+	<version>1.0.1</version>
 	<name>cerebrum</name>
 	<description>Event relay server</description>
 	<properties>
-		<java.version>11</java.version>
+		<java.version>17</java.version>
 	</properties>
 	<dependencies>
 		<dependency>

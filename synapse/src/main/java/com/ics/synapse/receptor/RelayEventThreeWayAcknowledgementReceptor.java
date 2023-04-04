@@ -91,10 +91,6 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 				// 3.2 Enqueue POD_DELETED on the incoming connection
 				getIncomingConnection().enqueueMessage(message, QueuingContext.QUEUED_FROM_RECEPTOR);
 				getIncomingConnection().setInterest(SelectionKey.OP_WRITE);
-				// Delete the POR
-				por.setMessageDeliveryState(MessageDeliveryState.FINISHED.getState());
-				DocumentStore.getInstance().update(por, getMessage().decoder().getId());
-				por.removeFromCache();
 			}
 		} 
 		catch (DocumentSaveFailedException e) {}

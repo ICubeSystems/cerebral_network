@@ -2,6 +2,7 @@ package com.ics.nceph.core.db.document;
 
 import java.util.Date;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
@@ -15,7 +16,6 @@ import com.ics.nceph.core.event.EventData;
 import com.ics.util.ApplicationContextUtils;
 
 import lombok.Getter;
-import lombok.Setter;
 
 /**
  * Data structure to hold the complete information regarding the complex process of message relay.<br>
@@ -56,56 +56,57 @@ import lombok.Setter;
  * @since 08-Mar-2022
  */
 @Getter
-@Setter
+@DynamoDBTable(tableName = "message_uat")
 public class ProofOfRelay extends ProofOfDelivery
 {
-	
+
 	public static final String NAME = "POR";
 	/**
 	 * Message Receiver NodeId {@link consumerNodeId}
 	 */
 	private Integer consumerNodeId;
-	
+
 	/**
 	 * Message Receiver Port Number {@link consumerPortNumber}
 	 */
 	private Integer consumerPortNumber;
-	
+
 	/**
 	 * ApplicationReceptor class received event 
 	 */
 	private String appReceptorName;
-	
+
 	/**
 	 * ApplicationReceptor execution time
 	 */
 	private long appReceptorExecutionTime;
-	
+
 	/**
 	 * ApplicationReceptor error message
 	 */
 	private String appReceptorExecutionErrorMsg;
-	
+
 	/**
 	 * Execution attempts of ApplicationReceptor 
 	 */
 	private int appReceptorExecutionAttempts = 0;
-	
+
 	/**
 	 * ApplicationReceptor execution failed status
 	 */
 	private boolean appReceptorFailed;
-	
+
 	public ProofOfRelay() {
 		super();
 	}
-	
+
 	ProofOfRelay(String messageId, EventData event, long createdOn, Integer nodeId, Integer consumerPort, Integer producerPort, Integer producerNodeId)
 	{
 		super();
 		setCreatedOn(createdOn);
 		setMessageId(messageId);
 		setEvent(event);
+		setAction("R:"+producerPort);
 		this.consumerNodeId = nodeId;
 		this.consumerPortNumber = consumerPort;
 		this.setProducerPortNumber(producerPort);
@@ -113,7 +114,7 @@ public class ProofOfRelay extends ProofOfDelivery
 		setMessageDeliveryState(MessageDeliveryState.INITIAL.getState());
 		getChangeLog().add("New");
 	}
-	
+
 	public void setConsumerPortNumber(Integer consumerPortNumber) 
 	{
 		this.consumerPortNumber = consumerPortNumber;
@@ -139,7 +140,7 @@ public class ProofOfRelay extends ProofOfDelivery
 		this.appReceptorExecutionAttempts++;
 		outOfSync("incrementAppReceptorExecutionAttempts");
 	}
-	
+
 	public void setAppReceptorFailed(boolean appReceptorFailed)
 	{
 		this.appReceptorFailed = appReceptorFailed;
@@ -159,41 +160,41 @@ public class ProofOfRelay extends ProofOfDelivery
 		else
 			decrementThreeWayAckMessageAttempts();
 	}
-	
+
 	public void setAppReceptorExecutionAttempts(int appReceptorExecutionAttempts)
 	{
 		this.appReceptorExecutionAttempts = appReceptorExecutionAttempts;
 		outOfSync("appReceptorExecutionAttempts");
 	}
-	
+
 	public static class Builder
 	{
 		private String messageId;
-		
+
 		private EventData event;
-		
+
 		private int nodeId;
-		
+
 		private long relayedOn;
-		
+
 		private Integer consumerPort;
-		
+
 		private Integer producerPort;
-		
+
 		private Integer producerNodeId;
-		
+
 		public Builder messageId(String messageId)
 		{
 			this.messageId = messageId;
 			return this;
 		}
-		
+
 		public Builder nodeId(int nodeId)
 		{
 			this.nodeId = nodeId;
 			return this;
 		}
-		
+
 		public Builder event(EventData event)
 		{
 			this.event = event;
@@ -205,47 +206,47 @@ public class ProofOfRelay extends ProofOfDelivery
 			this.relayedOn = relayedOn;
 			return this;
 		}
-		
+
 		public Builder consumerPort(int consumerPort)
 		{
 			this.consumerPort = consumerPort;
 			return this;
 		}
-		
+
 		public Builder producerPort(int producerPort)
 		{
 			this.producerPort = producerPort;
 			return this;
 		}
-		
+
 		public Builder producerNodeId(int producerNodeId)
 		{
 			this.producerNodeId = producerNodeId;
 			return this;
 		}
-		
+
 		public ProofOfRelay build()
 		{
 			return new ProofOfRelay(messageId, event, this.relayedOn  == 0L? new Date().getTime() : this.relayedOn, nodeId, consumerPort, producerPort, producerNodeId);
 		}
 	}
-	
+
 	@Override
 	public String localRepository() 
 	{
 		return Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location")+String.valueOf(getProducerPortNumber())+"/"+consumerPortNumber+"/";
 	}
-	
+
 	@Override
 	public void saveInCache() 
 	{
 		DocumentCache.getInstance()
-			.getRelayedMessageCache()
-			.put(this);
-		
+		.getRelayedMessageCache()
+		.put(this);
+
 		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 				.messageId(getMessageId())
-				.action("Save in cache")
+				.action("Save in cache: " + getClass().getName())
 				.data(new LogData()
 						.entry("Saved", "message saved in relay cache")
 						.entry("Consumer Port", String.valueOf(getConsumerPortNumber()))
@@ -253,19 +254,19 @@ public class ProofOfRelay extends ProofOfDelivery
 						.toString())
 				.logInfo());
 	}
-	
+
 	@Override
 	public void removeFromCache()
 	{
 		DocumentCache.getInstance()
-			.getRelayedMessageCache()
-			.removeFromCache(this);
+		.getRelayedMessageCache()
+		.removeFromCache(this);
 		if(Boolean.valueOf(Configuration.APPLICATION_PROPERTIES.getConfig("messages.removeLocalCompletedMessages"))) {
 			DocumentStore.getInstance().delete(getMessageId(), this);
 		}
 		NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
 				.messageId(getMessageId())
-				.action("Remove from cache")
+				.action("Remove from cache: " + getClass().getName())
 				.data(new LogData()
 						.entry("Removed", "message removed from relay cache")
 						.entry("Consumer Port", String.valueOf(getConsumerPortNumber()))
@@ -273,14 +274,15 @@ public class ProofOfRelay extends ProofOfDelivery
 						.toString())
 				.logInfo());
 	}
+	
 	@Override
-	public void saveInDB() throws DocumentSaveFailedException
+	public synchronized void saveInDB() throws DocumentSaveFailedException
 	{
 		// 1. Generate key and set
 		setKey(Key.<String, String>builder()
-						.partitionKey("R:" + String.valueOf(getConsumerPortNumber()))
-						.sortKey(getMessageId())
-						.build());
+				.partitionKey("R:" + String.valueOf(getConsumerPortNumber()))
+				.sortKey(getMessageId())
+				.build());
 		try 
 		{ 
 			// Save in DB
@@ -291,7 +293,7 @@ public class ProofOfRelay extends ProofOfDelivery
 			throw new DocumentSaveFailedException("Received message save failed Exception ", e); 
 		}
 	}
-	
+
 	public static ProofOfRelay load(Integer producerPort, Integer consumerPort, String docName)
 	{
 		try
@@ -307,11 +309,11 @@ public class ProofOfRelay extends ProofOfDelivery
 			return DocumentCache.getInstance().getRelayedMessageCache().getMessageCache(producerPort, consumerPort);
 		} catch (Exception e){return null;}
 	}
-	
+
 	@Override
 	public void setMessageDeliveryState(Integer messageDeliveryState)
 	{
 		super.setMessageDeliveryState(messageDeliveryState);
 	}
-	
+
 }

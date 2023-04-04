@@ -153,10 +153,6 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 	
 	public boolean register(Worker worker)
 	{
-		Message message = worker.getMessage();
-		if ((message.decoder().getType() == 11 || message.decoder().getType() == 3) 
-			&& (runningMessageIds.contains(message.decoder().getMessageId()) || worker.getConnection().getConnector().hasAlreadyReceived(message)))
-			return false;
 		execute(worker);
 		totalWorkers.incrementAndGet();
 		return true;
@@ -226,7 +222,7 @@ public class WorkerPool<T extends Worker> extends ThreadPoolExecutor
 		}
 		
 		/**
-		 * The queue to use for holding tasks before they are executed. This queue will hold only the Runnable tasks submitted by the execute method.
+		 * The queue used for holding tasks before they are executed (if all the threads in thread pool are engaged). This queue will hold only the Runnable tasks submitted by the execute method.
 		 * 
 		 * @param workQueue
 		 * @return Builder<T>

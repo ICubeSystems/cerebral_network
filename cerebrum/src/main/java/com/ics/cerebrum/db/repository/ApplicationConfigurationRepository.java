@@ -16,7 +16,7 @@ import com.ics.nceph.core.db.document.Key;
  */
 @Repository
 @EnableScan
-public interface ApplicationConfigurationRepository extends CrudRepository<NetworkConfiguration, Key> 
+public interface ApplicationConfigurationRepository extends CrudRepository<NetworkConfiguration, Key<String, String>> 
 {
 	SynapticNodesList findAllByPartitionKey(String partitionKey);
 

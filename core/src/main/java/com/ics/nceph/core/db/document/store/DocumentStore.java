@@ -1,6 +1,6 @@
 package com.ics.nceph.core.db.document.store;
 
-import java.util.ArrayList;
+import java.util.List;
 
 import com.ics.logger.LogData;
 import com.ics.logger.MessageLog;
@@ -67,7 +67,7 @@ public abstract class DocumentStore
 	{
 		if(document.getChangeLog().size()>0) 
 		{    
-			ArrayList<String> changelog = document.getChangeLog();
+			List<String> changelog = document.getChangeLog();
 			synchronized (changelog) 
 			{
 				try 
@@ -83,6 +83,17 @@ public abstract class DocumentStore
 							.logInfo());
 				} catch (Exception e) {}
 			}
+		}
+		else{
+			NcephLogger.MESSAGE_LOGGER.info(new MessageLog.Builder()
+					.messageId(docName)
+					.action(isUpdate ? (document.getClass().getSimpleName() + " updated") : (document.getClass().getSimpleName() + " saved"))
+					.description("Blank Save")
+					.data(
+							new LogData()
+							.entry("CallerClass", Thread.currentThread().getStackTrace()[isUpdate?3:2].getFileName())
+							.toString())
+					.logInfo());
 		}
 		document.inSync();
 	}

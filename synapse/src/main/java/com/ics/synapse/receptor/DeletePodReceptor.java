@@ -65,6 +65,8 @@ public class DeletePodReceptor extends PodReceptor
 		pod.setMessageDeliveryState(MessageDeliveryState.FINISHED.getState());
 		try {
 			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());
+			// 3. Delete the POD from local storage
+			pod.removeFromCache();
 			// MOCK CODE: to test the reliable delivery of the messages
 			if(Environment.isDev() && pod.getMessageId().equals("1-15")) {
 				System.out.println("forceStop"+getMessage().decoder().getId());
@@ -73,7 +75,6 @@ public class DeletePodReceptor extends PodReceptor
 			// END MOCK CODE
 		} catch (DocumentSaveFailedException e) {}
 
-		// 3. Delete the POD from local storage
-		pod.removeFromCache();
+		
 	}
 }

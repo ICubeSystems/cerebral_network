@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -61,12 +61,10 @@ public class ConnectorClusterInitializer
 		// 1. Instantiate new ConnectorCluster
 		ConnectorCluster connectorCluster = new ConnectorCluster();
 		
-		SynapticNodesList synapticNodes;
+		// 2. Get synaptic nodes from configuration
+		SynapticNodesList synapticNodes = cerebralConfiguration.getSynapticNodes();
 		
-		synapticNodes = cerebralConfiguration.getSynapticNodes();
-		
-		
-		// 4. Loop over synaptic nodes and create CerebralConnector per node. And create subscription meta data for the cerebrum.
+		// 3. Loop over synaptic nodes and create CerebralConnector per node. And create subscription meta data for the cerebrum.
 		for (NetworkConfiguration synapticNode : synapticNodes) 
 		{
 			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
@@ -74,32 +72,21 @@ public class ConnectorClusterInitializer
 					.description("Creating Connector "+synapticNode.getName()+" on port " + synapticNode.getPort())
 					.logInfo());
 			
-			// 4.1 Create CerebralConnector per node
+			// 3.1 Create CerebralConnector per node
 			CerebralConnector connector = new CerebralConnector.Builder()
 					.port(synapticNode.getPort())
 					.name(synapticNode.getName())
-					.readerPool(new WorkerPool.Builder<Reader>()
-							.corePoolSize(synapticNode.getReaderPool().getCorePoolSize())
-							.maximumPoolSize(synapticNode.getReaderPool().getMaximumPoolSize())
-							.keepAliveTime(synapticNode.getReaderPool().getKeepAliveTime())
-							.workQueue(
-									synapticNode.getReaderPool().getBlockingQueueSize() != -1 
-									? new LinkedBlockingQueue<Runnable>(synapticNode.getReaderPool().getBlockingQueueSize()) 
-									: new LinkedBlockingQueue<>())
-							.rejectedThreadHandler(new RejectedReaderHandler()).build())
-					.writerPool(new WorkerPool.Builder<Writer>()
-							.corePoolSize(synapticNode.getWriterPool().getCorePoolSize())
-							.maximumPoolSize(synapticNode.getWriterPool().getMaximumPoolSize())
-							.keepAliveTime(synapticNode.getWriterPool().getKeepAliveTime())
-							.workQueue(new LinkedBlockingQueue<Runnable>())
-							.rejectedThreadHandler(new RejectedWriterHandler()).build())
+					.publishReaderPool(readerPool(synapticNode))
+					.publishWriterPool(writerPool(synapticNode))
+					.relayReaderPool(readerPool(synapticNode))
+					.relayWriterPool(writerPool(synapticNode))
 					.sslContext(NcephSSLContext.getSSLContext())
 					.build();
 
-			// 4.2. Add the newly created connector to the ConnectorCluster
+			// 3.2. Add the newly created connector to the ConnectorCluster
 			connectorCluster.add(connector);
 			
-			// 4.3. Loop over the subscriptions & create subscription meta data for the cerebrum
+			// 3.3. Loop over the subscriptions & create subscription meta data for the cerebrum
 			if(synapticNode.getSubscriptions() != null) 
 			{
 				eventSubscriptions = synapticNode.getSubscriptions();
@@ -109,7 +96,6 @@ public class ConnectorClusterInitializer
 					applicationReceptorForPort(synapticNode.getPort(), eventSubscriptions.get(i));
 				}
 			}
-			
 		}
 
 		ConnectorCluster.subscriptions = subscriptions;
@@ -135,5 +121,28 @@ public class ConnectorClusterInitializer
 			applicationReceptors.put(port, eventMap);
 		}
 		eventMap.put(subscription.getEventType(), subscription.getApplicationReceptor());
+	}
+	
+	private WorkerPool<Reader> readerPool(NetworkConfiguration synapticNode)
+	{
+		return new WorkerPool.Builder<Reader>()
+				.corePoolSize(synapticNode.getReaderPool().getCorePoolSize())
+				.maximumPoolSize(synapticNode.getReaderPool().getMaximumPoolSize())
+				.keepAliveTime(synapticNode.getReaderPool().getKeepAliveTime())
+				.workQueue( //PriorityBlockingQueue used to queue up tasks such that tasks for older messages are given priority
+						synapticNode.getReaderPool().getBlockingQueueSize() != -1 
+						? new PriorityBlockingQueue<Runnable>(synapticNode.getReaderPool().getBlockingQueueSize()) //Bounded PriorityBlockingQueue to handle backpressure
+						: new PriorityBlockingQueue<Runnable>()) //Unbounded queue with no backpressure handling
+				.rejectedThreadHandler(new RejectedReaderHandler()).build();
+	}
+	
+	private WorkerPool<Writer> writerPool(NetworkConfiguration synapticNode)
+	{
+		return new WorkerPool.Builder<Writer>()
+				.corePoolSize(synapticNode.getWriterPool().getCorePoolSize())
+				.maximumPoolSize(synapticNode.getWriterPool().getMaximumPoolSize())
+				.keepAliveTime(synapticNode.getWriterPool().getKeepAliveTime())
+				.workQueue(new PriorityBlockingQueue<Runnable>()) //PriorityBlockingQueue used to queue up tasks such that tasks for older messages are given priority. Backpressure handling not needed in writer pools
+				.rejectedThreadHandler(new RejectedWriterHandler()).build();
 	}
 }

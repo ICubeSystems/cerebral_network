@@ -26,6 +26,8 @@ class DynamoDBCacheInitializer extends CerebrumCacheInitializer
 {	
 	private Integer port;
 	
+	private long start;
+	
 	DynamoDBCacheInitializer() throws CacheInitializationException
 	{
 		initialize();
@@ -39,9 +41,13 @@ class DynamoDBCacheInitializer extends CerebrumCacheInitializer
 		for (Map.Entry<Integer, Connector> entry : ConnectorCluster.activeConnectors.entrySet())
 		{
 			port = entry.getKey();
-			generateTransitMessageCache(ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).findAllByPartitionKeyAndMessageDeliveryStateLessThan("P:"+entry.getKey(), 600), "Published Cache");
-			generateTransitMessageCache(ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).findAllByPartitionKeyStartingWithAndProducerPortNumberAndMessageDeliveryStateLessThan("R:",entry.getKey(), 500), "Relayed Cache");
+			start = System.currentTimeMillis();
+			generateTransitMessageCache(ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).findAllByActionAndMessageDeliveryStateLessThan("P:"+entry.getKey(),600), "Published Cache");
+			start = System.currentTimeMillis();
+			generateTransitMessageCache(ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).findAllByActionAndMessageDeliveryStateLessThan("R:"+entry.getKey(), 500), "Relayed Cache");
+			start = System.currentTimeMillis();
 			fillMasterLedger(ApplicationContextUtils.context.getBean("publishedMessageRepository", PublishedMessageRepository.class).findAllByPartitionKey("P:"+entry.getKey()), entry.getValue().getIncomingMessageRegister(), "Incoming message ledger");
+			start = System.currentTimeMillis();
 			fillMasterLedger(ApplicationContextUtils.context.getBean("receivedMessageRepository", ReceivedMessageRepository.class).findAllByPartitionKey("R:"+entry.getKey()), entry.getValue().getOutgoingMessageRegister(), "Outgoing message ledger");
 		}
 		System.out.println("Cache generated");
@@ -55,35 +61,38 @@ class DynamoDBCacheInitializer extends CerebrumCacheInitializer
 						.entry("count", String.valueOf(documents.size()))
 						.entry("port", String.valueOf(port))
 						.toString())
-				.description("Start filling cache")
+				.description("Commencing Cache Building")
 				.logInfo());
 		documents.forEach(doc -> {
 			doc.saveInCache();
-
 		});
 		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
 				.action(cacheName)
-				.description(cacheName + " build successfully")
+				.description(cacheName + " Building Completed")
 				.logInfo());
+		System.out.println(cacheName + " of size " + documents.size() + " build successfully in " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 	}
 
-	private void fillMasterLedger(ArrayList<? extends ProofOfDelivery> documents, MasterMessageLedger ledger, String ledgerType)
+	private void fillMasterLedger(ArrayList<? extends ProofOfDelivery> documents, MasterMessageLedger ledger, String ledgerName)
 	{
 		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
-				.action(ledgerType)
+				.action(ledgerName)
 				.data("count" + documents.size())
-				.description("Start filling ledger")
+				.description("Commencing Ledger Building")
 				.data(new LogData()
 						.entry("count", String.valueOf(documents.size()))
 						.entry("port", String.valueOf(port))
 						.toString())
 				.logInfo());
+		
 		documents.forEach(doc -> {
 			ledger.add(doc.getProducerNodeId(), doc.getEventType(), doc.getMid());
 		});
+		
 		NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
-				.action(ledgerType)
-				.description(ledgerType + " build successfully")
+				.action(ledgerName)
+				.description(ledgerName + " Building Completed")
 				.logInfo());
+		System.out.println(ledgerName + " of size " + documents.size() + " build successfully in " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 	}
 }

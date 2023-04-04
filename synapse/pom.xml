@@ -11,11 +11,11 @@
 	<groupId>com.ics</groupId>
 	<artifactId>synapse</artifactId>
 	<packaging>jar</packaging>
-	<version>0.0.1</version>
+	<version>1.0.1</version>
 	<name>synapse</name>
 	<description>Connector application connecting the services (/microservices) to the cerebrum</description>
 	<properties>
-		<java.version>11</java.version>
+		<java.version>17</java.version>
 	</properties>
 	<dependencies>
 		<dependency>

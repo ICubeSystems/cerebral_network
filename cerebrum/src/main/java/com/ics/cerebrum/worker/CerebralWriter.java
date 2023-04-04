@@ -15,7 +15,7 @@ import com.ics.nceph.core.worker.Writer;
  * @version 1.0
  * @since 22-Dec-2021
  */
-public class CerebralWriter extends Writer 
+public class CerebralWriter extends Writer
 {
 	public CerebralWriter(Connection connection, Message message)
 	{

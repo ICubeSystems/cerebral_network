@@ -25,6 +25,7 @@ import com.ics.nceph.core.connector.state.ConnectorState;
 import com.ics.nceph.core.message.MasterMessageLedger;
 import com.ics.nceph.core.message.Message;
 import com.ics.nceph.core.message.MessageWriter;
+import com.ics.nceph.core.message.type.MessageClassification;
 import com.ics.nceph.core.message.type.MessageType;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -32,6 +33,9 @@ import com.ics.nceph.core.worker.Reader;
 import com.ics.nceph.core.worker.Worker;
 import com.ics.nceph.core.worker.WorkerPool;
 import com.ics.nceph.core.worker.Writer;
+
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * <p><b>Encephalon Network</b> has 2 incomingMessageType of nodes:<br>
@@ -59,26 +63,70 @@ import com.ics.nceph.core.worker.Writer;
  * @version 1.0
  * @since 18-Dec-2021
  */
+@Getter
+@Setter
 public abstract class Connector
 {
 	private static final Logger logger = LogManager.getLogger("nceph-core-logger");
 
-	private ConnectorType type;
-	
+	/**
+	 * Get the port number of the connector
+	 * 
+	 * @return Integer
+	 */
 	private Integer port;
 
+	/**
+	 * Get the name of the connector
+	 * 
+	 * @return String
+	 */
 	private String name;
 
 	private ConnectorState state = ConnectorState.PENDING_AUTH;
 
 	private Integer totalConnectionsServed = 0;
 
-	private WorkerPool<Reader> readerPool;
+	/**
+	 * Worker pool for read workers for following message classifications:<br>
+	 * <ol>
+	 * 	<li>{@link MessageClassification#PUBLISH Publish messages} </li>
+	 *  <li>{@link MessageClassification#BACKPRESSURE Backpressure messages} </li>
+	 *  <li>{@link MessageClassification#CONTROL Control messages} </li>
+	 *  <li>{@link MessageClassification#AUTHENICATION Authentication messages} </li>
+	 * </ol><br>
+	 */
+	private WorkerPool<Reader> publishReaderPool;
 
-	private WorkerPool<Writer> writerPool;
+	/**
+	 * Worker pool for write workers for following message classifications:<br>
+	 * <ol>
+	 * 	<li>{@link MessageClassification#PUBLISH Publish messages} </li>
+	 *  <li>{@link MessageClassification#BACKPRESSURE Backpressure messages} </li>
+	 *  <li>{@link MessageClassification#CONTROL Control messages} </li>
+	 *  <li>{@link MessageClassification#AUTHENICATION Authentication messages} </li>
+	 * </ol><br>
+	 */
+	private WorkerPool<Writer> publishWriterPool;
+
+	/**
+	 * Worker pool for read workers for following message classifications:<br>
+	 * <ol>
+	 * 	<li>{@link MessageClassification#RELAY Relay messages} </li>
+	 * </ol><br>
+	 */
+	private WorkerPool<Reader> relayReaderPool;
+
+	/**
+	 * Worker pool for write workers for following message classifications:<br>
+	 * <ol>
+	 * 	<li>{@link MessageClassification#RELAY Relay messages} </li>
+	 * </ol><br>
+	 */
+	private WorkerPool<Writer> relayWriterPool;
 
 	private SSLContext sslContext;
-	
+
 	// Queue of messages which needs to be relayed by the connector
 	private ConcurrentLinkedQueue<Message> relayQueue;
 
@@ -153,7 +201,7 @@ public abstract class Connector
 	 * @return AbstractSelectableChannel
 	 */
 	public abstract AbstractSelectableChannel obtainSocketChannel() throws IOException;
-	
+
 	/**
 	 * Contact method to be implemented by the implementation classes to remove the connection
 	 */
@@ -193,7 +241,7 @@ public abstract class Connector
 	 * @return void
 	 */
 	public abstract void pauseTransmission(Integer nodeId);
-	
+
 	/**
 	 * Contact method to be implemented by the implementation classes and called when connector received RESUME_TRANSMISSION message.
 	 * @param nodeId
@@ -206,7 +254,7 @@ public abstract class Connector
 	 * @return void
 	 */
 	public abstract void signalPauseTransmission(Connection connection);
-	
+
 	/**
 	 * Contact method to be implemented by the implementation classes to send RESUME_TRANSMISSION message.
 	 * @param connection
@@ -225,14 +273,18 @@ public abstract class Connector
 	public Connector(
 			Integer port,
 			String name, 
-			WorkerPool<Reader> readerPool, 
-			WorkerPool<Writer> writerPool,
+			WorkerPool<Reader> publishReaderPool, 
+			WorkerPool<Writer> publishWriterPool,
+			WorkerPool<Reader> relayReaderPool, 
+			WorkerPool<Writer> relayWriterPool,
 			SSLContext sslContext) 
 	{
 		this.port = port;
 		this.name = name;
-		this.readerPool = readerPool;
-		this.writerPool = writerPool;
+		this.publishReaderPool = publishReaderPool;
+		this.publishWriterPool = publishWriterPool;
+		this.relayReaderPool = relayReaderPool;
+		this.relayWriterPool = relayWriterPool;
 		this.sslContext = sslContext;
 		initialize();
 	}
@@ -272,24 +324,6 @@ public abstract class Connector
 		}
 	}
 
-	/**
-	 * Get the port number of the connector
-	 * 
-	 * @return Integer
-	 */
-	public Integer getPort() {
-		return port;
-	}
-
-	/**
-	 * Get the name of the connector
-	 * 
-	 * @return String
-	 */
-	public String getName() {
-		return name;
-	}
-	
 
 	/**
 	 * This method returns the {@link Connection} instance with the least number of activeRequests
@@ -397,6 +431,15 @@ public abstract class Connector
 	}
 
 	/**
+	 * Removes an incoming message on this connector
+	 * @param message
+	 */
+	public synchronized void removeIncomingMessage(Message message)
+	{
+		incomingMessageRegister.remove(message);
+	}
+
+	/**
 	 * This method checks for duplicacy of messages received
 	 * 
 	 * @param Message message
@@ -471,58 +514,14 @@ public abstract class Connector
 				.logInfo());
 	}
 
-	public Integer getTotalConnectionsServed() {
-		return totalConnectionsServed;
-	}
-
-	public void setTotalConnectionsServed(Integer totalConnectionsServed) {
-		this.totalConnectionsServed = totalConnectionsServed;
-	}
-
-	public ConcurrentLinkedQueue<Message> getRelayQueue() {
-		return relayQueue;
-	}
-
-	public WorkerPool<Reader> getReaderPool() {
-		return readerPool;
-	}
-
-	public WorkerPool<Writer> getWriterPool() {
-		return writerPool;
-	}
-
-	public PriorityBlockingQueue<Connection> getConnectionLoadBalancer() {
-		return connectionLoadBalancer;
-	}
-
-	public ConnectorType getType(){
-		return type;
-	}
-
-	public ConcurrentHashMap<Integer, Connection> getActiveConnections() {
-		return activeConnections;
-	}
-
-	public SSLContext getSslContext() {
-		return sslContext;
-	}
-
-	public ConnectorState getState()
-	{
-		return state;
-	}
-
-	public void setState(ConnectorState state)
-	{
-		this.state = state;
-	}
-	
 	public void shutdown()
 	{
 		monitorService.shutdown();
 		setState(ConnectorState.DECOMISSIONED);
-		getReaderPool().shutdown();
-		getWriterPool().shutdown();
+		getPublishReaderPool().shutdown();
+		getPublishWriterPool().shutdown();
+		getRelayReaderPool().shutdown();
+		getRelayWriterPool().shutdown();
 
 	}
 

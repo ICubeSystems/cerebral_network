@@ -1,14 +1,14 @@
 package com.ics.cerebrum.db.config;
 
 import org.socialsignin.spring.data.dynamodb.repository.config.EnableDynamoDBRepositories;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
+import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.ics.env.Environment;
 
 /**
  * This is a configuration class for dynamoDB. 
@@ -21,30 +21,13 @@ import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 @EnableDynamoDBRepositories(basePackages = {"com.ics.nceph.core.db.repository", "com.ics.cerebrum.db.repository"})
 public class DynamoDBConfig 
 {
-	// AWS DynamoDB Endpoint
-	@Value("${amazon.dynamodb.endpoint}")
-	private String amazonDynamoDBEndpoint;
-
-	// AWS DynamoDB AccessKey
-	@Value("${amazon.aws.accesskey}")
-	private String amazonAWSAccessKey;
-
-	// AWS DynamoDB Secretkey
-	@Value("${amazon.aws.secretkey}")
-	private String amazonAWSSecretKey;
-
-	// AWS DynamoDB Region
-	@Value("${amazon.aws.region}")
-	private String region;
-
 	@Bean
 	public AmazonDynamoDB amazonDynamoDB() 
 	{
-			
-			return AmazonDynamoDBClientBuilder
-					.standard()
-					.withRegion(region)
-					.withCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(amazonAWSAccessKey, amazonAWSSecretKey)))
-					.build();
+		return AmazonDynamoDBClientBuilder
+				.standard()
+				.withCredentials(new ProfileCredentialsProvider(!Environment.isProd() ? AWSProfiles.UAT.getProfile() : AWSProfiles.PROD.getProfile()))
+				.withEndpointConfiguration(new EndpointConfiguration("dynamodb.us-east-1.amazonaws.com", "us-east-1"))
+				.build();
 	}
 }

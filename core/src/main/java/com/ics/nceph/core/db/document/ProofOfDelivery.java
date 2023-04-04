@@ -2,6 +2,8 @@ package com.ics.nceph.core.db.document;
 
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBDocument;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBIgnore;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBIndexHashKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBIndexRangeKey;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.ics.nceph.core.event.EventData;
 import com.ics.nceph.core.message.IORecord;
@@ -107,7 +109,17 @@ public abstract class ProofOfDelivery extends MessageDocument
 	 */
 	private int finalMessageAttempts = 0;
 	
+	/**
+	 * Delivery state of the message
+	 */
+	@DynamoDBIndexRangeKey(globalSecondaryIndexName = "action-messageDeliveryState-index")
 	private Integer messageDeliveryState;
+	
+	/**
+	 * action performed on document
+	 */
+	@DynamoDBIndexHashKey(globalSecondaryIndexName = "action-messageDeliveryState-index")
+	private String action;
 	
 	
 	public ProofOfDelivery() {
@@ -229,7 +241,10 @@ public abstract class ProofOfDelivery extends MessageDocument
 	
 	public void setMessageDeliveryState(Integer messageDeliveryState) 
 	{
-		this.messageDeliveryState = messageDeliveryState;
-		outOfSync("messageDeliveryState");
+		if(getMessageDeliveryState() == null || getMessageDeliveryState()< messageDeliveryState)
+		{
+			this.messageDeliveryState = messageDeliveryState;
+			outOfSync("messageDeliveryState");
+		}
 	}
 }

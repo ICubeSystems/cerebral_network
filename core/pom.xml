@@ -12,11 +12,11 @@
 	<groupId>com.ics</groupId>
 	<artifactId>core</artifactId>
 	<packaging>jar</packaging>
-	<version>0.0.1</version>
+	<version>1.0.1</version>
 	<name>nceph-core</name>
 	<description>Core classes</description>
 	<properties>
-		<java.version>11</java.version>
+		<java.version>17</java.version>
 	</properties>
 	<!-- Dependency Management -->
 	<dependencyManagement>

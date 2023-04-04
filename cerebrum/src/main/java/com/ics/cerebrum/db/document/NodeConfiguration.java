@@ -1,5 +1,6 @@
 package com.ics.cerebrum.db.document;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import com.ics.nceph.core.db.document.Document;
 
 import lombok.Getter;
@@ -14,6 +15,7 @@ import lombok.Setter;
  */
 @Getter
 @Setter
+@DynamoDBTable(tableName = "message_uat")
 public class NodeConfiguration extends Document
 {
 	/**

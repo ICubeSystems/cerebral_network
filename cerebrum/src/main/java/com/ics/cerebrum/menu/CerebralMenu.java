@@ -83,11 +83,14 @@ public class CerebralMenu
 									connector.getPort(),
 									connector.getActiveConnections().size(),
 									connector.getTotalConnectionsServed(),
-									connector.getReaderPool().getActiveWorkers().intValue()+ connector.getWriterPool().getActiveWorkers().intValue(),
-									connector.getReaderPool().getTotalWorkersCreated().intValue()+ connector.getWriterPool().getTotalWorkersCreated().intValue(),
-									connector.getReaderPool().getTotalSuccessfulWorkers().intValue()+ connector.getWriterPool().getTotalSuccessfulWorkers().intValue(),
+									connector.getRelayReaderPool().getActiveWorkers().intValue()+ connector.getRelayWriterPool().getActiveWorkers().intValue()
+									+ connector.getPublishReaderPool().getActiveWorkers().intValue()+ connector.getPublishWriterPool().getActiveWorkers().intValue(),
+									connector.getRelayReaderPool().getTotalWorkersCreated().intValue()+ connector.getRelayWriterPool().getTotalWorkersCreated().intValue()
+									+ connector.getPublishReaderPool().getTotalWorkersCreated().intValue()+ connector.getPublishWriterPool().getTotalWorkersCreated().intValue(),
+									connector.getRelayReaderPool().getTotalSuccessfulWorkers().intValue()+ connector.getRelayWriterPool().getTotalSuccessfulWorkers().intValue()
+									+ connector.getPublishReaderPool().getTotalSuccessfulWorkers().intValue()+ connector.getPublishWriterPool().getTotalSuccessfulWorkers().intValue(),
 									connector.getRelayQueue().size(),
-									connector.getReaderPool().getRejectedWorkerQueue().size()
+									connector.getRelayReaderPool().getRejectedWorkerQueue().size() + connector.getPublishReaderPool().getRejectedWorkerQueue().size()
 									);
 							System.out.println("\n Connector Status 2");
 							System.out.printf("| %6s | %20s | %20s | %30s | %30s | %20s | \n",

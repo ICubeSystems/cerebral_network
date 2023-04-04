@@ -45,8 +45,7 @@ public class PublishedEventAffector extends Affector
 		// Set the WriteRecord in the POD
 		pod.setEventMessageWriteRecord(getMessage().getWriteRecord());
 		// Update pod state only if it is not yet published ( this is done for the case where receptor executes prior to affector )
-		if(pod.getMessageDeliveryState() < MessageDeliveryState.DELIVERED.getState())
-			pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
+		pod.setMessageDeliveryState(MessageDeliveryState.DELIVERED.getState());
 		// Save the POD
 		try {
 			DocumentStore.getInstance().update(pod, getMessage().decoder().getId());

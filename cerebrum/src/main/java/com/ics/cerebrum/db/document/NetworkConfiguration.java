@@ -2,8 +2,10 @@ package com.ics.cerebrum.db.document;
 
 import java.util.List;
 
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
 import com.ics.nceph.core.db.document.Document;
 import com.ics.nceph.core.worker.Reader;
+import com.ics.nceph.core.worker.Writer;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +19,7 @@ import lombok.Setter;
  */
 @Getter
 @Setter
+@DynamoDBTable(tableName = "message_uat")
 public class NetworkConfiguration extends Document
 {
 	/**
