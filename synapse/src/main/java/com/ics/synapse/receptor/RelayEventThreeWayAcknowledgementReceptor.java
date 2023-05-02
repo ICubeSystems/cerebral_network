@@ -18,6 +18,7 @@ import com.ics.nceph.core.receptor.ThreeWayAcknowledgementReceptor;
 import com.ics.synapse.applicationReceptor.ApplicationReceptor;
 import com.ics.synapse.applicationReceptor.exception.ApplicationReceptorFailedException;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
+import com.ics.synapse.ncephEvent.Event;
 
 /**
  * 
@@ -117,7 +118,7 @@ public class RelayEventThreeWayAcknowledgementReceptor extends ThreeWayAcknowled
 		try 
 		{
 			por.incrementAppReceptorExecutionAttempts();
-			ApplicationReceptor applicationReceptor = new ApplicationReceptor.Builder()
+			ApplicationReceptor<? extends Event> applicationReceptor = new ApplicationReceptor.Builder<>()
 					.eventData(por.getEvent())
 					.build();
 			// Execute the application receptor class and record the execution time

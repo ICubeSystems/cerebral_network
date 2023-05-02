@@ -2,6 +2,8 @@ package com.ics.nceph.config;
 
 import java.util.HashMap;
 
+import com.ics.nceph.core.db.document.ApplicationReceptorMetaData;
+
 /**
  * Model class for synaptic configurations. These configurations are sent by cerebrum in response to the {@link BootstrapMessage} sent by the synapse.<br>
  * This class contains the following configurations:<br>
@@ -18,16 +20,16 @@ public class SynapticConfiguration
 	// NodeId - unique identifier of a synaptic node in the nceph network
 	private Integer nodeId;
 	// Map of EventType and ApplicationReceptor
-	private HashMap<Integer, String> applicationReceptors;
-	
-	public SynapticConfiguration(Integer nodeId, HashMap<Integer, String> applicationReceptors) 
+	private HashMap<Integer, ApplicationReceptorMetaData> applicationReceptorMetaData;
+
+	public SynapticConfiguration(Integer nodeId, HashMap<Integer, ApplicationReceptorMetaData> applicationReceptorMetaData) 
 	{
 		this.nodeId = nodeId;
-		this.applicationReceptors = applicationReceptors;
+		this.applicationReceptorMetaData = applicationReceptorMetaData;
 	}
 
-	public HashMap<Integer, String> getApplicationReceptors() {
-		return applicationReceptors;
+	public HashMap<Integer, ApplicationReceptorMetaData> getApplicationReceptorMetaData() {
+		return applicationReceptorMetaData;
 	}
 
 	public Integer getNodeId() {
@@ -44,10 +46,10 @@ public class SynapticConfiguration
 		//NodeId - unique identifier of a synaptic node in the nceph network
 		private Integer nodeId;
 		// Map of EventType and ApplicationReceptor
-		private HashMap<Integer, String> applicationReceptors;
-		
-		public Builder applicationReceptors(HashMap<Integer, String> applicationReceptors) {
-			this.applicationReceptors = applicationReceptors;
+		private HashMap<Integer, ApplicationReceptorMetaData> applicationReceptorMetaData;
+
+		public Builder applicationReceptors(HashMap<Integer, ApplicationReceptorMetaData> applicationReceptorMetaData) {
+			this.applicationReceptorMetaData = applicationReceptorMetaData;
 			return this;
 		}
 		
@@ -55,10 +57,10 @@ public class SynapticConfiguration
 			this.nodeId = nodeId;
 			return this;
 		}
-		
+
 		public SynapticConfiguration build() 
 		{
-			return new SynapticConfiguration(this.nodeId, this.applicationReceptors);
+			return new SynapticConfiguration(this.nodeId, this.applicationReceptorMetaData);
 		}
 	}
 }

@@ -12,9 +12,9 @@ import com.ics.nceph.core.message.data.ConfigData;
 public class ConfigStore 
 {
 	private SynapticConfiguration configuration;
-	
+
 	private static ConfigStore configStore;
-	
+
 	private Integer state = 100;
 
 	/**
@@ -24,20 +24,19 @@ public class ConfigStore
 	public void init(ConfigData config) 
 	{
 		configuration = new SynapticConfiguration.Builder()
-							.nodeId(config.getNodeId())
-							.applicationReceptors(config.getEventReceptors())
-							.build();
-							
-		// call the builder instead
-		state = 200;
+				.nodeId(config.getNodeId())
+				.applicationReceptors(config.getReceptorMetaData())
+				.build();
+		state = 200;                                                  
 	}
+
 	public static ConfigStore getInstance()
 	{
 		if(configStore == null) {
 			configStore = new ConfigStore();
-    		System.out.println("ConfigData new instance");
-    	}
-    	return configStore;
+			System.out.println("ConfigData new instance");
+		}
+		return configStore;
 	}
 	/**
 	 * This method returns FQCN of the ApplicationReceptor class for an eventType
@@ -48,18 +47,25 @@ public class ConfigStore
 	 */
 	public String getApplicationReceptor(Integer eventType)
 	{
-		String receptor = null;
-		try
-		{
-			receptor = configuration.getApplicationReceptors().get(eventType);
-		}catch (NullPointerException e){}
-		return receptor;
+		return configuration.getApplicationReceptorMetaData().get(eventType).getApplicationReceptorFQCN();
 	}
-	
+
+	/**
+	 * This method returns FQCN of the Event object class for an eventType
+	 * 
+	 * @param eventType
+	 * @return String - FQCN of the Event object class for an eventType
+	 * @version 1.0
+	 */
+	public String getEventClass(Integer eventType)
+	{
+		return configuration.getApplicationReceptorMetaData().get(eventType).getEventObjectFQCN();
+	}
+
 	public Integer getNodeId() {
 		return configuration.getNodeId();
 	}
-	
+
 	public boolean isReady()
 	{
 		return state == 100 ? false : true;

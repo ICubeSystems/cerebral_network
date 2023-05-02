@@ -4,7 +4,6 @@ package com.ics.synapse.receptor;
 import java.nio.channels.SelectionKey;
 import java.util.Date;
 
-import com.ics.env.Environment;
 import com.ics.logger.MessageLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.connection.Connection;
@@ -22,6 +21,7 @@ import com.ics.nceph.core.receptor.EventReceptor;
 import com.ics.synapse.applicationReceptor.ApplicationReceptor;
 import com.ics.synapse.applicationReceptor.exception.ApplicationReceptorFailedException;
 import com.ics.synapse.message.type.SynapticOutgoingMessageType;
+import com.ics.synapse.ncephEvent.Event;
 
 /**
  * Receptor class to receive event relayed by cerebrum, which have following attributes:
@@ -141,7 +141,7 @@ public class RelayedEventReceptor extends EventReceptor
 			por.incrementAppReceptorExecutionAttempts();
 			por.setAppReceptorName(ConfigStore.getInstance().getApplicationReceptor(getEvent().getEventType()));
 			// Invoke appropriate ApplicationReceptor
-			ApplicationReceptor applicationReceptor = new ApplicationReceptor.Builder()
+			ApplicationReceptor<? extends Event> applicationReceptor = new ApplicationReceptor.Builder<>()
 					.eventData(por.getEvent())
 					.build();
 			// Execute the application receptor class and record the execution time

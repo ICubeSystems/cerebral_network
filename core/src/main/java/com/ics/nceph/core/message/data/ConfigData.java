@@ -3,6 +3,8 @@ package com.ics.nceph.core.message.data;
 import java.io.Serializable;
 import java.util.HashMap;
 
+import com.ics.nceph.core.db.document.ApplicationReceptorMetaData;
+
 import lombok.Getter;
 
 /**
@@ -29,16 +31,16 @@ public class ConfigData extends MessageData implements Serializable
 	/**
 	 * Map of EventType and ApplicationReceptor
 	 */
-	private HashMap<Integer, String> eventReceptors;
+	private HashMap<Integer, ApplicationReceptorMetaData> receptorMetaData;
 	
 	private String error;
 	
 	public ConfigData() {}
 	
-	public ConfigData(Integer nodeId, HashMap<Integer, String> eventreceptors, long messageCount, String error) {
+	public ConfigData(Integer nodeId, HashMap<Integer, ApplicationReceptorMetaData> eventreceptors, long messageCount, String error) {
 		super();
 		this.nodeId = nodeId;
-		this.eventReceptors = eventreceptors;
+		this.receptorMetaData = eventreceptors;
 		this.messageCount = messageCount;
 		this.error = error;
 	}
@@ -49,7 +51,7 @@ public class ConfigData extends MessageData implements Serializable
 	{
 		private Integer nodeId;
 		
-		private HashMap<Integer, String> eventReceptors;
+		private HashMap<Integer, ApplicationReceptorMetaData> receptorMetaData;
 		
 		private String error;
 		
@@ -60,8 +62,8 @@ public class ConfigData extends MessageData implements Serializable
 			return this;
 		}
 		
-		public Builder eventReceptors(HashMap<Integer, String> eventreceptors) {
-			this.eventReceptors = eventreceptors;
+		public Builder receptorMetaData(HashMap<Integer, ApplicationReceptorMetaData> receptorMetaData) {
+			this.receptorMetaData = receptorMetaData;
 			return this;
 		}
 		
@@ -77,7 +79,7 @@ public class ConfigData extends MessageData implements Serializable
 		
 		public ConfigData build() 
 		{
-			return new ConfigData(this.nodeId, this.eventReceptors, this.messageCount, this.error);
+			return new ConfigData(this.nodeId, this.receptorMetaData, this.messageCount, this.error);
 		}
 	}
 }

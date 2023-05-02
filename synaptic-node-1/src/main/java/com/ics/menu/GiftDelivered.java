@@ -2,6 +2,7 @@ package com.ics.menu;
 
 import java.math.BigDecimal;
 
+import com.ics.synapse.exception.EventDataException;
 import com.ics.synapse.ncephEvent.Event;
 
 /**
@@ -123,6 +124,14 @@ public class GiftDelivered extends Event
 			return new GiftDelivered(giftCode,recipientName, senderName,amount,balance,deliveredOn);
 		}
 	}
+
+	@Override
+	public void validate() throws EventDataException
+	{
+		// TODO Auto-generated method stub
+		
+	}
+
 
 	
 

@@ -4,11 +4,9 @@ import java.io.IOException;
 import java.util.concurrent.PriorityBlockingQueue;
 
 import com.ics.logger.NcephLogger;
-import com.ics.menu.SynapticMenu;
 import com.ics.nceph.core.Configuration;
 import com.ics.nceph.core.connector.connection.exception.ConnectionException;
 import com.ics.nceph.core.connector.exception.ImproperConnectorInstantiationException;
-import com.ics.nceph.core.db.document.store.IdStore;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.reactor.exception.ImproperReactorClusterInstantiationException;
 import com.ics.nceph.core.reactor.exception.ReactorNotAvailableException;
@@ -77,8 +75,6 @@ public class SynapseBootstraper
 		// 3. Run the reactors
 		reactorCluster.run();
 
-		// 4. synaptic menu
-		SynapticMenu.run(connector);
 
 
 		while (connector.getActiveConnections().size()==0)

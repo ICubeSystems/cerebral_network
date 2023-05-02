@@ -9,7 +9,6 @@ import com.ics.nceph.core.connector.connection.Connection;
 import com.ics.nceph.core.db.document.ProofOfPublish;
 import com.ics.nceph.core.message.MessageLedger;
 import com.ics.synapse.connector.SynapticConnector;
-import com.ics.synapse.ncephEvent.EventType;
 
 /**
  * Terminal menu for synaptic application

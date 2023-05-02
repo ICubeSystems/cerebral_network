@@ -7,6 +7,7 @@ import java.util.HashMap;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.ics.nceph.core.db.document.ApplicationReceptorMetaData;
 import com.ics.nceph.core.event.exception.EventNotSubscribedException;
 
 /**
@@ -34,9 +35,9 @@ public class ConnectorCluster
 	public static HashMap<Integer, ArrayList<Connector>> subscriptions;
 	
 	/**
-	 * Map of event id and application receptor of connector ports
+	 * Map of application receptor metadata and application receptor of connector ports
 	 */
-	public static HashMap<Integer, HashMap<Integer, String>> applicationReceptors;
+	public static HashMap<Integer, HashMap<Integer, ApplicationReceptorMetaData>> applicationReceptors;
 	
 	/**
 	 * Default constructor initializing the maps declared above

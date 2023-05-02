@@ -17,6 +17,7 @@ import com.ics.logger.BootstraperLog;
 import com.ics.logger.NcephLogger;
 import com.ics.nceph.core.connector.Connector;
 import com.ics.nceph.core.connector.ConnectorCluster;
+import com.ics.nceph.core.db.document.ApplicationReceptorMetaData;
 import com.ics.nceph.core.reactor.ReactorCluster;
 import com.ics.nceph.core.ssl.NcephSSLContext;
 import com.ics.nceph.core.ssl.exception.SSLContextInitializationException;
@@ -47,13 +48,13 @@ public class ConnectorClusterInitializer
 	 */
 	HashMap<Integer, ArrayList<Connector>> subscriptions;
 	
-	HashMap<Integer, HashMap<Integer, String>> applicationReceptors;
+	HashMap<Integer, HashMap<Integer, ApplicationReceptorMetaData>> applicationReceptors;
 
 	public ConnectorClusterInitializer(ReactorCluster reactorCluster) 
 	{
 		this.reactorCluster = reactorCluster;
 		this.subscriptions = new HashMap<Integer, ArrayList<Connector>>();
-		this.applicationReceptors = new HashMap<Integer, HashMap<Integer, String>>();
+		this.applicationReceptors = new HashMap<Integer, HashMap<Integer, ApplicationReceptorMetaData>>();
 	}
 
 	public ConnectorCluster initializeConnectionCluster() throws IOException, ConfigurationException, SSLContextInitializationException
@@ -114,13 +115,13 @@ public class ConnectorClusterInitializer
 	
 	private void applicationReceptorForPort(Integer port, Subscription subscription) 
 	{
-		HashMap<Integer, String> eventMap = applicationReceptors.get(port);
+		HashMap<Integer, ApplicationReceptorMetaData> eventMap = applicationReceptors.get(port);
 		if(eventMap == null)
 		{
-			eventMap = new HashMap<Integer,String>();
+			eventMap = new HashMap<Integer,ApplicationReceptorMetaData>();
 			applicationReceptors.put(port, eventMap);
 		}
-		eventMap.put(subscription.getEventType(), subscription.getApplicationReceptor());
+		eventMap.put(subscription.getEventType(), new ApplicationReceptorMetaData(subscription.getApplicationReceptor(), subscription.getEventClass()));
 	}
 	
 	private WorkerPool<Reader> readerPool(NetworkConfiguration synapticNode)

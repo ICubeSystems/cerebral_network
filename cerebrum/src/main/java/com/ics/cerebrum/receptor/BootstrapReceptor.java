@@ -93,7 +93,7 @@ public class BootstrapReceptor extends Receptor
 				configDataBuilder
 				.nodeId(nodeId)
 				.messageCount(getIncomingConnection().getConnector().getIncomingMessageRegister().messageCount(nodeId))
-				.eventReceptors(ConnectorCluster.applicationReceptors.get(getIncomingConnection().getConnector().getPort()));
+				.receptorMetaData(ConnectorCluster.applicationReceptors.get(getIncomingConnection().getConnector().getPort()));
 			}
 
 			ConfigMessage message = new ConfigMessage.Builder()

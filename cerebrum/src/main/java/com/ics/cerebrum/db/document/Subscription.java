@@ -8,7 +8,7 @@ import lombok.Setter;
 /**
  * 
  * @author Anshul
- * @version 1.0
+ * @version V_1_0
  * @since 28-Jul-2022
  */
 @Getter
@@ -25,4 +25,9 @@ public class Subscription
 	 * ApplicationReceptor class for this type of event
 	 */
 	private String applicationReceptor;
+	
+	/**
+	 * Event class for this type of event
+	 */
+	private String eventClass;
 }

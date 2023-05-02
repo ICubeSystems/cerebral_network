@@ -58,6 +58,7 @@ public class LocalStoreCacheInitializer extends SynapseCacheInitializer
 					.logInfo());
 			start = System.currentTimeMillis();
 			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.published_location")+entry.getKey()+"/",ProofOfPublish.class, entry.getValue().getOutgoingMessageRegister(), "Published cache and outgoing message register");
+			System.out.println("Published cache and outgoing message register " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 			//LOG
 			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
 					.action("Success")
@@ -70,6 +71,7 @@ public class LocalStoreCacheInitializer extends SynapseCacheInitializer
 					.logInfo());
 			start = System.currentTimeMillis();
 			generateCacheAndMessageLedger(Configuration.APPLICATION_PROPERTIES.getConfig("document.localStore.relayed_location"),ProofOfRelay.class, entry.getValue().getIncomingMessageRegister(), "Received cache and incoming message register");
+			System.out.println("Received cache and incoming message register build successfully in " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 			//LOG
 			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
 					.action("Success")
@@ -99,10 +101,10 @@ public class LocalStoreCacheInitializer extends SynapseCacheInitializer
 						ProofOfDelivery doc = (ProofOfDelivery)mapper.readValue(file, document);
 						if(doc.getMessageDeliveryState() < 500)
 							doc.saveInCache();
-						
 						ledger.add(doc.getProducerNodeId(), doc.getEventType(), doc.getMid());
 					}
 				}
+				
 			}
 			NcephLogger.BOOTSTRAP_LOGGER.info(new BootstraperLog.Builder()
 					.action(cacheName)
@@ -116,6 +118,5 @@ public class LocalStoreCacheInitializer extends SynapseCacheInitializer
 					.logInfo());
 			throw new CacheInitializationException("IO exception in build cache from local store", e);
 		}
-		System.out.println(cacheName + " build successfully in " + String.valueOf(System.currentTimeMillis()-start) + "ms");
 	}
 }
